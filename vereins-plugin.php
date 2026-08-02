@@ -4,7 +4,7 @@
  * Plugin URI:  https://github.com/your-org/vereins-plugin
  * Description: Digitaler Vereinsalltag – Termine, Kommunikation, Mitgliederverwaltung.
  * Version:     1.7.1
- * Author:      Your Name
+ * Author:      Chris Helbing
  * License:     GPL-2.0+
  * Text Domain: vereins-plugin
  * Domain Path: /languages
