@@ -1,0 +1,30 @@
+{
+    "kurz": {
+        "text": "https://verein.test/t/a1",
+        "version": 2,
+        "size": 25,
+        "mask": 6,
+        "pruef": "adfdc7d5d53a23e0521f382e7a595c1871a22e3a"
+    },
+    "termin": {
+        "text": "https://verein.test/termine?vp_event=12&vp_date=2026-09-11&vp_key=12%3A2026-09-11.0.a1b2c3d4e5f60718293a",
+        "version": 6,
+        "size": 41,
+        "mask": 2,
+        "pruef": "1f405ceb140218549c7752cf8a2262148707af22"
+    },
+    "umlaut": {
+        "text": "Sommerfest – Grünanlage am Weiher, Mühlgasse 4",
+        "version": 4,
+        "size": 33,
+        "mask": 5,
+        "pruef": "8150de9ee2f69e33d72f97998d016aecba027b50"
+    },
+    "lang": {
+        "text": "https://verein.test/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "version": 13,
+        "size": 69,
+        "mask": 0,
+        "pruef": "5676d24b587cf385fb1a8ac7624890fae08f056c"
+    }
+}
