@@ -7,11 +7,29 @@ namespace VereinsPlugin\Auth;
  */
 class SessionModel {
 
+    /**
+     * Wie lange ein Token gilt – gerechnet ab der letzten Benutzung, nicht
+     * ab der Ausstellung.
+     *
+     * Die Unterscheidung ist der ganze Punkt: Eine feste Frist ab Ausstellung
+     * wirft auch den hinaus, der die App täglich öffnet, und zwar ohne
+     * erkennbaren Anlass – aus Sicht des Mitglieds meldet sich die App eines
+     * Morgens grundlos ab. Gerechnet ab der letzten Benutzung trifft die
+     * Frist nur, wer die App einen Monat lang nicht angefasst hat. Dort ist
+     * eine neue Anmeldung zumutbar und aus Sicherheitssicht auch erwünscht.
+     */
+    private const LIFETIME_DAYS = 30;
+
     private string $table;
 
     public function __construct() {
         global $wpdb;
         $this->table = $wpdb->prefix . 'vp_sessions';
+    }
+
+    /** Ablaufzeitpunkt für eine gerade benutzte Session. */
+    private function expiry(): string {
+        return gmdate( 'Y-m-d H:i:s', time() + self::LIFETIME_DAYS * DAY_IN_SECONDS );
     }
 
     /**
@@ -23,7 +41,7 @@ class SessionModel {
 
         $token     = bin2hex( random_bytes( 40 ) );
         $hash      = hash( 'sha256', $token );
-        $expires   = gmdate( 'Y-m-d H:i:s', time() + 30 * DAY_IN_SECONDS );
+        $expires   = $this->expiry();
 
         $wpdb->insert(
             $this->table,
@@ -41,6 +59,11 @@ class SessionModel {
 
     /**
      * Gibt die WP-User-ID für einen gültigen Bearer-Token zurück, oder null.
+     *
+     * Nebenwirkung mit Absicht: Jede erfolgreiche Auflösung schiebt das
+     * Ablaufdatum wieder nach vorn (siehe LIFETIME_DAYS). Ein widerrufenes
+     * oder bereits abgelaufenes Token kommt hier nicht durch und wird
+     * deshalb auch nicht wiederbelebt.
      */
     public function resolve( string $token ): ?int {
         global $wpdb;
@@ -56,23 +79,27 @@ class SessionModel {
                  LIMIT 1",
                 $hash,
                 gmdate( 'Y-m-d H:i:s' )
-            )
+            ),
+            ARRAY_A
         );
 
         if ( ! $row ) {
             return null;
         }
 
-        // last_active aktualisieren
+        // Benutzung vermerken und die Frist verlängern.
         $wpdb->update(
             $this->table,
-            [ 'last_active_at' => gmdate( 'Y-m-d H:i:s' ) ],
-            [ 'id' => $row->id ],
-            [ '%s' ],
+            [
+                'last_active_at' => gmdate( 'Y-m-d H:i:s' ),
+                'expires_at'     => $this->expiry(),
+            ],
+            [ 'id' => (int) $row['id'] ],
+            [ '%s', '%s' ],
             [ '%d' ]
         );
 
-        return (int) $row->wp_user_id;
+        return (int) $row['wp_user_id'];
     }
 
     /**

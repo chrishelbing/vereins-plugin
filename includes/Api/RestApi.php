@@ -17,6 +17,7 @@ class RestApi {
 
     public function register_routes(): void {
         ( new AuthController()      )->register_routes( self::NAMESPACE );
+        ( new MeController()        )->register_routes( self::NAMESPACE );
         ( new EventTypeController() )->register_routes( self::NAMESPACE );
         ( new EventController()     )->register_routes( self::NAMESPACE );
         ( new PhotoController()     )->register_routes( self::NAMESPACE );

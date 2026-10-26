@@ -151,21 +151,7 @@ class FlyerPage {
      * Shortcode dann nicht, deshalb wird das dem Orgateam angezeigt.
      */
     private function public_base_url(): string {
-        $found = get_posts( [
-            'post_type'      => [ 'page', 'post' ],
-            'post_status'    => 'publish',
-            's'              => '[vp_events',
-            'posts_per_page' => 1,
-            'fields'         => 'ids',
-        ] );
-
-        foreach ( $found as $id ) {
-            if ( has_shortcode( (string) get_post_field( 'post_content', $id ), 'vp_events' ) ) {
-                return (string) get_permalink( $id );
-            }
-        }
-
-        return home_url( '/' );
+        return PublicLink::events_page() ?: home_url( '/' );
     }
 
     // ------------------------------------------------------------------

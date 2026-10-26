@@ -84,6 +84,26 @@ $angelegte_vorlagen = $vorlagen->all();
 Pruefung::gleich( 'Termintypen angelegt', count( $angelegte_typen ),    count( Seeder::event_types() ) );
 Pruefung::gleich( 'Vorlagen angelegt',    count( $angelegte_vorlagen ), count( Seeder::templates() ) );
 
+// Der Umfang ist absichtlich klein: vier Termintypen, je drei Listen. Wer
+// hier etwas hinzufügt, soll die Zahl bewusst ändern müssen – sonst wächst
+// die Vorschlagsliste wieder auf eine Länge, die jeder Verein erst einmal
+// aufräumt.
+Pruefung::gleich( 'vier Termintypen', count( Seeder::event_types() ), 4 );
+
+// „Spiel und Wettkampf“ hat Helferaufgaben, aber bewusst keine Vorlage. Der
+// Test hält das fest, weil ein fehlender Verweis sonst wie ein Versehen
+// aussieht und beim nächsten Mal „repariert“ würde.
+$wettkampf = Seeder::event_types()['wettkampf'];
+Pruefung::gleich( 'Wettkampf braucht Helfer',        $wettkampf['needs_helpers'], 1 );
+Pruefung::ok( 'Wettkampf ohne Standardvorlage', ! isset( $wettkampf['help'] ) && ! isset( $wettkampf['bring'] ) );
+
+$nach_art = [ 'bring' => 0, 'help' => 0 ];
+foreach ( Seeder::templates() as $tpl ) {
+    $nach_art[ $tpl['kind'] ]++;
+}
+Pruefung::gleich( 'drei Mitbringlisten', $nach_art['bring'], 3 );
+Pruefung::gleich( 'drei Helferlisten',   $nach_art['help'],  3 );
+
 // Jede Vorlage hat Posten – eine leere Vorlage wäre als Startpunkt wertlos.
 $leere = array_filter( $angelegte_vorlagen, fn( $v ) => empty( $v['items'] ) );
 Pruefung::gleich( 'keine Vorlage ohne Posten', count( $leere ), 0 );
@@ -145,15 +165,15 @@ foreach ( $alle as $typ ) {
     }
 }
 
-// Ein Verein hat „Fest“ gelöscht und „Stammtisch“ umgefärbt.
+// Ein Verein hat „Fest“ gelöscht und „Training und Übung“ umgefärbt.
 $typen->delete( (int) $fest['id'] );
-$stammtisch_id = 0;
+$training_id = 0;
 foreach ( $alle as $typ ) {
-    if ( $typ['name'] === Seeder::event_types()['stammtisch']['name'] ) {
-        $stammtisch_id = (int) $typ['id'];
+    if ( $typ['name'] === Seeder::event_types()['training']['name'] ) {
+        $training_id = (int) $typ['id'];
     }
 }
-$typen->update( $stammtisch_id, [ 'color' => '#000000' ] );
+$typen->update( $training_id, [ 'color' => '#000000' ] );
 
 Pruefung::gleich( 'gelöschter Typ wird vermisst', Seeder::missing()['types'], 1 );
 
@@ -163,7 +183,7 @@ Pruefung::gleich( 'genau der fehlende Typ kommt zurück', $nachgelegt['types'], 
 Pruefung::gleich( 'keine Vorlage doppelt',               $nachgelegt['templates'], 0 );
 Pruefung::gleich( 'Gesamtzahl wieder vollständig',       count( $typen->all() ), count( Seeder::event_types() ) );
 Pruefung::gleich( 'Vorlagen unverändert',                count( $vorlagen->all() ), count( Seeder::templates() ) );
-Pruefung::gleich( 'angepasster Typ bleibt angepasst',    $typen->find( $stammtisch_id )['color'] ?? '', '#000000' );
+Pruefung::gleich( 'angepasster Typ bleibt angepasst',    $typen->find( $training_id )['color'] ?? '', '#000000' );
 
 // ---------------------------------------------------------------------
 echo "\nVorlagen greifen am Termin\n";

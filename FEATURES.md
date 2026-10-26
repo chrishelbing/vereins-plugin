@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.7.1
+> Stand: Version 1.9.0
 
 ---
 
@@ -39,17 +39,36 @@ tippen. Deshalb bringt das Plugin einen Ausgangspunkt mit.
 
 Bei der **ersten** Aktivierung legt `Core\Seeder` an:
 
-- **Neun Termintypen** – Fest, Versammlung, Stammtisch, Arbeitseinsatz,
-  Fahrt und Zeltlager, Training und Übung, Sitzung, Stand und Markt sowie
-  die Ressource „Vereinsheim (Belegung)“. Jeder mit Farbe und passend
-  gesetzten Schaltern: Ein Stammtisch hat keine Mitbringliste, eine
-  Versammlung keine Fotos.
-- **Neun Vorlagen** – vier für die Mitbringliste (Fest, Arbeitseinsatz,
-  Fahrt, Adventsfeier), fünf für Helferaufgaben (Fest, Versammlung,
-  Arbeitseinsatz, Fahrt, Marktstand). Die Mengen sind plausible Vorschläge
-  für einen mittleren Verein, keine Vorschrift.
+- **Vier Termintypen** – Training und Übung, Spiel und Wettkampf, Fest,
+  Arbeitseinsatz. Jeder mit Farbe und passend gesetzten Schaltern: Training
+  hat weder Mitbringliste noch Helferaufgaben, der Arbeitseinsatz keine
+  Fotos.
+- **Sechs Vorlagen** – drei für die Mitbringliste (Fest, Arbeitseinsatz,
+  Fahrt), drei für Helferaufgaben (Fest, Arbeitseinsatz, Fahrt). Die Mengen
+  sind plausible Vorschläge für einen mittleren Verein, keine Vorschrift.
 - Die **Verknüpfung** beider: Wo es passt, ist die Vorlage als Standard am
   Termintyp hinterlegt und wird beim Anlegen eines Termins vorbelegt.
+
+**Warum so wenig.** Ausgewählt ist nach dem Alltag eines
+Breitensportvereins: das wöchentliche Training als häufigster Termin, der
+Spieltag, das Fest als der eine Anlass im Jahr, an dem Mitbringliste,
+Helferliste und Fotos zusammenkommen, und der Arbeitseinsatz als der
+wiederkehrende Grund, warum es Helferlisten überhaupt gibt. Eine längere
+Vorschlagsliste sieht großzügig aus, kostet aber jeden Verein zuerst
+Aufräumarbeit; Fehlendes ist schneller getippt als Überflüssiges
+durchgesehen.
+
+**„Spiel und Wettkampf“ hat bewusst keine Vorlage.** Helferaufgaben sind am
+Typ eingeschaltet, Fotos auch – aber welche Aufgaben ein Spieltag mit sich
+bringt, unterscheidet sich von Sportart zu Sportart zu stark, um es zu
+raten. Die erste Liste erstellt der Verein selbst und speichert sie aus dem
+Termin heraus als Vorlage.
+
+Für die **Fahrt** (Trainingslager, Auswärtsfahrt) liegen beide Listen bereit,
+aber bewusst ohne eigenen Termintyp – jeder Verein nennt sie anders. Wer sie
+braucht, legt den Typ an und hinterlegt die Vorlagen dort. Dasselbe gilt für
+Versammlung, Sitzung, Marktstand und Ressourcen wie das Vereinsheim: alles
+weiter möglich, nur nicht mehr vorgegeben.
 
 Zwei Sicherungen verhindern, dass die Startdaten ungefragt wiederkehren:
 ein Marker in den Optionen (`vp_seed_done`) und ein Blick in die Tabelle –
@@ -145,6 +164,67 @@ zusätzlich im Backend. **Freigeben dürfen nur Administratoren, nur im
 Backend.** Bis dahin ist ein Termin nicht sichtbar. In der Übersicht steht,
 wer ihn angelegt und wer ihn freigegeben hat.
 
+### Entwurf und live
+
+Jeder Termin, den ein Administrator verwaltet, ist entweder **Entwurf** oder
+**live**. Ein Entwurf steht nur im Backend: nicht in `[vp_events]`, nicht im
+Banner, nicht über einen geteilten Link, keine Fotos, kein Flyer. Live heißt
+sichtbar wie bisher.
+
+Umgeschaltet wird in beide Richtungen und jederzeit – in der Übersicht mit
+„Live schalten“ bzw. „Auf Entwurf“, im Formular mit dem Häkchen „Live – auf
+der Website sichtbar“. Neue Termine im Backend sind vorbelegt live, wie vor
+der Einführung des Schalters. Die Übersicht hat dazu den Reiter „Entwürfe“.
+
+Technisch ist der Entwurf ein vierter Wert von `approval_status` (`draft`).
+Damit greift er überall, wo bisher schon nur `approved` durchkam – es gibt
+keine zweite Sichtbarkeitsregel, die irgendwo vergessen werden könnte.
+`approved` heißt in der Oberfläche jetzt „Live“.
+
+Der Schalter gilt nur zwischen Entwurf und live
+(`EventModel::set_live()`). Ein vorgeschlagener Termin geht weiter über
+Genehmigen/Ablehnen, ein abgelehnter bleibt abgelehnt; das Speichern im
+Formular rührt deren Status nicht an. Umschalten trägt sich nicht als
+Prüfung ein („Geprüft von“ bleibt, wie es war).
+
+### Termine bearbeiten (Frontend)
+
+An jeder Kachel der Terminliste steht für Berechtigte ein **Stift**. Er
+öffnet denselben Feldersatz, mit dem Termine angelegt werden – die Felder
+liegen in `Frontend\EventForm` und werden von beiden Seiten benutzt, damit
+sie nicht auseinanderlaufen.
+
+**Wer darf:** wer den Termin angelegt hat, dazu Orgateam und
+Administratoren. Nachzulesen in `Capabilities::can_edit_event()`; geprüft
+wird serverseitig in `PUT /events/{id}`, `DELETE /events/{id}` und
+`POST /events/{id}/exceptions`. Der Stift erscheint nur dort, wo dasselbe
+Recht schon beim Rendern zutrifft.
+
+Ohne diese Regel dürfte jedes freigeschaltete Mitglied jeden Termin
+umschreiben – die Freigabe durch einen Administrator ließe sich damit im
+Nachhinein aushebeln. Wer ändert, wird dabei **nicht** zum Urheber: Sonst
+verlöre der ursprüngliche Anleger sein Bearbeitungsrecht an den, der
+zuletzt gespeichert hat.
+
+Eine Änderung schickt den Termin **nicht** erneut in die Freigabe. Wer
+Änderungen wieder bestätigen lassen will, braucht dafür eine eigene Regel.
+
+**Bei Serien** fragt der Dialog wie ein Kalenderprogramm nach, bevor er
+speichert:
+
+| Auswahl | Wirkung | Weg |
+|---|---|---|
+| Nur dieser Termin | die übrigen bleiben unverändert | Ausnahme `modified` |
+| Die ganze Serie | gilt für alle Termine der Serie | `PUT` auf den Stammsatz |
+
+Bei „nur dieser Termin“ sind Termintyp und Wiederholung gesperrt – eine
+Ausnahme kennt nur Titel, Beschreibung, Ort und Zeiten. Dasselbe gilt fürs
+Entfernen: Die Serie verschwindet mit `DELETE`, der einzelne Termin wird
+als `cancelled` abgelegt und fällt damit aus.
+
+Über einen öffentlichen Terminlink erscheint kein Stift – dort steht nicht
+fest, wer klickt.
+
 ### Serien und Ausnahmen
 
 Termine können sich täglich, wöchentlich (mit Wochentagsauswahl), monatlich
@@ -161,6 +241,66 @@ Ein Camp von Freitag 16 Uhr bis Sonntag 17 Uhr wird als solches dargestellt:
 die ausführliche Angabe mit Wochentagen. Endet ein Termin punktgenau um
 Mitternacht, zählt der Vortag als letzter Tag – sonst wäre jede lange Feier
 zweitägig.
+
+### Banner auf der Website
+
+Ein Termin lässt sich auf einer beliebigen Seite – gedacht ist die
+Startseite – als Banner hervorheben. Eingeschaltet wird das **am Termin**,
+im Terminformular des Backends: „Als Banner auf der Website zeigen“ und
+„Sichtbar ab … Tagen vor Beginn“ (vorgeschlagen 14, 0 = sofort). Gespeichert
+in `vp_events.banner_days_before`; NULL heißt „kein Banner“. In der
+Terminübersicht trägt ein solcher Termin das Kennzeichen „Banner“.
+
+Wo der Banner erscheint, bestimmt der Shortcode `[vp_banner]`. Die Seite
+muss also nur einmal vorbereitet werden; danach entscheidet allein der
+Termin, was dort steht. **Steht nichts an, gibt der Shortcode nichts aus** –
+keine leere Fläche, kein „Keine Termine“.
+
+- **Zeitfenster**: ab Tagesbeginn, so viele Tage vor dem Start, bis zum
+  Terminende. Danach verschwindet der Banner von selbst; niemand muss nach
+  dem Sommerfest daran denken, die Startseite aufzuräumen. Gerechnet wird
+  auf dem Datum, nicht auf der Uhrzeit – „14 Tage vorher“ beginnt morgens.
+- **Mehrere Banner**: der nächste Termin zuerst; `limit` (Standard 1,
+  höchstens 5) legt fest, wie viele untereinander stehen.
+- **Serien** belegen höchstens einen Platz, und zwar mit der nächsten
+  Instanz. Fällt die aus, rückt die folgende nach, sobald ihr eigenes
+  Fenster offen ist. Ein wöchentliches Training mit Banner füllt also nicht
+  die Startseite.
+- **Nur freigegebene Termine.** Ein von einem Mitglied vorgeschlagener
+  Termin erscheint auch mit gesetztem Schalter erst nach der Freigabe,
+  ein Entwurf erst, wenn er live geschaltet ist. Den
+  Schalter selbst gibt es nur im Backend, also nur für Administratoren.
+- **Inhalt**: Titelbild (sonst die Farbe des Termintyps), Datumsblock,
+  „Läuft gerade“/„Heute“/„Morgen“/„In 5 Tagen“, Termintyp, Titel, Zeitraum,
+  Ort, gekürzte Beschreibung und ein Knopf (Beschriftung über `button`).
+
+**Der Banner ist öffentlich.** Anders als `[vp_events]` sieht ihn jeder
+Besucher, auch ohne Anmeldung – er soll gerade die erreichen, die noch nicht
+dabei sind. Wer den Schalter setzt, macht Titel, Zeit, Ort und
+Kurzbeschreibung damit bewusst öffentlich. Namen, Zahlen und Listen stehen
+nicht darauf.
+
+**Der Klick führt über den signierten Terminlink zur Zusage** – derselbe Weg
+wie beim QR-Code des Flyers. Gäste können sofort zusagen, Helferaufgaben und
+die Mitbringliste übernehmen. Angemeldete Mitglieder sehen auf der
+Terminseite ohnehin die ganze Liste; der Link trägt deshalb zusätzlich eine
+Sprungmarke (`#vp-termin-<id>-<datum>`), die zur richtigen Kachel führt.
+Gibt es keine Seite mit `[vp_events]`, bleibt der Banner ein reiner Hinweis
+ohne Link und Knopf.
+
+Die Suche nach dieser Seite liegt jetzt an einer Stelle
+(`PublicLink::events_page()`), die Flyer und Banner teilen. Der Fund wird
+einen Tag gemerkt und bei jedem Aufruf gegengeprüft, damit die Startseite
+nicht bei jedem Besuch alle Seiteninhalte durchsucht; ein Fehlschlag wird
+nicht gemerkt.
+
+Die Auswahl (`Events\BannerSelector`) ist ohne Datenbank prüfbar und in
+`tools/bannertest.php` abgesichert. Das Aussehen (`assets/css/banner.css`,
+nur geladen, wenn ein Banner erscheint) deckt kein Test ab.
+
+**Zwischenspeicher beachten.** Ein Seiten-Cache liefert die Startseite so
+aus, wie sie beim Erzeugen war – Erscheinen, Verschwinden und die Angabe
+„In 5 Tagen“ folgen dann erst, wenn der Cache erneuert wird.
 
 ---
 
@@ -202,7 +342,7 @@ Häkchen.
 
 Wiederverwendbare Listen je Art, im Backend gepflegt und **aus einem
 bestehenden Termin erzeugbar**. Je Termintyp eine Standardvorlage, beim
-Anlegen überschreibbar. Neun Vorlagen sind bereits vorhanden – siehe
+Anlegen überschreibbar. Sechs Vorlagen sind bereits vorhanden – siehe
 „Auslieferungszustand“.
 
 ---
@@ -217,7 +357,13 @@ Begrenzt wird über Einstellungen: Speicher je Mitglied und Termin, maximale
 Dateigröße, längste Kante.
 
 **Upload-Zeitraum**: standardmäßig 14 Tage nach Terminende, global einstellbar,
-am einzelnen Termin übersteuerbar. Nach Ablauf werden die Teilnehmer
+am einzelnen Termin übersteuerbar. Das Feld dafür erscheint im Terminformular
+**nur, wenn der gewählte Termintyp Fotos erlaubt** – und verschwindet sofort,
+wenn ein anderer Typ gewählt wird. Vorher stand dort bei jedem Training eine
+Frist mit dem Hinweis, sie greife ohnehin nicht; wer eine Einstellung
+angeboten bekommt, darf erwarten, dass sie etwas bewirkt. Der eingetragene
+Wert wird beim Ausblenden nicht verworfen, damit ein versehentlicher
+Typwechsel die Eingabe nicht verschluckt. Nach Ablauf werden die Teilnehmer
 benachrichtigt, dass die Sammlung vollständig ist und als ZIP heruntergeladen
 werden kann. Ein täglicher Cron-Job verschickt Vorwarnung und Abschlussinfo
 und räumt abgelaufene Fotos auf.
@@ -297,12 +443,31 @@ Einstellungen.
 
 ### Zwei gleichwertige Wege
 
-Passwort über `[vp_login]` und **Einmalcode** per E-Mail. Für die spätere App
-gibt es zusätzlich Bearer-Token (`vp_sessions`).
+Passwort über `[vp_login]` und **Einmalcode** per E-Mail. Für die App gibt es
+zusätzlich Bearer-Token (`vp_sessions`).
 
 Einmalcode-Anfragen (samt IP-Adresse) werden täglich um 3:15 Uhr per Cron
 aufgeräumt (`Auth\OtpCleanup`), sobald sie abgelaufen sind – nicht erst bei
 der nächsten Anmeldung.
+
+**Ein Token gilt 30 Tage ab der letzten Benutzung, nicht ab der Ausstellung.**
+Jede erfolgreiche Auflösung verlängert die Frist. Eine feste Frist ab
+Ausstellung hätte auch den hinausgeworfen, der die App täglich öffnet – aus
+seiner Sicht meldet sie sich eines Morgens grundlos ab. So trifft die Frist
+nur, wer einen Monat lang nicht hineingesehen hat; dort ist eine neue
+Anmeldung zumutbar. Widerrufene und bereits abgelaufene Token werden dabei
+nicht wiederbelebt.
+
+**Das WordPress-Cookie ist beim Einmalcode abwählbar.** `verify-otp` setzt
+zusätzlich zum Token eine Website-Session – das braucht das Frontend, die App
+nicht. Mit `with_cookie=false` bleibt es aus.
+
+**SMS und WhatsApp sind Platzhalter.** Ohne angehängten Versand
+(`vp_send_sms_otp`, `vp_send_whatsapp_otp`) antwortet `request-otp` mit
+`channel_unavailable` statt mit einem allgemeinen Versandfehler – sonst
+wartete jemand auf eine Nachricht, die nie losgeschickt wurde. Geprüft wird
+das vor Rate-Limit und Codeerzeugung, damit eine aussichtslose Anfrage keinen
+Versuch verbraucht.
 
 ### Rollen
 
@@ -334,7 +499,8 @@ bleiben gesperrt.
 | Shortcode | Zweck |
 |---|---|
 | `[vp_events]` | Terminliste als Kacheln, mit allem daran; zeigt bei gültigem Schlüssel auch ohne Anmeldung einen einzelnen Termin |
-| `[vp_create_event]` | Termin vorschlagen |
+| `[vp_create_event]` | Termin vorschlagen (bearbeitet wird über den Stift an der Kachel in `[vp_events]`) |
+| `[vp_banner]` | Hervorgehobene Termine als Banner, z. B. auf der Startseite – öffentlich, verschwinden nach Terminende von selbst |
 | `[vp_login]` | Anmeldung mit Passwort oder Einmalcode |
 | `[vp_register]` | Selbstregistrierung |
 
@@ -367,6 +533,16 @@ REST unter `vereins-plugin/v1` für Termine, Ausnahmen, Zusagen,
 Begleitpersonen, Mitbringliste, Helferaufgaben, Fotos und Anmeldung.
 Nachgelagert für eine App gedacht; Zusage, Helferaufgaben und Mitbringliste
 sind zusätzlich über signierte Terminlinks erreichbar.
+
+`GET /me` gibt Auskunft über die angemeldete Person: Anzeigename, E-Mail,
+`is_orgateam`, `is_admin` und die gespeicherten Begleitpersonen. Ohne diesen
+Endpunkt kennt eine App nach dem Anmelden nur eine Zahl und könnte weder
+begrüßen noch entscheiden, welche Knöpfe sie zeigen darf. Die Angaben steuern
+ausschließlich die Oberfläche – jeder schreibende Endpunkt prüft die Rechte
+selbst noch einmal.
+
+Wie daraus eine App wird, steht im Ordner `Vereins-App` in `APP.md`; die
+Absicherung der App-Seite liegt in `tools/apitest.php`.
 
 ---
 

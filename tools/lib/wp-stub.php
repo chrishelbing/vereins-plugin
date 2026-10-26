@@ -42,12 +42,27 @@ class StubDb {
     /** @var array<string, array<int, array>> Tabelle => Zeilen */
     public array $t = [];
 
+    /**
+     * Spaltenvorgaben je Tabelle, die der Ersatz nicht kennt.
+     *
+     * Eine echte Datenbank füllt weggelassene Spalten mit dem DEFAULT aus
+     * dem Schema; hier fehlen sie dann schlicht. Eine Bedingung wie
+     * "revoked = 0" trifft eine solche Zeile nie – und ein Test, der die
+     * Zeile eigentlich finden müsste, meldet einen Fehler, den es im
+     * Betrieb nicht gibt. Wer eine Tabelle prüft, deren DEFAULTs zählen,
+     * trägt sie hier ein.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    public array $defaults = [];
+
     private array $auto = [];
 
     public function insert( $table, $data, $fmt = null ) {
         $this->t[ $table ]  ??= [];
         $this->auto[ $table ] = ( $this->auto[ $table ] ?? 0 ) + 1;
 
+        $data                 = array_merge( $this->defaults[ $table ] ?? [], $data );
         $data['id']           = $this->auto[ $table ];
         $data['created_at'] ??= '2026-08-02 10:00:00';
 
@@ -153,6 +168,27 @@ class StubDb {
                     }
                 } elseif ( preg_match( '/^(\w+)\s+IS NULL$/', $teil, $mm ) ) {
                     if ( ( $r[ $mm[1] ] ?? null ) !== null ) {
+                        return false;
+                    }
+                } elseif ( preg_match( '/^(\w+)\s*(<=|>=|<>|!=|<|>)\s*\'?([^\']*)\'?$/', $teil, $mm ) ) {
+                    // Vergleiche über Gleichheit hinaus. Ohne diesen Zweig
+                    // fiel eine Bedingung wie "expires_at > '…'" stillschweigend
+                    // durch und jede abgelaufene Zeile galt als gültig – ein
+                    // Test darauf hätte bestanden, ohne etwas zu prüfen.
+                    $links  = $r[ $mm[1] ] ?? null;
+                    $rechts = $mm[3];
+                    $cmp    = ( is_numeric( $links ) && is_numeric( $rechts ) )
+                        ? ( (float) $links <=> (float) $rechts )
+                        : strcmp( (string) $links, (string) $rechts );
+
+                    $erfuellt = match ( $mm[2] ) {
+                        '<'          => $cmp < 0,
+                        '<='         => $cmp <= 0,
+                        '>'          => $cmp > 0,
+                        '>='         => $cmp >= 0,
+                        '<>', '!='   => $cmp !== 0,
+                    };
+                    if ( ! $erfuellt ) {
                         return false;
                     }
                 }
@@ -342,6 +378,26 @@ function wp_get_attachment_url( $id ) { return $id ? 'https://verein.test/wp-con
 function wp_delete_attachment( $id, $force = false ) { return true; }
 function get_post_meta( ...$a ) { return ''; }
 function mysql2date( $f, $d, $t = true ) { $dt = date_create( (string) $d ); return $dt ? $dt->format( $f ) : ''; }
+
+// ---------------------------------------------------------------------
+// Filter – nur so viel, wie die Tests brauchen: eine Liste angehängter
+// Rückrufe je Haken, ohne Prioritäten und ohne Aktionen.
+// ---------------------------------------------------------------------
+$GLOBALS['stub_filters'] = [];
+
+function add_filter( $haken, $rueckruf, $prio = 10, $args = 1 ) {
+    $GLOBALS['stub_filters'][ $haken ][] = $rueckruf;
+    return true;
+}
+function has_filter( $haken, $rueckruf = false ) {
+    return ! empty( $GLOBALS['stub_filters'][ $haken ] );
+}
+function apply_filters( $haken, $wert, ...$args ) {
+    foreach ( $GLOBALS['stub_filters'][ $haken ] ?? [] as $rueckruf ) {
+        $wert = $rueckruf( $wert, ...$args );
+    }
+    return $wert;
+}
 
 // ---------------------------------------------------------------------
 // Kleine Testhilfe

@@ -70,6 +70,15 @@ class AuthController {
                     'default'           => '',
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
+                // Die Website meldet über diesen Endpunkt auch ihre eigenen
+                // Besucher an und braucht dafür das WordPress-Cookie. Eine
+                // App braucht es nicht: Sie weist sich mit dem Token aus und
+                // schleppte das Cookie sonst bei jeder Anfrage ungenutzt mit.
+                'with_cookie' => [
+                    'required' => false,
+                    'type'     => 'boolean',
+                    'default'  => true,
+                ],
             ],
         ] );
 
@@ -87,6 +96,17 @@ class AuthController {
     public function request_otp( WP_REST_Request $request ): WP_REST_Response|WP_Error {
         $identifier = $request->get_param( 'identifier' );
         $channel    = $request->get_param( 'channel' );
+
+        // Vor allem anderen: Gibt es diesen Weg überhaupt? Sonst verbrauchte
+        // eine aussichtslose Anfrage einen Platz im Rate-Limit und legte
+        // einen Code an, der nirgends ankommt.
+        if ( ! AuthService::channel_available( $channel ) ) {
+            return new WP_Error(
+                'channel_unavailable',
+                __( 'Dieser Versandweg ist auf dieser Website nicht eingerichtet.', 'vereins-plugin' ),
+                [ 'status' => 501 ]
+            );
+        }
 
         // Rate-Limit: max. 5 Anfragen pro 10 Minuten (einfach via Transient)
         $rate_key = 'vp_otp_rate_' . md5( $identifier );
@@ -135,8 +155,11 @@ class AuthController {
 
         // Zusätzlich zum Bearer-Token (App) auch die WordPress-Session starten,
         // damit der OTP-Login auch als vollwertiger Website-Login funktioniert.
-        wp_set_auth_cookie( (int) $result['user_id'], true );
-        wp_set_current_user( (int) $result['user_id'] );
+        // Die App schaltet das über with_cookie=false ab.
+        if ( $request->get_param( 'with_cookie' ) ) {
+            wp_set_auth_cookie( (int) $result['user_id'], true );
+            wp_set_current_user( (int) $result['user_id'] );
+        }
 
         return new WP_REST_Response( [
             'token'   => $result['token'],

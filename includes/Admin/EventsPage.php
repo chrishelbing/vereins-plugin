@@ -18,6 +18,9 @@ use VereinsPlugin\Support\Capabilities;
  */
 class EventsPage {
 
+    /** Vorgeschlagener Vorlauf, wenn der Banner eingeschaltet wird. */
+    private const BANNER_DEFAULT_DAYS = 14;
+
     private EventModel      $model;
     private EventTypeModel  $type_model;
     private AttendanceModel $attendance;
@@ -41,6 +44,7 @@ class EventsPage {
         add_action( 'admin_post_vp_delete_event',  [ $this, 'handle_delete' ] );
         add_action( 'admin_post_vp_event_approve', [ $this, 'handle_approve' ] );
         add_action( 'admin_post_vp_event_reject',  [ $this, 'handle_reject' ] );
+        add_action( 'admin_post_vp_event_live',    [ $this, 'handle_live' ] );
     }
 
     public function render(): void {
@@ -59,10 +63,11 @@ class EventsPage {
         $types   = $this->type_model->all();
 
         $filter = sanitize_text_field( $_GET['status'] ?? '' );
-        $filter = in_array( $filter, [ 'pending', 'approved', 'rejected' ], true ) ? $filter : '';
+        $filter = in_array( $filter, [ 'draft', 'pending', 'approved', 'rejected' ], true ) ? $filter : '';
         $events = $this->model->all( $filter ?: null );
 
         $counts = [
+            'draft'    => $this->model->count_by_status( 'draft' ),
             'pending'  => $this->model->count_by_status( 'pending' ),
             'approved' => $this->model->count_by_status( 'approved' ),
             'rejected' => $this->model->count_by_status( 'rejected' ),
@@ -87,8 +92,9 @@ class EventsPage {
                 <div class="vp-head__meta">
                     <ul class="subsubsub vp-tabs">
                         <li><a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-events' ) ); ?>" <?php echo $filter === '' ? 'class="current"' : ''; ?>><?php esc_html_e( 'Alle', 'vereins-plugin' ); ?></a> |</li>
+                        <li><a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-events&status=draft' ) ); ?>" <?php echo $filter === 'draft' ? 'class="current"' : ''; ?>><?php printf( esc_html__( 'Entwürfe (%d)', 'vereins-plugin' ), (int) $counts['draft'] ); ?></a> |</li>
                         <li><a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-events&status=pending' ) ); ?>" <?php echo $filter === 'pending' ? 'class="current"' : ''; ?>><?php printf( esc_html__( 'Ausstehend (%d)', 'vereins-plugin' ), (int) $counts['pending'] ); ?></a> |</li>
-                        <li><a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-events&status=approved' ) ); ?>" <?php echo $filter === 'approved' ? 'class="current"' : ''; ?>><?php printf( esc_html__( 'Genehmigt (%d)', 'vereins-plugin' ), (int) $counts['approved'] ); ?></a> |</li>
+                        <li><a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-events&status=approved' ) ); ?>" <?php echo $filter === 'approved' ? 'class="current"' : ''; ?>><?php printf( esc_html__( 'Live (%d)', 'vereins-plugin' ), (int) $counts['approved'] ); ?></a> |</li>
                         <li><a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-events&status=rejected' ) ); ?>" <?php echo $filter === 'rejected' ? 'class="current"' : ''; ?>><?php printf( esc_html__( 'Abgelehnt (%d)', 'vereins-plugin' ), (int) $counts['rejected'] ); ?></a></li>
                     </ul>
 
@@ -122,7 +128,16 @@ class EventsPage {
                 <?php endif; ?>
                 <?php foreach ( $events as $e ) : ?>
                     <tr class="<?php echo (int) $e['id'] === $edit_id ? 'is-editing' : ''; ?>">
-                        <td><?php echo esc_html( $e['title'] ); ?></td>
+                        <td>
+                            <?php echo esc_html( $e['title'] ); ?>
+                            <?php if ( isset( $e['banner_days_before'] ) && $e['banner_days_before'] !== null ) : ?>
+                                <span class="vp-badge vp-badge--active" title="<?php echo esc_attr( sprintf(
+                                    /* translators: %d: Tage vor Beginn */
+                                    __( 'Als Banner sichtbar ab %d Tagen vor Beginn', 'vereins-plugin' ),
+                                    (int) $e['banner_days_before']
+                                ) ); ?>"><?php esc_html_e( 'Banner', 'vereins-plugin' ); ?></span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <?php if ( $e['type_color'] ?? '' ) : ?>
                                 <span class="vp-swatch" style="background:<?php echo esc_attr( $e['type_color'] ); ?>"></span>
@@ -143,7 +158,7 @@ class EventsPage {
                         </td>
                         <td><?php echo $e['is_recurring'] ? esc_html__( 'Ja', 'vereins-plugin' ) : esc_html__( 'Nein', 'vereins-plugin' ); ?></td>
                         <td>
-                            <?php $badge = [ 'approved' => 'active', 'pending' => 'pending', 'rejected' => 'inactive' ][ $e['approval_status'] ] ?? 'pending'; ?>
+                            <?php $badge = [ 'approved' => 'active', 'draft' => 'draft', 'pending' => 'pending', 'rejected' => 'inactive' ][ $e['approval_status'] ] ?? 'pending'; ?>
                             <span class="vp-badge vp-badge--<?php echo esc_attr( $badge ); ?>"><?php echo esc_html( $this->status_label( $e['approval_status'] ) ); ?></span>
                         </td>
                         <td>
@@ -210,6 +225,11 @@ class EventsPage {
                                 <?php $this->review_button( $e['id'], 'approve', __( 'Genehmigen', 'vereins-plugin' ), 'button-primary' ); ?>
                                 <?php $this->review_button( $e['id'], 'reject', __( 'Ablehnen', 'vereins-plugin' ) ); ?>
                             <?php endif; ?>
+                            <?php if ( $e['approval_status'] === 'draft' ) : ?>
+                                <?php $this->live_button( (int) $e['id'], true ); ?>
+                            <?php elseif ( $e['approval_status'] === 'approved' ) : ?>
+                                <?php $this->live_button( (int) $e['id'], false ); ?>
+                            <?php endif; ?>
                             <a class="button button-small" href="<?php echo esc_url( add_query_arg( [ 'page' => 'vp-events', 'view' => 'lists', 'event_id' => $e['id'] ], admin_url( 'admin.php' ) ) ); ?>">
                                 <?php esc_html_e( 'Listen', 'vereins-plugin' ); ?>
                             </a>
@@ -262,11 +282,27 @@ class EventsPage {
                         <input type="hidden" name="id" value="<?php echo esc_attr( $editing['id'] ); ?>">
                     <?php endif; ?>
 
+                    <?php
+                    // Ob Fotos angeboten werden, hängt am Termintyp. Der wird
+                    // im selben Formular gewählt, also muss der Anfangszustand
+                    // hier stimmen – das Umschalten übernimmt danach das
+                    // Skript am Ende des Formulars.
+                    $gewaehlter_typ = (int) ( $editing['event_type_id'] ?? ( $types[0]['id'] ?? 0 ) );
+                    $fotos_erlaubt  = false;
+                    foreach ( $types as $typ ) {
+                        if ( (int) $typ['id'] === $gewaehlter_typ ) {
+                            $fotos_erlaubt = ! empty( $typ['allows_photos'] );
+                            break;
+                        }
+                    }
+                    ?>
                     <div class="vp-field">
                         <label for="vp-type"><?php esc_html_e( 'Termintyp', 'vereins-plugin' ); ?></label>
                         <select id="vp-type" name="event_type_id" required>
                             <?php foreach ( $types as $t ) : ?>
-                                <option value="<?php echo esc_attr( $t['id'] ); ?>" <?php selected( (int) ( $editing['event_type_id'] ?? 0 ), (int) $t['id'] ); ?>>
+                                <option value="<?php echo esc_attr( $t['id'] ); ?>"
+                                        data-allows-photos="<?php echo empty( $t['allows_photos'] ) ? '0' : '1'; ?>"
+                                        <?php selected( $gewaehlter_typ, (int) $t['id'] ); ?>>
                                     <?php echo esc_html( $t['name'] ); ?>
                                 </option>
                             <?php endforeach; ?>
@@ -313,12 +349,58 @@ class EventsPage {
                         </label>
                     </div>
 
-                    <div class="vp-field">
+                    <div class="vp-field" id="vp-photo-field"<?php echo $fotos_erlaubt ? '' : ' style="display:none;"'; ?>>
                         <label for="vp-photo-days"><?php esc_html_e( 'Foto-Upload möglich bis (Tage nach dem Termin)', 'vereins-plugin' ); ?></label>
                         <input type="number" id="vp-photo-days" name="photo_upload_days" min="0" max="365"
                                value="<?php echo esc_attr( $editing['photo_upload_days'] ?? '' ); ?>"
                                placeholder="<?php echo esc_attr( sprintf( __( 'Standard: %d', 'vereins-plugin' ), (int) Settings::get( 'photo_upload_days', 14 ) ) ); ?>">
-                        <p class="description"><?php esc_html_e( 'Leer lassen für den globalen Standard, 0 für kein Zeitlimit. Greift nur, wenn der Termintyp Fotos erlaubt.', 'vereins-plugin' ); ?></p>
+                        <p class="description"><?php esc_html_e( 'Leer lassen für den globalen Standard, 0 für kein Zeitlimit.', 'vereins-plugin' ); ?></p>
+                    </div>
+
+                    <?php
+                    // Entwurf oder live. Angeboten nur, wo es um genau diese
+                    // beiden Zustände geht: beim Anlegen und bei Terminen, die
+                    // schon Entwurf oder live sind. Vorgeschlagene und
+                    // abgelehnte Termine laufen weiter über Genehmigen/Ablehnen.
+                    $status_jetzt   = $editing['approval_status'] ?? 'approved';
+                    $status_schalter = in_array( $status_jetzt, [ 'approved', 'draft' ], true );
+                    ?>
+                    <?php if ( $status_schalter ) : ?>
+                    <div class="vp-field" style="background:#f9fafb;border-radius:8px;padding:14px;">
+                        <input type="hidden" name="status_toggle" value="1">
+                        <label>
+                            <input type="checkbox" name="is_live" value="1" <?php checked( $status_jetzt === 'approved' ); ?>>
+                            <?php esc_html_e( 'Live – auf der Website sichtbar', 'vereins-plugin' ); ?>
+                        </label>
+                        <p class="description">
+                            <?php esc_html_e( 'Ohne Häkchen bleibt der Termin ein Entwurf: nur hier im Backend zu sehen, nicht in der Terminliste, nicht als Banner, nicht über einen geteilten Link. Umschalten geht jederzeit, auch direkt in der Übersicht.', 'vereins-plugin' ); ?>
+                        </p>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php
+                    // Banner auf der Website: NULL = aus. Beim Einschalten ist
+                    // ein Vorlauf von zwei Wochen vorgeschlagen – lange genug,
+                    // um sich den Tag freizuhalten, kurz genug, dass der
+                    // Banner nicht monatelang dasselbe zeigt.
+                    $banner_an   = isset( $editing['banner_days_before'] ) && $editing['banner_days_before'] !== null;
+                    $banner_tage = $banner_an ? (int) $editing['banner_days_before'] : self::BANNER_DEFAULT_DAYS;
+                    ?>
+                    <div class="vp-field" style="background:#f9fafb;border-radius:8px;padding:14px;">
+                        <label>
+                            <input type="checkbox" id="vp-banner" name="banner_enabled" value="1" <?php checked( $banner_an ); ?>>
+                            <?php esc_html_e( 'Als Banner auf der Website zeigen', 'vereins-plugin' ); ?>
+                        </label>
+                        <div id="vp-banner-days"<?php echo $banner_an ? '' : ' style="display:none;"'; ?>>
+                            <label for="vp-banner-before" style="margin-top:8px;">
+                                <?php esc_html_e( 'Sichtbar ab … Tagen vor Beginn', 'vereins-plugin' ); ?>
+                            </label>
+                            <input type="number" id="vp-banner-before" name="banner_days_before" min="0" max="365"
+                                   value="<?php echo esc_attr( $banner_tage ); ?>">
+                        </div>
+                        <p class="description">
+                            <?php esc_html_e( 'Erscheint überall, wo der Shortcode [vp_banner] steht – etwa auf der Startseite –, und verschwindet nach Terminende von selbst. Auch Besucher ohne Anmeldung sehen ihn und kommen per Klick zur Zusage. 0 = sofort sichtbar. Bei einer Serie zeigt der Banner immer den nächsten Termin.', 'vereins-plugin' ); ?>
+                        </p>
                     </div>
 
                     <?php if ( ! $editing ) : ?>
@@ -419,6 +501,26 @@ class EventsPage {
                     if ( cb && panel ) {
                         cb.addEventListener('change', function(){ panel.style.display = cb.checked ? 'block' : 'none'; });
                     }
+
+                    // Die Frist für den Foto-Upload nur zeigen, wenn der
+                    // gewählte Termintyp überhaupt Fotos erlaubt. Das Feld
+                    // bleibt im Formular stehen und wird weiter mitgeschickt:
+                    // Wer versehentlich den Typ wechselt und zurückwechselt,
+                    // soll seine Eingabe wiederfinden.
+                    var banner = document.getElementById('vp-banner');
+                    var bannerTage = document.getElementById('vp-banner-days');
+                    if ( banner && bannerTage ) {
+                        banner.addEventListener('change', function(){ bannerTage.style.display = banner.checked ? '' : 'none'; });
+                    }
+
+                    var typ  = document.getElementById('vp-type');
+                    var foto = document.getElementById('vp-photo-field');
+                    if ( typ && foto ) {
+                        typ.addEventListener('change', function(){
+                            var opt = typ.options[ typ.selectedIndex ];
+                            foto.style.display = ( opt && opt.dataset.allowsPhotos === '1' ) ? '' : 'none';
+                        });
+                    }
                 })();
                 </script>
                 <?php endif; ?>
@@ -448,7 +550,24 @@ class EventsPage {
             'photo_upload_days' => ( $_POST['photo_upload_days'] ?? '' ) === ''
                 ? null
                 : max( 0, min( 365, (int) $_POST['photo_upload_days'] ) ),
+            // Ohne Häkchen kein Banner (NULL). Mit Häkchen und leerem Feld
+            // gilt der Vorschlag, damit das Einschalten allein schon wirkt.
+            'banner_days_before' => empty( $_POST['banner_enabled'] )
+                ? null
+                : ( ( $_POST['banner_days_before'] ?? '' ) === ''
+                    ? self::BANNER_DEFAULT_DAYS
+                    : max( 0, min( 365, (int) $_POST['banner_days_before'] ) ) ),
         ];
+
+        // Den Status nur anfassen, wenn das Formular den Schalter gezeigt hat –
+        // sonst würde das Speichern eines vorgeschlagenen Termins ihn
+        // nebenbei freigeben.
+        if ( ! empty( $_POST['status_toggle'] ) ) {
+            $bisher = $id ? ( $this->model->find( $id )['approval_status'] ?? 'approved' ) : 'approved';
+            if ( in_array( $bisher, [ 'approved', 'draft' ], true ) ) {
+                $data['approval_status'] = ! empty( $_POST['is_live'] ) ? 'approved' : 'draft';
+            }
+        }
 
         if ( ! empty( $_POST['is_recurring'] ) ) {
             $weekdays = isset( $_POST['recurrence_weekdays'] ) ? array_map( 'sanitize_text_field', (array) $_POST['recurrence_weekdays'] ) : [];
@@ -546,9 +665,44 @@ class EventsPage {
         exit;
     }
 
+    public function handle_live(): void {
+        $id = (int) ( $_POST['id'] ?? 0 );
+        check_admin_referer( 'vp_event_live_' . $id );
+        if ( ! Capabilities::is_admin_user() ) {
+            wp_die( esc_html__( 'Keine Berechtigung.', 'vereins-plugin' ) );
+        }
+
+        $live = ! empty( $_POST['live'] );
+        $this->model->set_live( $id, $live );
+
+        // Zurück in dieselbe Ansicht, aus der umgeschaltet wurde.
+        $args = [ 'page' => 'vp-events', 'vp_notice' => $live ? 'live' : 'draft' ];
+        $filter = sanitize_text_field( $_POST['filter'] ?? '' );
+        if ( $filter !== '' ) {
+            $args['status'] = $filter;
+        }
+        wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
+        exit;
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
+
+    private function live_button( int $id, bool $live ): void {
+        ?>
+        <form method="post" <?php echo AdminForms::NO_AUTOFILL_FORM; ?> action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <?php wp_nonce_field( 'vp_event_live_' . $id ); ?>
+            <input type="hidden" name="action" value="vp_event_live">
+            <input type="hidden" name="id" value="<?php echo esc_attr( $id ); ?>">
+            <input type="hidden" name="live" value="<?php echo $live ? '1' : '0'; ?>">
+            <input type="hidden" name="filter" value="<?php echo esc_attr( sanitize_text_field( $_GET['status'] ?? '' ) ); ?>">
+            <button type="submit" class="button button-small <?php echo $live ? 'button-primary' : ''; ?>">
+                <?php echo $live ? esc_html__( 'Live schalten', 'vereins-plugin' ) : esc_html__( 'Auf Entwurf', 'vereins-plugin' ); ?>
+            </button>
+        </form>
+        <?php
+    }
 
     private function review_button( int $id, string $action, string $label, string $class = '' ): void {
         ?>
@@ -571,7 +725,8 @@ class EventsPage {
 
     private function status_label( string $status ): string {
         return match ( $status ) {
-            'approved' => __( 'Genehmigt', 'vereins-plugin' ),
+            'approved' => __( 'Live', 'vereins-plugin' ),
+            'draft'    => __( 'Entwurf', 'vereins-plugin' ),
             'pending'  => __( 'Ausstehend', 'vereins-plugin' ),
             'rejected' => __( 'Abgelehnt', 'vereins-plugin' ),
             default    => $status,
@@ -597,6 +752,8 @@ class EventsPage {
             'deleted'  => [ 'success', __( 'Termin gelöscht.', 'vereins-plugin' ) ],
             'approved' => [ 'success', __( 'Termin genehmigt und jetzt sichtbar.', 'vereins-plugin' ) ],
             'rejected' => [ 'success', __( 'Termin abgelehnt.', 'vereins-plugin' ) ],
+            'live'     => [ 'success', __( 'Termin ist live und auf der Website sichtbar.', 'vereins-plugin' ) ],
+            'draft'    => [ 'success', __( 'Termin ist jetzt ein Entwurf und auf der Website nicht mehr sichtbar.', 'vereins-plugin' ) ],
         ];
         if ( ! isset( $map[ $notice ] ) ) {
             return;

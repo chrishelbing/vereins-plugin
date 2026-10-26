@@ -37,7 +37,7 @@ class EventModel {
 
     /**
      * Alle Stamm-Events (ohne Zeitraumfilter) – für die Admin-Übersicht.
-     * $status: 'approved' | 'pending' | 'rejected' | null (= alle)
+     * $status: 'approved' | 'pending' | 'rejected' | 'draft' | null (= alle)
      */
     public function all( ?string $status = null, int $limit = 200 ): array {
         global $wpdb;
@@ -124,9 +124,10 @@ class EventModel {
                 'resource_id'     => $data['resource_id']   ?? null,
                 'approval_status' => $data['approval_status'] ?? 'approved',
                 'photo_upload_days' => $data['photo_upload_days'] ?? null,
+                'banner_days_before' => $data['banner_days_before'] ?? null,
                 'created_by'      => $data['created_by'],
             ],
-            [ '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%d' ]
+            [ '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%d', '%d' ]
         );
 
         $event_id = (int) $wpdb->insert_id;
@@ -158,6 +159,7 @@ class EventModel {
             'reviewed_at'     => '%s',
             'photo_upload_days' => '%d',
             'image_attachment_id' => '%d',
+            'banner_days_before'  => '%d',
         ];
 
         foreach ( $map as $key => $fmt ) {
@@ -184,6 +186,22 @@ class EventModel {
             'reviewed_by'     => $reviewer_id,
             'reviewed_at'     => gmdate( 'Y-m-d H:i:s' ),
         ] );
+    }
+
+    /**
+     * Schaltet einen Termin zwischen Entwurf und live hin und her.
+     *
+     * Nur für Termine, die schon live sind oder Entwurf: Ein vorgeschlagener
+     * Termin geht über Genehmigen/Ablehnen, ein abgelehnter bleibt abgelehnt.
+     * Die Prüfspalten (reviewed_by/at) bleiben unberührt – Umschalten ist
+     * keine Freigabe.
+     */
+    public function set_live( int $id, bool $live ): bool {
+        $event = $this->find( $id );
+        if ( ! $event || ! in_array( $event['approval_status'], [ 'approved', 'draft' ], true ) ) {
+            return false;
+        }
+        return $this->update( $id, [ 'approval_status' => $live ? 'approved' : 'draft' ] );
     }
 
     public function reject( int $id, int $reviewer_id ): bool {

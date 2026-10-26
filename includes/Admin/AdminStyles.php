@@ -18,6 +18,7 @@ class AdminStyles {
         .vp-admin-wrap .vp-badge--active  { background: #d1fae5; color: #065f46; }
         .vp-admin-wrap .vp-badge--pending { background: #fef3c7; color: #92400e; }
         .vp-admin-wrap .vp-badge--inactive{ background: #fee2e2; color: #991b1b; }
+        .vp-admin-wrap .vp-badge--draft   { background: #e5e7eb; color: #374151; }
         .vp-admin-wrap .vp-form-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px; max-width: 640px; margin-bottom: 24px; }
         .vp-admin-wrap .vp-form-card h2 { margin-top: 0; }
         /* Karten, die eine Tabelle enthalten: Die 640px sind für Formulare

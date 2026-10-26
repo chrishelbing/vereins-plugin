@@ -326,21 +326,62 @@ class EventController {
     }
 
     public function update( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-        $id = (int) $request->get_param( 'id' );
-        if ( ! $this->model->find( $id ) ) {
+        $id    = (int) $request->get_param( 'id' );
+        $event = $this->model->find( $id );
+
+        if ( ! $event ) {
             return new WP_Error( 'not_found', __( 'Termin nicht gefunden.', 'vereins-plugin' ), [ 'status' => 404 ] );
         }
-        $this->model->update( $id, $this->extract_event_data( $request ) );
+
+        $verweigert = $this->verweigere_ohne_bearbeitungsrecht( $event, $request );
+        if ( $verweigert ) {
+            return $verweigert;
+        }
+
+        // Ohne Ersteller: Wer ändert, wird dadurch nicht zum Urheber – sonst
+        // verlöre der ursprüngliche Anleger sein Bearbeitungsrecht an den,
+        // der zuletzt gespeichert hat.
+        $this->model->update( $id, $this->extract_event_data( $request, mit_ersteller: false ) );
         return new WP_REST_Response( $this->model->find( $id ), 200 );
     }
 
     public function destroy( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-        $id = (int) $request->get_param( 'id' );
-        if ( ! $this->model->find( $id ) ) {
+        $id    = (int) $request->get_param( 'id' );
+        $event = $this->model->find( $id );
+
+        if ( ! $event ) {
             return new WP_Error( 'not_found', __( 'Termin nicht gefunden.', 'vereins-plugin' ), [ 'status' => 404 ] );
         }
+
+        $verweigert = $this->verweigere_ohne_bearbeitungsrecht( $event, $request );
+        if ( $verweigert ) {
+            return $verweigert;
+        }
+
         $this->model->delete( $id );
         return new WP_REST_Response( null, 204 );
+    }
+
+    /**
+     * Gemeinsame Rechteprüfung fürs Ändern, Löschen und für Instanz-
+     * Ausnahmen. Gibt den Fehler zurück, wenn es nicht erlaubt ist, sonst
+     * null – so bleibt der Aufrufer bei einer Zeile.
+     *
+     * require_auth stellt nur sicher, dass überhaupt jemand angemeldet und
+     * freigeschaltet ist. Wem welcher Termin gehört, entscheidet sich hier.
+     */
+    private function verweigere_ohne_bearbeitungsrecht( array $event, WP_REST_Request $request ): ?WP_Error {
+        $person_id = (int) $request->get_param( '_vp_person_id' );
+
+        if ( Capabilities::can_edit_event( $event, $person_id ) ) {
+            return null;
+        }
+
+        return new WP_Error(
+            'vp_forbidden',
+            __( 'Diesen Termin darfst du nicht bearbeiten. Ändern darf ihn, wer ihn angelegt hat, dazu das Orgateam.', 'vereins-plugin' ),
+            [ 'status' => 403 ]
+        );
     }
 
     // ------------------------------------------------------------------
@@ -742,9 +783,18 @@ class EventController {
     }
 
     public function store_exception( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-        $id = (int) $request->get_param( 'id' );
-        if ( ! $this->model->find( $id ) ) {
+        $id    = (int) $request->get_param( 'id' );
+        $event = $this->model->find( $id );
+
+        if ( ! $event ) {
             return new WP_Error( 'not_found', __( 'Termin nicht gefunden.', 'vereins-plugin' ), [ 'status' => 404 ] );
+        }
+
+        // Eine einzelne Instanz zu verschieben oder abzusagen ist eine
+        // Änderung am Termin und braucht dasselbe Recht.
+        $verweigert = $this->verweigere_ohne_bearbeitungsrecht( $event, $request );
+        if ( $verweigert ) {
+            return $verweigert;
         }
 
         $exc_id = $this->model->save_exception( $id, $request->get_param( 'original_date' ), [
@@ -764,7 +814,7 @@ class EventController {
     // Helpers
     // ------------------------------------------------------------------
 
-    private function extract_event_data( WP_REST_Request $request ): array {
+    private function extract_event_data( WP_REST_Request $request, bool $mit_ersteller = true ): array {
         $data = [
             'event_type_id' => $request->get_param( 'event_type_id' ),
             'title'         => $request->get_param( 'title' ),
@@ -774,7 +824,7 @@ class EventController {
             'end_at'        => $request->get_param( 'end_at' ),
             'is_full_day'   => (int) $request->get_param( 'is_full_day' ),
             'resource_id'   => $request->get_param( 'resource_id' ),
-            'created_by'    => $request->get_param( '_vp_person_id' ),
+            'created_by'    => $mit_ersteller ? $request->get_param( '_vp_person_id' ) : null,
         ];
 
         $recurrence = $request->get_param( 'recurrence' );

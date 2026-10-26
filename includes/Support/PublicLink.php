@@ -19,6 +19,8 @@ class PublicLink {
 
     private const COOKIE = 'vp_guest';
 
+    private const EVENTS_PAGE_CACHE = 'vp_events_page';
+
     // ------------------------------------------------------------------
     // Signieren und Prüfen
     // ------------------------------------------------------------------
@@ -101,6 +103,52 @@ class PublicLink {
             'vp_date'  => $instance_date,
             'vp_key'   => self::instance_key( $event_id, $instance_date ),
         ], $base_url );
+    }
+
+    /**
+     * Seite, auf der der Shortcode [vp_events] steht – Ziel aller
+     * öffentlichen Terminlinks (Flyer, QR-Code, Banner).
+     *
+     * Leer, wenn es keine solche Seite gibt. Der Fund wird einen Tag lang
+     * gemerkt und bei jedem Aufruf gegengeprüft: Der Banner steht auf der
+     * Startseite, und dort soll nicht bei jedem Seitenaufruf der gesamte
+     * Seiteninhalt durchsucht werden.
+     */
+    public static function events_page(): string {
+        static $url = null;
+        if ( $url !== null ) {
+            return $url;
+        }
+
+        $passt = fn( int $id ): bool => $id > 0
+            && get_post_status( $id ) === 'publish'
+            && has_shortcode( (string) get_post_field( 'post_content', $id ), 'vp_events' );
+
+        $gemerkt = (int) get_transient( self::EVENTS_PAGE_CACHE );
+        if ( $passt( $gemerkt ) ) {
+            return $url = (string) get_permalink( $gemerkt );
+        }
+
+        // Die Volltextsuche findet auch Seiten, die den Shortcode nur
+        // erwähnen – deshalb mehrere Treffer holen und einzeln prüfen.
+        $found = get_posts( [
+            'post_type'      => [ 'page', 'post' ],
+            'post_status'    => 'publish',
+            's'              => '[vp_events',
+            'posts_per_page' => 5,
+            'fields'         => 'ids',
+        ] );
+
+        foreach ( $found as $id ) {
+            if ( $passt( (int) $id ) ) {
+                set_transient( self::EVENTS_PAGE_CACHE, (int) $id, DAY_IN_SECONDS );
+                return $url = (string) get_permalink( $id );
+            }
+        }
+
+        // Kein Treffer wird nicht gemerkt – sonst bliebe eine gerade
+        // angelegte Terminseite einen Tag lang unentdeckt.
+        return $url = '';
     }
 
     /**

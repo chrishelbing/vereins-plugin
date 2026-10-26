@@ -20,6 +20,7 @@ class ShortcodeRegistry {
         CreateEventShortcode::class,
         RegisterShortcode::class,
         LoginShortcode::class,
+        BannerShortcode::class,
     ];
 
     /**

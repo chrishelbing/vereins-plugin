@@ -159,4 +159,45 @@ Pruefung::ok( 'Deaktivieren entfernt die Vereinsrolle',
 Pruefung::ok( 'Deaktivieren lässt die Rolle der Website stehen',
     in_array( 'editor', $GLOBALS['stub_users'][ $petra ]->roles, true ) );
 
+// =====================================================================
+echo "\nWer einen bestehenden Termin bearbeiten darf\n";
+
+$GLOBALS['stub_current'] = 0;
+
+$anleger  = mitglied( 'Anleger',  [ $M ], 'active' );
+$fremder  = mitglied( 'Fremder',  [ $M ], 'active' );
+$orga     = mitglied( 'Orgakraft', [ $O ], 'active' );
+$ruhend   = mitglied( 'Ruhend',   [ $M ], 'inactive' );
+$chefin   = mitglied( 'Chefin',   [ 'administrator' ], 'active' );
+
+$termin = [ 'id' => 1, 'title' => 'Sommerfest', 'created_by' => $anleger ];
+
+Pruefung::ok( 'wer den Termin angelegt hat, darf ihn ändern',
+    Capabilities::can_edit_event( $termin, $anleger ) );
+Pruefung::ok( 'ein anderes Mitglied darf fremde Termine NICHT ändern',
+    ! Capabilities::can_edit_event( $termin, $fremder ) );
+Pruefung::ok( 'das Orgateam darf auch fremde Termine ändern',
+    Capabilities::can_edit_event( $termin, $orga ) );
+Pruefung::ok( 'ein Administrator darf auch fremde Termine ändern',
+    Capabilities::can_edit_event( $termin, $chefin ) );
+Pruefung::ok( 'wer nicht freigeschaltet ist, darf nichts ändern',
+    ! Capabilities::can_edit_event( $termin, $ruhend ) );
+
+// Auch dann nicht, wenn der Termin auf den eigenen Namen läuft: Ein
+// deaktivierter Zugang ist deaktiviert.
+$eigener_ruhender = [ 'id' => 2, 'title' => 'Altlast', 'created_by' => $ruhend ];
+Pruefung::ok( 'auch am eigenen Termin nicht, solange der Zugang ruht',
+    ! Capabilities::can_edit_event( $eigener_ruhender, $ruhend ) );
+
+// Gäste haben negative IDs (vp_people, kein WordPress-Profil). Sie kommen
+// über einen Terminlink herein und dürfen dort zusagen – mehr nicht.
+$gast_termin = [ 'id' => 3, 'title' => 'Sommerfest', 'created_by' => -7 ];
+Pruefung::ok( 'ein Gast darf keinen Termin bearbeiten',
+    ! Capabilities::can_edit_event( $gast_termin, -7 ) );
+
+Pruefung::ok( 'ohne Termin kein Recht',
+    ! Capabilities::can_edit_event( null, $orga ) );
+
+$GLOBALS['stub_current'] = 0;
+
 Pruefung::abschluss( 'Zugriffsregeln' );

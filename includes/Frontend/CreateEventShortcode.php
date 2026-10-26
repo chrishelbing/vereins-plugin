@@ -9,6 +9,8 @@ use VereinsPlugin\Support\Capabilities;
  * Shortcode [vp_create_event]
  *
  * Rendert ein Formular zum Anlegen von Terminen direkt auf der WordPress-Seite.
+ * Die Felder selbst kommen aus EventForm – derselbe Satz, den der
+ * Bearbeiten-Dialog der Terminliste zeigt.
  * Offen für jedes freigeschaltete Mitglied. Sichtbar wird der Termin aber erst
  * nach Freigabe durch einen Administrator – außer ein Admin legt ihn selbst an.
  * Submit läuft via fetch() gegen die REST API mit WP-Nonce-Auth.
@@ -38,6 +40,8 @@ class CreateEventShortcode {
             return '<p class="vp-notice">' . esc_html__( 'Dein Zugang wurde noch nicht freigeschaltet oder ist deaktiviert.', 'vereins-plugin' ) . '</p>';
         }
 
+        EventForm::enqueue_style();
+
         $types = ( new EventTypeModel() )->all();
         $nonce = wp_create_nonce( 'wp_rest' );
         $api   = esc_url( rest_url( 'vereins-plugin/v1' ) );
@@ -55,105 +59,7 @@ class CreateEventShortcode {
 
             <form id="vp-event-form" class="vp-form" novalidate>
 
-                <div class="vp-form__group">
-                    <label for="vp-type"><?php esc_html_e( 'Termintyp', 'vereins-plugin' ); ?></label>
-                    <select id="vp-type" name="event_type_id" required>
-                        <option value=""><?php esc_html_e( '– Bitte wählen –', 'vereins-plugin' ); ?></option>
-                        <?php foreach ( $types as $t ) : ?>
-                            <option value="<?php echo esc_attr( $t['id'] ); ?>">
-                                <?php echo esc_html( $t['name'] ); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="vp-form__group">
-                    <label for="vp-title"><?php esc_html_e( 'Titel', 'vereins-plugin' ); ?></label>
-                    <input type="text" id="vp-title" name="title" required placeholder="<?php esc_attr_e( 'z. B. Dienstags-Training', 'vereins-plugin' ); ?>">
-                </div>
-
-                <div class="vp-form__group">
-                    <label for="vp-location"><?php esc_html_e( 'Ort', 'vereins-plugin' ); ?></label>
-                    <input type="text" id="vp-location" name="location" placeholder="<?php esc_attr_e( 'z. B. Sporthalle', 'vereins-plugin' ); ?>">
-                </div>
-
-                <div class="vp-form__group">
-                    <label for="vp-description"><?php esc_html_e( 'Beschreibung', 'vereins-plugin' ); ?></label>
-                    <textarea id="vp-description" name="description" rows="3" placeholder="<?php esc_attr_e( 'Optional…', 'vereins-plugin' ); ?>"></textarea>
-                </div>
-
-                <div class="vp-form__row">
-                    <div class="vp-form__group">
-                        <label for="vp-start"><?php esc_html_e( 'Start', 'vereins-plugin' ); ?></label>
-                        <input type="datetime-local" id="vp-start" name="start_at" required>
-                    </div>
-                    <div class="vp-form__group">
-                        <label for="vp-end"><?php esc_html_e( 'Ende', 'vereins-plugin' ); ?></label>
-                        <input type="datetime-local" id="vp-end" name="end_at" required>
-                    </div>
-                </div>
-
-                <div class="vp-form__group vp-form__check">
-                    <label>
-                        <input type="checkbox" id="vp-fullday" name="is_full_day">
-                        <?php esc_html_e( 'Ganztägig', 'vereins-plugin' ); ?>
-                    </label>
-                </div>
-
-                <!-- Wiederholung -->
-                <div class="vp-form__group vp-form__check">
-                    <label>
-                        <input type="checkbox" id="vp-recurring" name="is_recurring">
-                        <?php esc_html_e( 'Wiederkehrender Termin', 'vereins-plugin' ); ?>
-                    </label>
-                </div>
-
-                <div id="vp-recurrence-panel" class="vp-recurrence" style="display:none">
-
-                    <div class="vp-form__row">
-                        <div class="vp-form__group">
-                            <label for="vp-freq"><?php esc_html_e( 'Häufigkeit', 'vereins-plugin' ); ?></label>
-                            <select id="vp-freq" name="recurrence[frequency]">
-                                <option value="DAILY"><?php esc_html_e( 'Täglich', 'vereins-plugin' ); ?></option>
-                                <option value="WEEKLY" selected><?php esc_html_e( 'Wöchentlich', 'vereins-plugin' ); ?></option>
-                                <option value="MONTHLY"><?php esc_html_e( 'Monatlich', 'vereins-plugin' ); ?></option>
-                                <option value="YEARLY"><?php esc_html_e( 'Jährlich', 'vereins-plugin' ); ?></option>
-                            </select>
-                        </div>
-                        <div class="vp-form__group">
-                            <label for="vp-interval"><?php esc_html_e( 'Alle … Einheiten', 'vereins-plugin' ); ?></label>
-                            <input type="number" id="vp-interval" name="recurrence[interval]" min="1" max="52" value="1">
-                        </div>
-                    </div>
-
-                    <!-- Wochentage (nur bei WEEKLY) -->
-                    <div id="vp-weekdays-panel" class="vp-form__group">
-                        <label><?php esc_html_e( 'Wochentage', 'vereins-plugin' ); ?></label>
-                        <div class="vp-weekdays">
-                            <?php
-                            $days = [ 'MO' => 'Mo', 'TU' => 'Di', 'WE' => 'Mi', 'TH' => 'Do', 'FR' => 'Fr', 'SA' => 'Sa', 'SU' => 'So' ];
-                            foreach ( $days as $val => $label ) :
-                            ?>
-                            <label class="vp-weekdays__btn">
-                                <input type="checkbox" name="recurrence[weekdays][]" value="<?php echo esc_attr( $val ); ?>">
-                                <?php echo esc_html( $label ); ?>
-                            </label>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-
-                    <div class="vp-form__row">
-                        <div class="vp-form__group">
-                            <label for="vp-until"><?php esc_html_e( 'Ende der Serie (Datum)', 'vereins-plugin' ); ?></label>
-                            <input type="date" id="vp-until" name="recurrence[until]">
-                        </div>
-                        <div class="vp-form__group">
-                            <label for="vp-count"><?php esc_html_e( 'oder max. Anzahl', 'vereins-plugin' ); ?></label>
-                            <input type="number" id="vp-count" name="recurrence[count]" min="1" placeholder="∞">
-                        </div>
-                    </div>
-                </div>
-                <!-- /Wiederholung -->
+                <?php EventForm::felder( $types ); ?>
 
                 <div id="vp-form-msg" class="vp-form__msg" aria-live="polite"></div>
 
@@ -161,26 +67,6 @@ class CreateEventShortcode {
 
             </form>
         </div>
-
-        <style>
-        .vp-form-wrap{max-width:600px;font-family:inherit}
-        .vp-form__group{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
-        .vp-form__group label{font-size:.85rem;font-weight:600;color:#374151}
-        .vp-form__group input,.vp-form__group select,.vp-form__group textarea{padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:.95rem;font-family:inherit}
-        .vp-form__group input:focus,.vp-form__group select:focus,.vp-form__group textarea:focus{outline:2px solid #3b82f6;border-color:transparent}
-        .vp-form__row{display:flex;gap:16px}
-        .vp-form__row .vp-form__group{flex:1}
-        .vp-form__check label{display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer}
-        .vp-recurrence{background:#f3f4f6;border-radius:8px;padding:16px;margin-bottom:14px}
-        .vp-weekdays{display:flex;gap:8px;flex-wrap:wrap}
-        .vp-weekdays__btn{display:flex;align-items:center;gap:4px;font-size:.85rem;cursor:pointer}
-        .vp-btn{background:#3b82f6;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:1rem;cursor:pointer;font-weight:600}
-        .vp-btn:hover{background:#2563eb}
-        .vp-btn:disabled{opacity:.6;cursor:not-allowed}
-        .vp-form__msg{min-height:24px;font-size:.9rem;padding:4px 0}
-        .vp-form__msg--ok{color:#059669}
-        .vp-form__msg--err{color:#dc2626}
-        </style>
 
         <script>
         (function(){

@@ -1,0 +1,174 @@
+/*
+ * Terminliste [vp_events]
+ *
+ * Wird von Frontend\EventsShortcode angemeldet und nur geladen, wenn der
+ * Shortcode auch wirklich etwas ausgibt.
+ */
+
+/* Grundmaß für die Symbole aus Support\Icons – dort erzeugt, hier gesetzt. */
+.vp-icon { width: 1.05em; height: 1.05em; flex-shrink: 0; vertical-align: -0.15em; }
+
+.vp-events { font-family: inherit; }
+/* Kachelraster – passt sich der Breite an, ab ~340px zweispaltig. */
+.vp-events__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.vp-events__item { display: flex; flex-direction: column; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(17,24,39,.04); }
+.vp-events__item:hover { box-shadow: 0 4px 14px rgba(17,24,39,.08); }
+
+.vp-tile__cover { position: relative; height: 132px; background-size: cover; background-position: center; }
+.vp-tile__cover.is-busy { opacity: .5; }
+/* Bei Bildern ein Verlauf nach unten, damit das Datum lesbar bleibt. */
+.vp-tile__cover.has-image::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 55%); }
+.vp-tile__date { position: absolute; top: 12px; left: 14px; z-index: 1; display: flex; flex-direction: column; align-items: center; line-height: 1; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.vp-tile__day { font-size: 1.75rem; font-weight: 800; }
+.vp-tile__month { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+/* Spanne statt einzelner Tag – schmaler setzen, damit sie passt. */
+.vp-tile__date.is-span .vp-tile__day { font-size: 1.2rem; letter-spacing: -.02em; }
+.vp-events__span { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; font-size: .78rem; font-weight: 600; color: #b45309; }
+.vp-events__span svg { width: 13px; height: 13px; flex: none; }
+.vp-tile__coveractions { position: absolute; top: 10px; right: 10px; z-index: 1; display: flex; gap: 6px; opacity: 0; transition: opacity .15s; }
+.vp-events__item:hover .vp-tile__coveractions,
+.vp-tile__coveractions:focus-within { opacity: 1; }
+.vp-tile__coverbtn { display: inline-flex; text-decoration: none; align-items: center; justify-content: center; width: 30px; height: 30px; border: none; border-radius: 999px; background: rgba(17,24,39,.6); color: #fff; cursor: pointer; padding: 0; }
+.vp-tile__coverbtn:hover { background: rgba(17,24,39,.85); }
+.vp-tile__coverbtn.is-done { background: #16A34A; }
+/* Feste Größe statt em: Button und Link erben unterschiedliche
+   Schriftgrößen, sonst fällt ein Symbol größer aus als die anderen. */
+.vp-tile__coverbtn .vp-icon { width: 16px; height: 16px; vertical-align: 0; }
+.vp-ident__field { margin-bottom: 18px; }
+.vp-ident__field:last-of-type { margin-bottom: 0; }
+.vp-ident__field .vp-bring__addrow { margin-top: 6px; }
+.vp-ident__optional { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #f3f4f6; color: #6b7280; font-size: .62rem; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.vp-ident__actions { margin-top: 18px; padding-top: 14px; border-top: 1px solid #f3f4f6; display: flex; justify-content: flex-end; }
+.vp-modal__pending { display: inline-flex; vertical-align: -2px; margin-left: 6px; color: #D97706; }
+.vp-modal__pending svg { width: 14px; height: 14px; }
+
+.vp-tile__body { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px 16px; }
+.vp-events__type { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.vp-events__title{ font-size: 1.05rem; font-weight: 700; color: #111827; line-height: 1.3; }
+.vp-events__meta { font-size: 0.8rem; color: #6b7280; }
+.vp-notice       { color: #6b7280; font-style: italic; }
+.vp-events__heading { font-size: 1rem; font-weight: 700; color: #374151; margin: 28px 0 2px; }
+.vp-events__hint { font-size: .8rem; color: #9ca3af; margin: 0 0 10px; }
+/* Vergangenes tritt optisch zurück – dort geht es nur noch um Fotos. */
+.vp-events__item.is-past { box-shadow: none; }
+.vp-events__item.is-past .vp-tile__cover { filter: saturate(.6); }
+.vp-events__item.is-past .vp-events__title { color: #6b7280; }
+
+.vp-rsvp { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding-top: 12px; border-top: 1px solid #f3f4f6; }
+.vp-rsvp__buttons { display: flex; align-items: center; gap: 8px; }
+.vp-rsvp__btn { border: 1px solid #d1d5db; background: #fff; color: #374151; padding: 5px 14px; border-radius: 999px; font-size: .85rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+.vp-rsvp__btn:hover:not(:disabled) { border-color: #9ca3af; }
+.vp-rsvp__btn:disabled { opacity: .6; cursor: default; }
+.vp-rsvp__btn--yes.is-active { background: #059669; border-color: #059669; color: #fff; }
+.vp-rsvp__btn--no.is-active  { background: #dc2626; border-color: #dc2626; color: #fff; }
+.vp-rsvp__status { font-size: .8rem; color: #6b7280; }
+/* Begleitpersonen: nutzt bewusst die vorhandenen Bausteine
+   (vp-bring__item, vp-rsvp__btn), damit der Dialog aussieht wie die
+   übrigen Popover. */
+.vp-rsvp__guests { font-size: .78rem; font-weight: 700; color: #059669; }
+.vp-rsvp__guests[hidden] { display: none; }
+.vp-person .vp-bring__itemhead { align-items: center; }
+.vp-person .vp-bring__actions { margin-top: 8px; }
+.vp-person__forget { background: none; border: none; color: #9ca3af; font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 0 2px; }
+.vp-person__forget:hover { color: #dc2626; }
+.vp-people__note { font-size: .78rem; color: #6b7280; margin: 6px 0 0; }
+.vp-rsvp__toggle { display: flex; align-items: center; gap: 10px; background: none; border: none; cursor: pointer; font-size: .8rem; color: #4b5563; font-family: inherit; padding: 4px 0; }
+.vp-rsvp__count--yes  { color: #059669; font-weight: 600; }
+.vp-rsvp__count--no   { color: #dc2626; font-weight: 600; }
+.vp-rsvp__count--help { color: #2563eb; font-weight: 600; }
+.vp-rsvp__toggle:hover .vp-rsvp__count { text-decoration: underline; }
+
+/* Chips für Helferaufgaben, Mitbringliste und Fotos – dieselbe
+   Pillform wie die Zu-/Absage-Buttons, nur ruhiger, damit die
+   eigentliche Entscheidung oben führend bleibt. */
+.vp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.vp-chip { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid #d1d5db; border-radius: 999px; padding: 5px 6px 5px 12px; cursor: pointer; font-family: inherit; font-size: .82rem; color: #374151; line-height: 1.4; }
+.vp-chip:hover { border-color: #9ca3af; background: #f9fafb; }
+.vp-chip .vp-icon { width: 15px; height: 15px; opacity: .7; }
+.vp-chip:hover .vp-icon { opacity: 1; }
+.vp-chip__label { font-weight: 600; }
+.vp-chip__stat { background: #f3f4f6; color: #6b7280; border-radius: 999px; padding: 2px 9px; font-size: .74rem; white-space: nowrap; }
+.vp-chip:hover .vp-chip__stat { background: #e5e7eb; }
+/* Fotos heben sich leicht ab – dort liegt nach dem Termin die Musik. */
+.vp-chip--photos { border-color: #bfdbfe; background: #eff6ff; color: #1e40af; }
+.vp-chip--photos:hover { border-color: #60a5fa; background: #dbeafe; }
+.vp-chip--photos .vp-chip__stat { background: #dbeafe; color: #1d4ed8; }
+.vp-chip--photos:hover .vp-chip__stat { background: #bfdbfe; }
+
+.vp-bring__list { list-style: none; margin: 0 0 18px; padding: 0; }
+.vp-bring__item { padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+.vp-bring__item:last-child { border-bottom: none; }
+.vp-bring__itemhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.vp-bring__meta { font-size: .78rem; white-space: nowrap; }
+.vp-bring__meta.is-open    { color: #b45309; font-weight: 600; }
+.vp-bring__meta.is-covered { color: #059669; }
+.vp-bring__who { font-size: .82rem; color: #6b7280; margin-top: 2px; }
+.vp-bring__actions { display: flex; gap: 6px; margin-top: 6px; }
+.vp-bring__btn { border: 1px solid #d1d5db; background: #fff; color: #374151; padding: 3px 10px; border-radius: 999px; font-size: .78rem; cursor: pointer; font-family: inherit; }
+.vp-bring__btn:hover:not(:disabled) { border-color: #9ca3af; }
+.vp-bring__btn:disabled { opacity: .5; }
+.vp-bring__btn.is-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+.vp-bring__btn.is-danger  { color: #dc2626; border-color: #fecaca; }
+.vp-bring__add, .vp-bring__request { padding-top: 14px; border-top: 1px solid #e5e7eb; margin-top: 4px; }
+.vp-bring__addrow { display: flex; gap: 6px; margin-top: 6px; }
+.vp-bring__addrow input[type=text] { flex: 1; min-width: 0; }
+.vp-bring__addrow input[type=number] { width: 64px; }
+/* Eingabe und Button sitzen nebeneinander – gleiche Rundung, damit es
+   als ein Element wirkt. */
+.vp-bring__addrow input { padding: 6px 14px; border: 1px solid #d1d5db; border-radius: 999px; font-size: .85rem; font-family: inherit; }
+.vp-bring__addrow input:focus { outline: 2px solid #93c5fd; outline-offset: 1px; border-color: transparent; }
+.vp-bring__addbtn { display: inline-flex; align-items: center; gap: 7px; background: #3b82f6; color: #fff; border: 1px solid #3b82f6; padding: 6px 16px; border-radius: 999px; font-size: .85rem; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; text-decoration: none; }
+.vp-bring__addbtn:hover { background: #2563eb; border-color: #2563eb; }
+.vp-bring__error { color: #dc2626; font-size: .85rem; margin: 10px 0 0; }
+.vp-modal__label--help { color: #2563eb; }
+.vp-modal__task { color: #6b7280; }
+
+.vp-modal[hidden] { display: none; }
+.vp-modal { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.vp-modal__backdrop { position: absolute; inset: 0; background: rgba(17,24,39,.5); }
+.vp-modal__box { position: relative; background: #fff; border-radius: 10px; box-shadow: 0 20px 40px rgba(0,0,0,.2); width: 100%; max-width: 420px; max-height: 80vh; display: flex; flex-direction: column; }
+.vp-modal__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #e5e7eb; }
+.vp-modal__title { margin: 0; font-size: 1rem; font-weight: 700; color: #111827; }
+.vp-modal__close { background: none; border: none; font-size: 1.6rem; line-height: 1; cursor: pointer; color: #6b7280; padding: 0 4px; }
+.vp-modal__close:hover { color: #111827; }
+.vp-modal__body { padding: 16px 20px; overflow-y: auto; }
+.vp-modal__loading { color: #6b7280; font-style: italic; margin: 0; }
+.vp-modal__group + .vp-modal__group { margin-top: 16px; }
+.vp-modal__label { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+.vp-modal__label--yes { color: #059669; }
+.vp-modal__label--no  { color: #dc2626; }
+.vp-modal__names { list-style: none; margin: 0; padding: 0; font-size: .9rem; color: #374151; }
+.vp-modal__names li { padding: 3px 0; border-bottom: 1px solid #f3f4f6; }
+.vp-modal__names li:last-child { border-bottom: none; }
+.vp-modal__empty { color: #9ca3af; font-style: italic; }
+
+/* Fotogalerie */
+.vp-modal__box--wide { max-width: 720px; }
+.vp-photos__consent { display: flex; align-items: flex-start; gap: 8px; font-size: .82rem; color: #374151; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; cursor: pointer; }
+.vp-photos__consent input { margin-top: 2px; flex-shrink: 0; }
+.vp-photos__drop { border: 2px dashed #d1d5db; border-radius: 16px; padding: 20px; text-align: center; transition: border-color .15s, background .15s, opacity .15s; }
+.vp-photos__drop.is-over { border-color: #2563eb; background: #eff6ff; }
+.vp-photos__drop.is-disabled { opacity: .55; }
+.vp-photos__drop.is-disabled .vp-photos__droplabel { cursor: not-allowed; }
+.vp-photos__drop.is-disabled .vp-photos__droplabel strong { background: #9ca3af; }
+.vp-photos__droplabel { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+/* Der Aufruf zum Auswählen ist selbst eine Pille – wie alles Klickbare hier. */
+.vp-photos__droplabel strong { display: inline-flex; align-items: center; gap: 7px; background: #3b82f6; color: #fff; border-radius: 999px; padding: 7px 18px; font-size: .85rem; }
+.vp-photos__drop:hover .vp-photos__droplabel strong { background: #2563eb; }
+.vp-photos__droplabel span { font-size: .8rem; color: #6b7280; }
+.vp-photos__progress { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.vp-photos__bar { flex: 1; height: 6px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+.vp-photos__bar span { display: block; height: 100%; width: 0; background: #2563eb; transition: width .2s; }
+.vp-photos__progresstext { font-size: .78rem; color: #6b7280; white-space: nowrap; }
+.vp-photos__closed { font-size: .85rem; color: #92400e; background: #fef3c7; border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; }
+.vp-photos__closed.is-hint { color: #1e40af; background: #eff6ff; margin: 12px 0 0; }
+.vp-photos__quota { font-size: .8rem; color: #6b7280; margin: 12px 0 4px; }
+.vp-photos__quota.is-full { color: #b45309; font-weight: 600; }
+.vp-photos__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; }
+.vp-photo { position: relative; margin: 0; }
+.vp-photo img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
+.vp-photo figcaption { font-size: .7rem; color: #6b7280; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vp-photo__del { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border: none; border-radius: 50%; background: rgba(17,24,39,.65); color: #fff; font-size: 1rem; line-height: 1; cursor: pointer; }
+.vp-photo__del:hover { background: #dc2626; }
+.vp-photos__actions { margin-top: 16px; margin-bottom: 0; }
+.vp-photos__actions a { display: inline-block; text-decoration: none; }

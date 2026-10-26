@@ -27,6 +27,25 @@ class AuthService {
      * @param  string $channel     'email' | 'sms' | 'whatsapp'
      * @return bool   true wenn versendet
      */
+    /**
+     * Ist dieser Versandweg tatsächlich angeschlossen?
+     *
+     * SMS und WhatsApp sind Platzhalter: Ohne einen Filter, der den Versand
+     * übernimmt, geben sie schlicht false zurück. Ohne diese Abfrage
+     * unterscheidet der Endpunkt eine fehlende Anbindung nicht von einem
+     * gescheiterten Versand und antwortet beide Male „Code konnte nicht
+     * gesendet werden“ – wer das liest, wartet auf eine Nachricht, die nie
+     * jemand losgeschickt hat.
+     */
+    public static function channel_available( string $channel ): bool {
+        return match ( $channel ) {
+            'email'    => true,
+            'sms'      => (bool) has_filter( 'vp_send_sms_otp' ),
+            'whatsapp' => (bool) has_filter( 'vp_send_whatsapp_otp' ),
+            default    => false,
+        };
+    }
+
     public function request_otp( string $identifier, string $channel = 'email' ): bool {
         $ip   = $_SERVER['REMOTE_ADDR'] ?? '';
         $code = $this->otp_model->create( $identifier, $channel, $ip );

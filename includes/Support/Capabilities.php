@@ -92,6 +92,43 @@ class Capabilities {
     }
 
     /**
+     * Darf diese Person einen bestehenden Termin ändern, löschen oder eine
+     * einzelne Instanz abweichen lassen?
+     *
+     * Anlegen darf jedes freigeschaltete Mitglied. Ohne eine eigene Regel
+     * fürs Ändern dürfte danach aber auch jedes andere Mitglied den Termin
+     * wieder umschreiben – die Freigabe durch einen Administrator wäre
+     * damit wertlos, weil sie sich im Nachhinein aushebeln ließe.
+     *
+     * Deshalb: Orgateam und Administratoren dürfen jeden Termin, alle
+     * anderen nur den, den sie selbst angelegt haben.
+     */
+    public static function can_edit_event( ?array $event, ?int $person_id = null ): bool {
+        if ( ! $event ) {
+            return false;
+        }
+
+        $person_id = $person_id ?: get_current_user_id();
+
+        // Gäste (negative IDs, kein WordPress-Profil) dürfen grundsätzlich nicht.
+        if ( ! $person_id || $person_id < 0 ) {
+            return false;
+        }
+
+        // Reihenfolge mit Bedacht: Die Terminliste ruft das je Kachel auf.
+        // Eigentümerfrage und Rollen kosten nichts (Nutzerdaten kommen aus
+        // dem Objektcache), die Freischaltung dagegen eine Abfrage – die
+        // stellen wir erst, wenn es überhaupt darauf ankommt.
+        $ist_eigener = (int) ( $event['created_by'] ?? 0 ) === $person_id;
+
+        if ( ! $ist_eigener && ! self::is_orga( $person_id ) ) {
+            return false;
+        }
+
+        return self::is_active_member( $person_id );
+    }
+
+    /**
      * Termine freigeben/ablehnen dürfen ausschließlich Administratoren.
      */
     public static function can_approve_events( ?int $user_id = null ): bool {

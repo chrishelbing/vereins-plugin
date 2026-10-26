@@ -132,7 +132,11 @@ class Schema {
         // Bei Serien: start_at/end_at = erster Termin der Serie.
         // is_full_day: ganztägig
         // resource_id: optionale Ressource die gebucht wird (self-referencing auf vp_event_types mit is_resource=1)
-        // approval_status: 'approved' (vom Admin angelegt oder freigegeben) | 'pending' (wartet auf Freigabe) | 'rejected'
+        // approval_status: 'approved' (live: vom Admin angelegt oder freigegeben) | 'pending' (wartet auf Freigabe) | 'rejected'
+        //                  | 'draft' (Entwurf: nur im Backend sichtbar, per Schalter live zu stellen)
+        // banner_days_before: NULL = kein Banner. Sonst erscheint der Termin im
+        //                     Shortcode [vp_banner] ab so vielen Tagen vor
+        //                     Beginn bis zu seinem Ende; 0 = sofort.
         $events = "CREATE TABLE {$wpdb->prefix}vp_events (
             id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             event_type_id    BIGINT UNSIGNED NOT NULL,
@@ -144,11 +148,12 @@ class Schema {
             is_full_day      TINYINT(1)      NOT NULL DEFAULT 0,
             is_recurring     TINYINT(1)      NOT NULL DEFAULT 0,
             resource_id      BIGINT UNSIGNED DEFAULT NULL,
-            approval_status  ENUM('approved','pending','rejected') NOT NULL DEFAULT 'approved',
+            approval_status  ENUM('approved','pending','rejected','draft') NOT NULL DEFAULT 'approved',
             reviewed_by      BIGINT UNSIGNED DEFAULT NULL,
             reviewed_at      DATETIME        DEFAULT NULL,
             photo_upload_days SMALLINT UNSIGNED DEFAULT NULL,
             image_attachment_id BIGINT UNSIGNED DEFAULT NULL,
+            banner_days_before SMALLINT UNSIGNED DEFAULT NULL,
             created_by       BIGINT UNSIGNED NOT NULL,
             created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

@@ -18,8 +18,10 @@ $pruefungen = [
     'check.php'          => 'Struktur, Symbole, Shortcodes, Einstellungen',
     'zugriffstest.php'   => 'Anmeldung, Mitgliederbereich, Backend, Rollen',
     'personentest.php'   => 'Gast, Aufnahme, Ablehnung, Bestandsübernahme',
+    'apitest.php'        => 'Sitzungen, Profil, Versandwege – die App-Seite',
     'startdatentest.php' => 'Startdaten: einmalig, nachlegbar, am Termin wirksam',
     'qrtest.php'         => 'QR-Encoder gegen hinterlegte Sollwerte',
+    'bannertest.php'     => 'Terminbanner: Auswahl, Zeitfenster, Serien, Freigabe',
 ];
 
 $exec_frei = function_exists( 'exec' )

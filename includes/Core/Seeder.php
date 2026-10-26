@@ -10,10 +10,30 @@ use VereinsPlugin\Events\TemplateModel;
  *
  * Ein leeres Plugin ist für einen Verein wenig hilfreich: Bevor der erste
  * Termin entstehen kann, müsste jemand erst Termintypen erfinden und
- * Mitbring- und Helferlisten von Hand tippen. Die Vorschläge hier decken
- * ab, was in fast jedem Verein vorkommt – Fest, Versammlung, Stammtisch,
- * Arbeitseinsatz, Fahrt – und sind ausdrücklich als Ausgangspunkt gedacht:
- * alles ist im Backend änderbar oder löschbar.
+ * Mitbring- und Helferlisten von Hand tippen.
+ *
+ * Der Umfang ist bewusst klein gehalten: vier Termintypen, drei
+ * Mitbringlisten, drei Helferlisten. Eine lange Vorschlagsliste sieht
+ * großzügig aus, kostet aber jeden Verein zuerst Aufräumarbeit: Fehlendes
+ * ist schneller getippt als Überflüssiges durchgesehen.
+ * Ausgewählt ist nach dem Alltag eines Breitensportvereins:
+ *
+ *   - **Training und Übung** – der wöchentliche Termin, der häufigste
+ *     überhaupt. Bewusst schlank, ohne Listen.
+ *   - **Spiel und Wettkampf** – Heimspiel, Turnier, Wettkampftag. Helfer
+ *     ja, Vorlage nein: Was am Spieltag zu tun ist, unterscheidet sich von
+ *     Sportart zu Sportart zu stark für einen brauchbaren Vorschlag.
+ *   - **Fest** – Sommerfest, Jubiläum, Saisonabschluss. Der eine Termin im
+ *     Jahr, an dem Mitbringliste, Helferliste und Fotos zusammenkommen.
+ *   - **Arbeitseinsatz** – Platzpflege, Hallendienst, Gerätewartung. Kommt
+ *     mehrmals im Jahr und ist der Grund, warum es Helferlisten gibt.
+ *
+ * Die Vorlagen decken darüber hinaus die Fahrt ab (Trainingslager,
+ * Auswärtsfahrt): Dafür ist absichtlich kein Termintyp vorgegeben, weil
+ * jeder Verein sie anders nennt – die beiden Listen stehen aber bereit und
+ * lassen sich an einem selbst angelegten Typ hinterlegen.
+ *
+ * Alles ist im Backend änderbar oder löschbar.
  *
  * Zwei Sicherungen verhindern, dass die Startdaten ungefragt wiederkehren:
  *
@@ -81,16 +101,6 @@ class Seeder {
                     [ 'label' => __( 'Erste-Hilfe-Tasche', 'vereins-plugin' ),    'quantity_needed' => 1 ],
                 ],
             ],
-            'bring_advent' => [
-                'kind'  => 'bring',
-                'name'  => __( 'Adventsfeier – Süßes und Warmes', 'vereins-plugin' ),
-                'items' => [
-                    [ 'label' => __( 'Plätzchen (Blech)', 'vereins-plugin' ),  'quantity_needed' => 4 ],
-                    [ 'label' => __( 'Punsch oder Glühwein', 'vereins-plugin' ), 'quantity_needed' => 2 ],
-                    [ 'label' => __( 'Herzhafter Snack', 'vereins-plugin' ),   'quantity_needed' => 2 ],
-                    [ 'label' => __( 'Kerzen und Deko', 'vereins-plugin' ),    'quantity_needed' => 1 ],
-                ],
-            ],
 
             // --- Helferaufgaben -------------------------------------------
             'help_fest' => [
@@ -104,17 +114,6 @@ class Seeder {
                     [ 'label' => __( 'Einlass und Kasse', 'vereins-plugin' ),  'quantity_needed' => 2 ],
                     [ 'label' => __( 'Abbau', 'vereins-plugin' ),              'quantity_needed' => 4 ],
                     [ 'label' => __( 'Reinigung danach', 'vereins-plugin' ),   'quantity_needed' => 3 ],
-                ],
-            ],
-            'help_versammlung' => [
-                'kind'  => 'help',
-                'name'  => __( 'Versammlung – Saal und Protokoll', 'vereins-plugin' ),
-                'items' => [
-                    [ 'label' => __( 'Bestuhlung', 'vereins-plugin' ),                  'quantity_needed' => 2 ],
-                    [ 'label' => __( 'Anwesenheitsliste am Eingang', 'vereins-plugin' ), 'quantity_needed' => 2 ],
-                    [ 'label' => __( 'Protokoll', 'vereins-plugin' ),                   'quantity_needed' => 1 ],
-                    [ 'label' => __( 'Technik und Beamer', 'vereins-plugin' ),          'quantity_needed' => 1 ],
-                    [ 'label' => __( 'Getränke am Platz', 'vereins-plugin' ),           'quantity_needed' => 2 ],
                 ],
             ],
             'help_arbeitseinsatz' => [
@@ -139,17 +138,6 @@ class Seeder {
                     [ 'label' => __( 'Nachtaufsicht', 'vereins-plugin' ),       'quantity_needed' => 2 ],
                 ],
             ],
-            'help_stand' => [
-                'kind'  => 'help',
-                'name'  => __( 'Stand auf dem Markt – Schichten', 'vereins-plugin' ),
-                'items' => [
-                    [ 'label' => __( 'Standaufbau', 'vereins-plugin' ),            'quantity_needed' => 3 ],
-                    [ 'label' => __( 'Schicht Vormittag', 'vereins-plugin' ),      'quantity_needed' => 2 ],
-                    [ 'label' => __( 'Schicht Nachmittag', 'vereins-plugin' ),     'quantity_needed' => 2 ],
-                    [ 'label' => __( 'Kasse', 'vereins-plugin' ),                  'quantity_needed' => 1 ],
-                    [ 'label' => __( 'Standabbau', 'vereins-plugin' ),             'quantity_needed' => 3 ],
-                ],
-            ],
         ];
     }
 
@@ -161,6 +149,24 @@ class Seeder {
      */
     public static function event_types(): array {
         return [
+            'training' => [
+                'name'          => __( 'Training und Übung', 'vereins-plugin' ),
+                'color'         => '#64748B',
+                'allows_items'  => 0,
+                'needs_helpers' => 0,
+                'allows_photos' => 0,
+                'is_resource'   => 0,
+                'note'          => __( 'Der wöchentliche Termin. Bewusst schlank, sonst wird die Terminliste unübersichtlich.', 'vereins-plugin' ),
+            ],
+            'wettkampf' => [
+                'name'          => __( 'Spiel und Wettkampf', 'vereins-plugin' ),
+                'color'         => '#DC2626',
+                'allows_items'  => 0,
+                'needs_helpers' => 1,
+                'allows_photos' => 1,
+                'is_resource'   => 0,
+                'note'          => __( 'Heimspiel, Turnier, Wettkampftag. Helferaufgaben sind eingeschaltet, aber ohne Standardvorlage – wer am Spieltag gebraucht wird, ist von Sportart zu Sportart zu verschieden, um es zu raten.', 'vereins-plugin' ),
+            ],
             'fest' => [
                 'name'          => __( 'Fest', 'vereins-plugin' ),
                 'color'         => '#F97316',
@@ -170,26 +176,7 @@ class Seeder {
                 'is_resource'   => 0,
                 'bring'         => 'bring_fest',
                 'help'          => 'help_fest',
-                'note'          => __( 'Sommerfest, Jubiläum, Sonnwendfeier – alles, wozu mitgebracht, geholfen und fotografiert wird.', 'vereins-plugin' ),
-            ],
-            'versammlung' => [
-                'name'          => __( 'Versammlung', 'vereins-plugin' ),
-                'color'         => '#2563EB',
-                'allows_items'  => 0,
-                'needs_helpers' => 1,
-                'allows_photos' => 0,
-                'is_resource'   => 0,
-                'help'          => 'help_versammlung',
-                'note'          => __( 'Jahreshauptversammlung und Mitgliederversammlung. Keine Mitbringliste, keine Fotos.', 'vereins-plugin' ),
-            ],
-            'stammtisch' => [
-                'name'          => __( 'Stammtisch', 'vereins-plugin' ),
-                'color'         => '#7C3AED',
-                'allows_items'  => 0,
-                'needs_helpers' => 0,
-                'allows_photos' => 0,
-                'is_resource'   => 0,
-                'note'          => __( 'Regelmäßiges Treffen ohne Organisation drumherum – nur die Frage, wer kommt.', 'vereins-plugin' ),
+                'note'          => __( 'Sommerfest, Jubiläum, Saisonabschluss – alles, wozu mitgebracht, geholfen und fotografiert wird.', 'vereins-plugin' ),
             ],
             'arbeitseinsatz' => [
                 'name'          => __( 'Arbeitseinsatz', 'vereins-plugin' ),
@@ -200,56 +187,7 @@ class Seeder {
                 'is_resource'   => 0,
                 'bring'         => 'bring_arbeitseinsatz',
                 'help'          => 'help_arbeitseinsatz',
-                'note'          => __( 'Gelände, Vereinsheim, Gerätehaus. Werkzeug wird mitgebracht, Aufgaben werden verteilt.', 'vereins-plugin' ),
-            ],
-            'fahrt' => [
-                'name'          => __( 'Fahrt und Zeltlager', 'vereins-plugin' ),
-                'color'         => '#0891B2',
-                'allows_items'  => 1,
-                'needs_helpers' => 1,
-                'allows_photos' => 1,
-                'is_resource'   => 0,
-                'bring'         => 'bring_fahrt',
-                'help'          => 'help_fahrt',
-                'note'          => __( 'Mehrtägige Unternehmungen: Ausflug, Zeltlager, Vereinsfahrt.', 'vereins-plugin' ),
-            ],
-            'training' => [
-                'name'          => __( 'Training und Übung', 'vereins-plugin' ),
-                'color'         => '#64748B',
-                'allows_items'  => 0,
-                'needs_helpers' => 0,
-                'allows_photos' => 0,
-                'is_resource'   => 0,
-                'note'          => __( 'Der wöchentliche Termin. Bewusst schlank, sonst wird die Terminliste unübersichtlich.', 'vereins-plugin' ),
-            ],
-            'sitzung' => [
-                'name'          => __( 'Sitzung', 'vereins-plugin' ),
-                'color'         => '#475569',
-                'allows_items'  => 0,
-                'needs_helpers' => 0,
-                'allows_photos' => 0,
-                'is_resource'   => 0,
-                'note'          => __( 'Vorstandssitzung und Ausschuss. Nur Zu- und Absage.', 'vereins-plugin' ),
-            ],
-            'markt' => [
-                'name'          => __( 'Stand und Markt', 'vereins-plugin' ),
-                'color'         => '#DB2777',
-                'allows_items'  => 1,
-                'needs_helpers' => 1,
-                'allows_photos' => 1,
-                'is_resource'   => 0,
-                'bring'         => 'bring_advent',
-                'help'          => 'help_stand',
-                'note'          => __( 'Weihnachtsmarkt, Dorffest, Tag der offenen Tür – Schichten statt Aufgaben.', 'vereins-plugin' ),
-            ],
-            'ressource_heim' => [
-                'name'          => __( 'Vereinsheim (Belegung)', 'vereins-plugin' ),
-                'color'         => '#94A3B8',
-                'allows_items'  => 0,
-                'needs_helpers' => 0,
-                'allows_photos' => 0,
-                'is_resource'   => 1,
-                'note'          => __( 'Ressource: hält fest, wann der Raum vergeben ist. Ohne Belegungsprüfung.', 'vereins-plugin' ),
+                'note'          => __( 'Platzpflege, Vereinsheim, Gerätewartung. Werkzeug wird mitgebracht, Aufgaben werden verteilt.', 'vereins-plugin' ),
             ],
         ];
     }

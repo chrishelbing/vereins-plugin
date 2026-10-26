@@ -155,29 +155,96 @@ foreach ( array_unique( $m[1] ) as $klasse ) {
 $fehler += melde( 'Shortcode-Registry', $shortcodes, count( array_unique( $m[1] ) ) . ' Shortcodes vollständig' );
 
 // ---------------------------------------------------------------------
-// 5. Übersetzungen im Frontend-Skript
+// 5. Das Frontend-Skript der Terminliste
 //
-// Die Terminliste hält ihre Texte in einem JavaScript-Objekt T. Ein dort
-// fehlender Schlüssel erscheint im Browser als "undefined".
+// Es liegt in assets/js/events/ und ist auf mehrere Dateien verteilt, die
+// PHP einzeln anmeldet. An drei Nähten kann das auseinanderlaufen, ohne dass
+// es jemandem auffällt – im Browser bleibt dann still ein Knopf wirkungslos:
+//
+//   a) Texte: PHP liefert sie in script_texts(), benutzt werden sie als
+//      T.<schlüssel>. Ein fehlender Schlüssel erscheint als "undefined".
+//   b) Dateien: die Liste SCRIPTS in PHP und der Ordnerinhalt müssen sich
+//      decken, sonst wird eine Datei nie geladen oder eine fehlt.
+//   c) Modulgrenzen: Aufrufe der Form VP.<modul>.<name>() müssen drüben
+//      auch eingetragen werden.
 // ---------------------------------------------------------------------
 $shortcode = file_get_contents( $root . '/includes/Frontend/EventsShortcode.php' );
-$texte     = [];
-if ( preg_match( '/var T = \{(.*?)\n            \};/s', $shortcode, $m ) ) {
-    preg_match_all( '/^\s*(\w+)\s*:/m', $m[1], $d );
-    preg_match_all( '/\bT\.(\w+)\b/', $shortcode, $v );
+$js_ordner = $root . '/assets/js/events';
+$js_pfade  = glob( $js_ordner . '/*.js' ) ?: [];
+$skript    = '';
+foreach ( $js_pfade as $pfad ) {
+    $skript .= file_get_contents( $pfad ) . "\n";
+}
+
+$texte  = [];
+$anzahl = 0;
+
+if ( ! $js_pfade ) {
+    $texte[] = 'assets/js/events/ ist leer oder fehlt';
+} elseif ( preg_match( '/function script_texts\(\): array \{.*?return \[(.*?)\n        \];/s', $shortcode, $m ) ) {
+    preg_match_all( "/^\s*'(\w+)'\s*=>/m", $m[1], $d );
+    preg_match_all( '/\bT\.(\w+)\b/', $skript, $v );
 
     foreach ( array_diff( array_unique( $v[1] ), $d[1] ) as $key ) {
-        $texte[] = "T.$key wird verwendet, ist aber nicht definiert";
+        $texte[] = "T.$key wird im Skript verwendet, fehlt aber in script_texts()";
     }
     foreach ( array_diff( $d[1], array_unique( $v[1] ) ) as $key ) {
-        $texte[] = "T.$key ist definiert, wird aber nicht verwendet";
+        $texte[] = "script_texts() liefert '$key', im Skript wird der Text nicht benutzt";
     }
     $anzahl = count( $d[1] );
 } else {
-    $texte[] = 'Das Textobjekt T konnte nicht gefunden werden';
-    $anzahl  = 0;
+    $texte[] = 'Die Textliste script_texts() konnte nicht gefunden werden';
 }
-$fehler += melde( 'Frontend-Texte', $texte, "$anzahl Schlüssel stimmig" );
+
+// b) Angemeldete Dateien gegen den Ordnerinhalt
+if ( preg_match( '/private const SCRIPTS = \[(.*?)\n    \];/s', $shortcode, $m ) ) {
+    preg_match_all( "/'([\w-]+)'/", $m[1], $d );
+    $vorhanden = array_map( fn( $p ) => basename( $p, '.js' ), $js_pfade );
+
+    foreach ( array_diff( $d[1], $vorhanden ) as $modul ) {
+        $texte[] = "SCRIPTS nennt '$modul', assets/js/events/$modul.js fehlt";
+    }
+    foreach ( array_diff( $vorhanden, $d[1] ) as $modul ) {
+        $texte[] = "assets/js/events/$modul.js wird von SCRIPTS nicht angemeldet";
+    }
+    if ( ( $d[1][0] ?? '' ) !== 'core' ) {
+        $texte[] = "'core' muss in SCRIPTS zuerst stehen";
+    }
+} else {
+    $texte[] = 'Die Dateiliste SCRIPTS konnte nicht gefunden werden';
+}
+
+// c) Aufrufe über Modulgrenzen gegen die Einträge in window.vpEvents
+preg_match_all( '/\bVP\.(\w+)\.(\w+)\s*\(/', $skript, $v );
+preg_match_all( '/\bVP\.(\w+)\s*=\s*\{(.*?)\};/s', $skript, $e, PREG_SET_ORDER );
+
+$angeboten = [];
+foreach ( $e as $satz ) {
+    preg_match_all( '/(\w+)\s*:/', $satz[2], $namen );
+    foreach ( $namen[1] as $name ) {
+        $angeboten[] = $satz[1] . '.' . $name;
+    }
+}
+foreach ( array_unique( array_map(
+    fn( $i ) => $v[1][ $i ] . '.' . $v[2][ $i ],
+    array_keys( $v[1] )
+) ) as $ruf ) {
+    if ( ! in_array( $ruf, $angeboten, true ) ) {
+        $texte[] = "VP.$ruf() wird gerufen, aber von keinem Modul eingetragen";
+    }
+}
+
+// Im ausgelagerten Skript darf kein PHP mehr stecken – sonst wäre die
+// Auslagerung nur halb passiert und die Dateien nicht mehr prüfbar.
+if ( strpos( $skript, '<?php' ) !== false ) {
+    $texte[] = 'In assets/js/events/ steckt noch PHP-Code';
+}
+
+$fehler += melde(
+    'Frontend-Skript',
+    $texte,
+    count( $js_pfade ) . " Dateien, $anzahl Texte, " . count( $angeboten ) . ' Modulgrenzen stimmig'
+);
 
 // ---------------------------------------------------------------------
 // 6. Einstellungen: gelesene Schlüssel müssen einen Standardwert haben

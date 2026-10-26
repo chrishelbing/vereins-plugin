@@ -147,6 +147,8 @@ class RecurrenceExpander {
             'photo_upload_days' => $event['photo_upload_days'] ?? null,
             // Titelbild der Kachel – gilt für alle Instanzen einer Serie.
             'image_attachment_id' => $event['image_attachment_id'] ?? null,
+            // Banner auf der Website – gilt wie das Titelbild für die ganze Serie.
+            'banner_days_before'  => $event['banner_days_before'] ?? null,
             'title'         => $exception['title']       ?? $event['title'],
             'description'   => $exception['description'] ?? $event['description'],
             'location'      => $exception['location']    ?? $event['location'],

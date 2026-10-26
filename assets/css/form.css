@@ -1,0 +1,62 @@
+/**
+ * Termin-Formular
+ *
+ * Gemeinsam genutzt vom Shortcode [vp_create_event] und vom
+ * Bearbeiten-Dialog der Terminliste. Vorher stand dieser Stil als
+ * <style>-Block im Anlegen-Formular; seit der Dialog dieselben Felder
+ * zeigt, liegt er hier und wird von beiden angefordert.
+ */
+.vp-form-wrap { max-width: 600px; font-family: inherit; }
+
+.vp-form__group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.vp-form__group label { font-size: .85rem; font-weight: 600; color: #374151; }
+.vp-form__group input,
+.vp-form__group select,
+.vp-form__group textarea { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: .95rem; font-family: inherit; }
+.vp-form__group input:focus,
+.vp-form__group select:focus,
+.vp-form__group textarea:focus { outline: 2px solid #3b82f6; border-color: transparent; }
+
+.vp-form__row { display: flex; gap: 16px; }
+.vp-form__row .vp-form__group { flex: 1; }
+
+.vp-form__check label { display: flex; align-items: center; gap: 8px; font-weight: 400; cursor: pointer; }
+
+.vp-recurrence { background: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+
+.vp-weekdays { display: flex; gap: 8px; flex-wrap: wrap; }
+.vp-weekdays__btn { display: flex; align-items: center; gap: 4px; font-size: .85rem; cursor: pointer; }
+
+.vp-btn { background: #3b82f6; color: #fff; border: none; padding: 10px 24px; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: 600; }
+.vp-btn:hover { background: #2563eb; }
+.vp-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.vp-form__msg { min-height: 24px; font-size: .9rem; padding: 4px 0; }
+.vp-form__msg--ok  { color: #059669; }
+.vp-form__msg--err { color: #dc2626; }
+
+/* --- Nur im Bearbeiten-Dialog ------------------------------------- */
+
+/* Im Dialog trägt der Kasten die Breite, nicht das Formular. */
+.vp-modal .vp-form-wrap { max-width: none; }
+
+/* Der Dialog ist breiter als die übrigen: Start und Ende stehen
+   nebeneinander, und datetime-local-Felder sind unnachgiebig breit. */
+.vp-modal__box--form { max-width: 560px; }
+
+.vp-edit__foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+
+/* Löschen steht bewusst abseits und ohne Signalfarbe, bis man darauf
+   zeigt: Es ist der einzige Knopf hier, der nichts zurücknehmen lässt. */
+.vp-edit__delete { margin-left: auto; background: none; border: none; color: #6b7280; font-size: .85rem; cursor: pointer; padding: 6px 4px; text-decoration: underline; }
+.vp-edit__delete:hover { color: #dc2626; }
+
+/* Die Rückfrage bei Serien: erscheint erst beim Speichern. */
+.vp-edit__scope { background: #f3f4f6; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+.vp-edit__scope[hidden] { display: none; }
+.vp-edit__scope strong { display: block; font-size: .85rem; color: #374151; margin-bottom: 8px; }
+.vp-edit__scope label { display: flex; align-items: flex-start; gap: 8px; font-size: .9rem; cursor: pointer; padding: 4px 0; }
+.vp-edit__scope small { display: block; color: #6b7280; font-size: .8rem; }
+
+/* Solange die Serienfrage offen ist, gehören die Felder nicht angefasst. */
+.vp-edit__fields.is-locked { opacity: .5; pointer-events: none; }

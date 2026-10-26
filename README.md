@@ -84,11 +84,14 @@ erst gefragt, wenn er wirklich gebraucht wird – und nur nach dem Namen.
 
 ### 0. Der erste Tag: nicht bei null anfangen
 
-Nach der Aktivierung ist das Plugin nicht leer. Neun Termintypen (Fest,
-Versammlung, Stammtisch, Arbeitseinsatz, Fahrt, Training, Sitzung, Markt,
-Vereinsheim als Ressource) und neun Mitbring- und Helferlisten sind
+Nach der Aktivierung ist das Plugin nicht leer. Vier Termintypen (Training
+und Übung, Spiel und Wettkampf, Fest, Arbeitseinsatz) und sechs Mitbring-
+und Helferlisten sind
 angelegt und miteinander verknüpft – der erste Termin lässt sich sofort
-erstellen, ohne vorher irgendetwas zu konfigurieren.
+erstellen, ohne vorher irgendetwas zu konfigurieren. Ausgewählt ist nach
+dem Alltag eines Breitensportvereins; alles Weitere – Versammlung, Sitzung,
+Marktstand, Ressourcen – legt der Verein selbst an, statt es erst
+wegräumen zu müssen.
 
 Terminserien kommen bewusst nicht mit erfundenen Daten daher – ein
 geratenes Datum stünde falsch in der Liste und würde geteilt. Serien legt
@@ -154,12 +157,13 @@ benachrichtigt, dass die Sammlung vollständig ist und als ZIP
 heruntergeladen werden kann. Fotos sind Mitgliedern vorbehalten – wer nur
 über einen Terminlink kam, kommt nicht heran.
 
-### 6. Serientermine: der monatliche Stammtisch
+### 6. Serientermine: das wöchentliche Training
 
 Termine wiederholen sich täglich, wöchentlich (mit Wochentagsauswahl),
 monatlich oder jährlich, begrenzt durch Enddatum oder Anzahl. Einzelne
-Termine der Serie lassen sich abweichend ändern oder absagen – der Stammtisch
-im Dezember fällt aus, ohne dass die ganze Serie angefasst werden muss.
+Termine der Serie lassen sich abweichend ändern oder absagen – das Training
+zwischen den Jahren fällt aus, ohne dass die ganze Serie angefasst werden
+muss.
 
 ### 7. Mitgliederaufnahme ohne Karteileichen
 
@@ -263,7 +267,7 @@ schon vergeben hatte.
 **Schnittstelle und Technik**
 
 - REST-API unter `vereins-plugin/v1` für Termine, Zusagen, Listen, Fotos, Anmeldung
-- Shortcodes: `[vp_events]`, `[vp_create_event]`, `[vp_login]`, `[vp_register]`
+- Shortcodes: `[vp_events]`, `[vp_create_event]`, `[vp_login]`, `[vp_register]`, `[vp_banner]`
 - Automatisierte Prüfungen (`php tools/pruefen.php`) für Syntax, Zugriffsrechte, Personenwege, Startdaten und QR-Encoder
 - Keine externen Dienste, keine externen PHP-Abhängigkeiten
 

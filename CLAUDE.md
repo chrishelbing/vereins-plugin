@@ -18,26 +18,39 @@ ihr noch glaubt.
 php tools/pruefen.php
 ```
 
-Das ist verbindlich, nicht optional. Der Befehl startet fünf Prüfungen und
+Das ist verbindlich, nicht optional. Der Befehl startet sieben Prüfungen und
 liefert Rückgabewert 1, sobald eine anschlägt. Läuft `exec()` in der
-Umgebung nicht, sind die fünf Dateien einzeln aufzurufen.
+Umgebung nicht, sind die sieben Dateien einzeln aufzurufen.
 
 | Datei | prüft |
 |---|---|
-| `tools/check.php` | Syntax, Autoloader-Pfade, Symbole, Shortcode-Registry, Frontend-Texte, Einstellungen, Versionsnummer, „keine WordPress-Profile für Unbestätigte" |
+| `tools/check.php` | Syntax, Autoloader-Pfade, Symbole, Shortcode-Registry, Frontend-Skript, Einstellungen, Versionsnummer, „keine WordPress-Profile für Unbestätigte" |
 | `tools/zugriffstest.php` | Wer sich anmelden darf, wer in den Mitgliederbereich kommt, wer ins Backend – dazu Aussperrschutz und die Kopplung von Status und Vereinsrolle |
 | `tools/personentest.php` | Der Weg einer Person: Zusage über Terminlink, Wiedererkennung, Bestätigung, Aufnahme, Ablehnung, Übernahme von Altbeständen |
+| `tools/apitest.php` | Die Schnittstelle aus Sicht der App: Lebensdauer, Verlängerung und Widerruf von Sitzungen, die Form von `GET /me`, die Erkennung nicht angeschlossener Versandwege |
 | `tools/startdatentest.php` | Startdaten: einmalig bei der Aktivierung, Nachlegen auf Anforderung ohne Dubletten, Wirksamkeit der Vorlagen am Termin |
 | `tools/qrtest.php` | Der selbstgebaute QR-Encoder gegen hinterlegte Sollwerte |
+| `tools/bannertest.php` | Terminbanner: Sichtbarkeitsfenster, Reihenfolge, nur die nächste Serieninstanz, nur freigegebene Termine |
 
 Neue Fachlogik gehört mit einem Fall in die passende Testdatei. Die Tests
 laufen gegen `tools/lib/wp-stub.php`, einen kleinen WordPress-Ersatz im
 Speicher – ohne Datenbank, ohne Installation.
 
 **Wenn ein Test etwas Überraschendes meldet, zuerst den Ersatz verdächtigen.**
-Er ist absichtlich naiv, und zwei Fehlalarme kamen schon von ihm: Einmal
+Er ist absichtlich naiv, und drei Fehlalarme kamen schon von ihm: Einmal
 wurde `WHERE m.status = …` wegen des Tabellenkürzels stillschweigend
-ignoriert, einmal fraß die Kürzelbereinigung das `example.` in E-Mail-Adressen.
+ignoriert, einmal fraß die Kürzelbereinigung das `example.` in E-Mail-Adressen,
+einmal fiel `expires_at > …` durch – der Ersatz kannte nur Gleichheit, `IN`
+und `IS NULL`, und jede abgelaufene Zeile galt damit als gültig.
+
+Zwei Eigenheiten, die man wissen muss, bevor man dem Ersatz glaubt:
+
+- **`ORDER BY` wird ignoriert.** Zeilen kommen in Einfügereihenfolge zurück.
+  Ein Test, der eine Sortierung prüfen will, prüft sie nicht.
+- **Spalten-DEFAULTs kennt er nicht.** Was ein `INSERT` weglässt, fehlt in der
+  Zeile schlicht, und `WHERE revoked = 0` trifft sie dann nie. Wer eine
+  Tabelle prüft, bei der das zählt, trägt die Vorgaben in
+  `$wpdb->defaults['tabelle']` ein – siehe `tools/apitest.php`.
 
 ## Was die Tests nicht abdecken
 
@@ -46,6 +59,11 @@ Ehrlich benannt, damit niemand sich in Sicherheit wiegt:
 - **Alles im Browser.** Die Anordnung auf der Flyer-Leinwand, die Reihenfolge
   beim Laden des Medienmanagers, das Verhalten der Overlays. Das wurde
   einmalig mit eigenen Werkzeugen geprüft, ist aber nicht dauerhaft abgesichert.
+  Für das Skript der Terminliste in `assets/js/events/` prüft `check.php`
+  immerhin die drei Nähte, an denen es lautlos auseinanderlaufen kann: Texte
+  gegen `script_texts()`, Dateien gegen die Liste `SCRIPTS`, und jeden Aufruf
+  über eine Modulgrenze gegen den Eintrag in `window.vpEvents`. Ob ein Knopf
+  tatsächlich das Richtige tut, sagt auch das nicht.
 - **Echte Datenbank.** Die Migrationen in `Database\Schema` – Umbenennen von
   Spalten, Wechsel auf vorzeichenbehaftete Zahlen – laufen im Test nicht mit.
 - **Der QR-Nachweis selbst.** Der Test hält das Ergebnis fest, prüft aber
