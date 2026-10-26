@@ -111,17 +111,23 @@ class Schema {
         // allows_items / needs_helpers steuern, ob Termine dieses Typs eine
         // Mitbringliste bzw. Helferaufgaben haben. Die default_*_template_id
         // wird beim Anlegen vorbelegt, ist dort aber änderbar.
+        // tags: JSON-Liste der Tags, die Termine dieses Typs tragen können
+        //       (z. B. Altersklassen); Auswahl am Termin in vp_events.tags.
+        // allows_rsvp: 0 = reiner Infotermin – keine Zu-/Absage, und damit
+        // auch keine Helferaufgaben und keine Mitbringliste.
         $event_types = "CREATE TABLE {$wpdb->prefix}vp_event_types (
             id                       BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             name                     VARCHAR(100)    NOT NULL,
             color                    VARCHAR(7)      NOT NULL DEFAULT '#3B82F6',
             icon                     VARCHAR(50)     DEFAULT NULL,
             is_resource              TINYINT(1)      NOT NULL DEFAULT 0,
+            allows_rsvp              TINYINT(1)      NOT NULL DEFAULT 1,
             allows_items             TINYINT(1)      NOT NULL DEFAULT 0,
             needs_helpers            TINYINT(1)      NOT NULL DEFAULT 0,
             allows_photos            TINYINT(1)      NOT NULL DEFAULT 0,
             default_item_template_id BIGINT UNSIGNED DEFAULT NULL,
             default_help_template_id BIGINT UNSIGNED DEFAULT NULL,
+            tags                     TEXT            DEFAULT NULL,
             created_by               BIGINT UNSIGNED NOT NULL,
             created_at               DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id)
@@ -134,6 +140,7 @@ class Schema {
         // resource_id: optionale Ressource die gebucht wird (self-referencing auf vp_event_types mit is_resource=1)
         // approval_status: 'approved' (live: vom Admin angelegt oder freigegeben) | 'pending' (wartet auf Freigabe) | 'rejected'
         //                  | 'draft' (Entwurf: nur im Backend sichtbar, per Schalter live zu stellen)
+        // tags: JSON-Liste, Auswahl aus den Tags des Termintyps (NULL = keine).
         // banner_days_before: NULL = kein Banner. Sonst erscheint der Termin im
         //                     Shortcode [vp_banner] ab so vielen Tagen vor
         //                     Beginn bis zu seinem Ende; 0 = sofort.
@@ -154,6 +161,7 @@ class Schema {
             photo_upload_days SMALLINT UNSIGNED DEFAULT NULL,
             image_attachment_id BIGINT UNSIGNED DEFAULT NULL,
             banner_days_before SMALLINT UNSIGNED DEFAULT NULL,
+            tags             TEXT            DEFAULT NULL,
             created_by       BIGINT UNSIGNED NOT NULL,
             created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

@@ -137,6 +137,7 @@ class RecurrenceExpander {
             'type_name'     => $event['type_name']  ?? null,
             'type_color'    => $event['type_color'] ?? null,
             'is_resource'   => (bool) ( $event['is_resource'] ?? false ),
+            'allows_rsvp'   => EventTypeModel::rsvp_allowed( $event ),
             'allows_items'  => (bool) ( $event['allows_items'] ?? false ),
             'needs_helpers' => (bool) ( $event['needs_helpers'] ?? false ),
             'allows_photos' => (bool) ( $event['allows_photos'] ?? false ),
@@ -149,6 +150,8 @@ class RecurrenceExpander {
             'image_attachment_id' => $event['image_attachment_id'] ?? null,
             // Banner auf der Website – gilt wie das Titelbild für die ganze Serie.
             'banner_days_before'  => $event['banner_days_before'] ?? null,
+            // Tags gelten für die ganze Serie.
+            'tags'                => \VereinsPlugin\Support\Tags::decode( $event['tags'] ?? null ),
             'title'         => $exception['title']       ?? $event['title'],
             'description'   => $exception['description'] ?? $event['description'],
             'location'      => $exception['location']    ?? $event['location'],

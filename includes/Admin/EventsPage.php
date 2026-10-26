@@ -12,6 +12,7 @@ use VereinsPlugin\Events\ItemModel;
 use VereinsPlugin\Events\TemplateModel;
 use VereinsPlugin\Photos\PhotoModel;
 use VereinsPlugin\Support\Capabilities;
+use VereinsPlugin\Support\Tags;
 
 /**
  * wp-admin-Seite "Termine": Liste + Anlegen/Bearbeiten (inkl. Wiederholung) + Löschen.
@@ -137,6 +138,10 @@ class EventsPage {
                                     (int) $e['banner_days_before']
                                 ) ); ?>"><?php esc_html_e( 'Banner', 'vereins-plugin' ); ?></span>
                             <?php endif; ?>
+                            <?php $e_tags = Tags::decode( $e['tags'] ?? null ); ?>
+                            <?php if ( $e_tags ) : ?>
+                                <br><span class="description"><?php echo esc_html( implode( ' · ', $e_tags ) ); ?></span>
+                            <?php endif; ?>
                         </td>
                         <td>
                             <?php if ( $e['type_color'] ?? '' ) : ?>
@@ -162,6 +167,9 @@ class EventsPage {
                             <span class="vp-badge vp-badge--<?php echo esc_attr( $badge ); ?>"><?php echo esc_html( $this->status_label( $e['approval_status'] ) ); ?></span>
                         </td>
                         <td>
+                            <?php if ( ! EventTypeModel::rsvp_allowed( $e ) ) : ?>
+                                <span class="description"><?php esc_html_e( 'nur Info', 'vereins-plugin' ); ?></span>
+                            <?php else : ?>
                             <?php $totals = $this->attendance->totals_for_event( (int) $e['id'] ); ?>
                             <span style="color:#059669;font-weight:600;"><?php printf( esc_html__( '%d zu', 'vereins-plugin' ), $totals['yes'] ); ?></span>
                             /
@@ -191,6 +199,7 @@ class EventsPage {
                                     ?>
                                 </span>
                             <?php endif; ?>
+                            <?php endif; // rsvp_allowed ?>
                             <?php
                             $photo_totals = $this->photos->totals_for_event( (int) $e['id'] );
                             if ( $photo_totals['count'] > 0 ) :
@@ -308,6 +317,30 @@ class EventsPage {
                             <?php endforeach; ?>
                         </select>
                     </div>
+
+                    <?php
+                    // Tags: Jeder Typ bringt seine eigene Auswahl mit. Alle
+                    // Gruppen stehen im Formular, das Skript unten zeigt die
+                    // des gewählten Typs. Mitgeschickt wird nur die sichtbare
+                    // (die anderen sind deaktiviert), und handle_save prüft
+                    // ohnehin gegen den Typ.
+                    $termin_tags = Tags::decode( $editing['tags'] ?? null );
+                    ?>
+                    <?php foreach ( $types as $typ ) : ?>
+                        <?php $typ_tags = EventTypeModel::tags_of( $typ ); ?>
+                        <?php if ( ! $typ_tags ) { continue; } ?>
+                        <div class="vp-field vp-tagset" data-type="<?php echo esc_attr( $typ['id'] ); ?>"<?php echo (int) $typ['id'] === $gewaehlter_typ ? '' : ' style="display:none;"'; ?>>
+                            <label><?php esc_html_e( 'Tags', 'vereins-plugin' ); ?></label>
+                            <?php foreach ( $typ_tags as $tag ) : ?>
+                                <label style="display:inline-block;margin-right:12px;font-weight:400;">
+                                    <input type="checkbox" name="tags[]" value="<?php echo esc_attr( $tag ); ?>"
+                                           <?php disabled( (int) $typ['id'] !== $gewaehlter_typ ); ?>
+                                           <?php checked( (int) $typ['id'] === $gewaehlter_typ && in_array( $tag, $termin_tags, true ) ); ?>>
+                                    <?php echo esc_html( $tag ); ?>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endforeach; ?>
 
                     <div class="vp-field">
                         <label for="vp-title"><?php esc_html_e( 'Titel', 'vereins-plugin' ); ?></label>
@@ -515,6 +548,18 @@ class EventsPage {
 
                     var typ  = document.getElementById('vp-type');
                     var foto = document.getElementById('vp-photo-field');
+
+                    // Tag-Auswahl des gewählten Typs zeigen, die übrigen
+                    // ausblenden und deaktivieren, damit sie nicht mitgehen.
+                    if ( typ ) {
+                        typ.addEventListener('change', function(){
+                            document.querySelectorAll('.vp-tagset').forEach(function(set){
+                                var an = set.dataset.type === typ.value;
+                                set.style.display = an ? '' : 'none';
+                                set.querySelectorAll('input').forEach(function(i){ i.disabled = !an; });
+                            });
+                        });
+                    }
                     if ( typ && foto ) {
                         typ.addEventListener('change', function(){
                             var opt = typ.options[ typ.selectedIndex ];
@@ -558,6 +603,12 @@ class EventsPage {
                     ? self::BANNER_DEFAULT_DAYS
                     : max( 0, min( 365, (int) $_POST['banner_days_before'] ) ) ),
         ];
+
+        // Nur Tags, die der gewählte Typ vorgibt.
+        $data['tags'] = Tags::encode( Tags::restrict(
+            array_map( 'sanitize_text_field', wp_unslash( (array) ( $_POST['tags'] ?? [] ) ) ),
+            EventTypeModel::tags_of( $this->type_model->find( $data['event_type_id'] ) )
+        ) );
 
         // Den Status nur anfassen, wenn das Formular den Schalter gezeigt hat –
         // sonst würde das Speichern eines vorgeschlagenen Termins ihn

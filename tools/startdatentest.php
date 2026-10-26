@@ -32,6 +32,7 @@ stub_load( [
     'Events/TemplateModel.php',
     'Events/EventTypeModel.php',
     'Events/ItemModel.php',
+    'Support/Tags.php',
     'Events/RecurrenceExpander.php',
     'Core/Seeder.php',
 ] );

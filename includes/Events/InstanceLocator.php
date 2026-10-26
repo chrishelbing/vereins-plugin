@@ -36,6 +36,7 @@ class InstanceLocator {
         if ( $type ) {
             $event['type_name']     = $type['name'];
             $event['type_color']    = $type['color'];
+            $event['allows_rsvp']   = $type['allows_rsvp'] ?? 1;
             $event['allows_items']  = $type['allows_items'];
             $event['needs_helpers'] = $type['needs_helpers'];
             $event['allows_photos'] = $type['allows_photos'];

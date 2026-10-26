@@ -46,6 +46,8 @@
 .vp-events__type { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
 .vp-events__title{ font-size: 1.05rem; font-weight: 700; color: #111827; line-height: 1.3; }
 .vp-events__meta { font-size: 0.8rem; color: #6b7280; }
+.vp-events__tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0; }
+.vp-events__tag  { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #f3f4f6; color: #374151; font-size: .72rem; font-weight: 600; line-height: 1.6; }
 .vp-notice       { color: #6b7280; font-style: italic; }
 .vp-events__heading { font-size: 1rem; font-weight: 700; color: #374151; margin: 28px 0 2px; }
 .vp-events__hint { font-size: .8rem; color: #9ca3af; margin: 0 0 10px; }

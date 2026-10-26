@@ -23,6 +23,8 @@ declare( strict_types=1 );
 require_once __DIR__ . '/lib/wp-stub.php';
 
 stub_load( [
+    'Support/Tags.php',
+    'Events/EventTypeModel.php',
     'Events/EventModel.php',
     'Events/RecurrenceExpander.php',
     'Events/BannerSelector.php',

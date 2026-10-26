@@ -18,9 +18,9 @@ ihr noch glaubt.
 php tools/pruefen.php
 ```
 
-Das ist verbindlich, nicht optional. Der Befehl startet sieben Prüfungen und
+Das ist verbindlich, nicht optional. Der Befehl startet acht Prüfungen und
 liefert Rückgabewert 1, sobald eine anschlägt. Läuft `exec()` in der
-Umgebung nicht, sind die sieben Dateien einzeln aufzurufen.
+Umgebung nicht, sind die acht Dateien einzeln aufzurufen.
 
 | Datei | prüft |
 |---|---|
@@ -31,6 +31,7 @@ Umgebung nicht, sind die sieben Dateien einzeln aufzurufen.
 | `tools/startdatentest.php` | Startdaten: einmalig bei der Aktivierung, Nachlegen auf Anforderung ohne Dubletten, Wirksamkeit der Vorlagen am Termin |
 | `tools/qrtest.php` | Der selbstgebaute QR-Encoder gegen hinterlegte Sollwerte |
 | `tools/bannertest.php` | Terminbanner: Sichtbarkeitsfenster, Reihenfolge, nur die nächste Serieninstanz, nur freigegebene Termine |
+| `tools/tagtest.php` | Infotermine (Termintyp ohne Zusagen) und Tags: Vorgabe am Typ, Auswahl am Termin, Speichern und Leeren |
 
 Neue Fachlogik gehört mit einem Fall in die passende Testdatei. Die Tests
 laufen gegen `tools/lib/wp-stub.php`, einen kleinen WordPress-Ersatz im

@@ -52,6 +52,26 @@
 
     function feld(name) { return form.querySelector('[name="' + name + '"]'); }
 
+    /**
+     * Tags gibt der Termintyp vor: Sichtbar ist nur die Auswahl des
+     * gewählten Typs, die übrigen sind deaktiviert. Bei „nur dieser
+     * Termin“ gar keine – Tags gelten für die ganze Serie.
+     */
+    function zeigeTags(aus) {
+        [].forEach.call(form.querySelectorAll('[data-vp-tagset]'), function(set){
+            var an = !aus && set.dataset.vpTagset === String(typeSel.value);
+            set.hidden = !an;
+            [].forEach.call(set.querySelectorAll('input'), function(i){ i.disabled = !an; });
+        });
+    }
+
+    function gewaehlteTags() {
+        return [].map.call(
+            form.querySelectorAll('[data-vp-tagset]:not([hidden]) input:checked'),
+            function(cb){ return cb.value; }
+        );
+    }
+
     /** 'YYYY-MM-DD HH:MM:SS' → 'YYYY-MM-DDTHH:MM' für datetime-local. */
     function fuerFeld(wert) {
         if (!wert) { return ''; }
@@ -84,6 +104,7 @@
         var nurDieser = aktuell.istSerie && form.querySelector('[name="scope"]:checked').value === 'instance';
 
         typeSel.disabled = nurDieser;
+        zeigeTags(nurDieser);
         recurCb.closest('.vp-form__group').hidden = nurDieser;
         if (nurDieser) { recurBox.style.display = 'none'; }
         else           { recurBox.style.display = recurCb.checked ? 'block' : 'none'; }
@@ -99,6 +120,16 @@
         feld('start_at').value      = fuerFeld(d.start_at);
         feld('end_at').value        = fuerFeld(d.end_at);
         feld('is_full_day').checked = !!Number(d.is_full_day);
+
+        // In der Datenbank steht eine JSON-Liste.
+        var tags = d.tags || [];
+        if (typeof tags === 'string') {
+            try { tags = JSON.parse(tags) || []; } catch (e) { tags = []; }
+        }
+        [].forEach.call(form.querySelectorAll('[name="tags[]"]'), function(cb){
+            cb.checked = cb.closest('[data-vp-tagset]').dataset.vpTagset === String(d.event_type_id)
+                && tags.indexOf(cb.value) !== -1;
+        });
 
         var r = d.recurrence || null;
         recurCb.checked = !!r;
@@ -141,6 +172,8 @@
         if (!typeSel.disabled) {
             body.event_type_id = parseInt(typeSel.value, 10);
             body.is_full_day   = feld('is_full_day').checked;
+            // Immer mitschicken, auch leer – so lassen sich Tags entfernen.
+            body.tags          = gewaehlteTags();
         }
 
         if (!typeSel.disabled && recurCb.checked) {
@@ -235,6 +268,7 @@
         wdBox.style.display = freqSel.value === 'WEEKLY' ? 'block' : 'none';
     });
     scope.addEventListener('change', umfangAnwenden);
+    typeSel.addEventListener('change', function(){ zeigeTags(false); });
 
     // --- Speichern ------------------------------------------------------
     form.addEventListener('submit', function(e){

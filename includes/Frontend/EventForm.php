@@ -60,6 +60,30 @@ class EventForm {
             </select>
         </div>
 
+        <?php
+        // Tags: je Termintyp eine eigene Auswahl. Alle stehen im Markup und
+        // sind zunächst verborgen; das Skript des jeweiligen Formulars zeigt
+        // die des gewählten Typs (data-vp-tagset = Typ-ID) und deaktiviert
+        // die übrigen. Der Server prüft die Auswahl ohnehin gegen den Typ.
+        foreach ( $types as $t ) :
+            $typ_tags = \VereinsPlugin\Events\EventTypeModel::tags_of( $t );
+            if ( ! $typ_tags ) {
+                continue;
+            }
+        ?>
+        <div class="vp-form__group vp-tagset" data-vp-tagset="<?php echo esc_attr( $t['id'] ); ?>" hidden>
+            <label><?php esc_html_e( 'Tags', 'vereins-plugin' ); ?></label>
+            <div class="vp-tags">
+                <?php foreach ( $typ_tags as $tag ) : ?>
+                    <label class="vp-tags__btn">
+                        <input type="checkbox" name="tags[]" value="<?php echo esc_attr( $tag ); ?>" disabled>
+                        <?php echo esc_html( $tag ); ?>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endforeach; ?>
+
         <div class="vp-form__group">
             <label for="<?php echo esc_attr( $id( 'title' ) ); ?>"><?php esc_html_e( 'Titel', 'vereins-plugin' ); ?></label>
             <input type="text" id="<?php echo esc_attr( $id( 'title' ) ); ?>" name="title" required

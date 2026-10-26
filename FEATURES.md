@@ -164,6 +164,48 @@ zusätzlich im Backend. **Freigeben dürfen nur Administratoren, nur im
 Backend.** Bis dahin ist ein Termin nicht sichtbar. In der Übersicht steht,
 wer ihn angelegt und wer ihn freigegeben hat.
 
+### Infotermine ohne Zusage
+
+Am Termintyp steht der Schalter „Mitglieder können zu Terminen dieses Typs
+zu- und absagen“ (`allows_rsvp`, Standard an). Ohne ihn sind die Termine
+reine Information: Die Kachel zeigt weder Zu-/Absage-Knöpfe noch Zähler,
+und `POST /events/{id}/attendance` lehnt mit `no_rsvp` (409) ab – die
+Oberfläche allein wäre keine Sperre.
+
+Helferaufgaben und Mitbringliste setzen Zusagen voraus. Im Typ-Formular
+werden sie deshalb mit ausgegraut und als 0 gespeichert; die Kachel prüft
+es zusätzlich, falls an einem Typ noch alte Werte stehen. Fotos bleiben
+unabhängig davon möglich.
+
+Banner und Flyer passen ihre Worte an: Der Bannerknopf heißt „Zum Termin“
+statt „Jetzt zusagen“, der Flyer „Scannen für alle Infos“. In der
+Backend-Übersicht steht unter Rückmeldungen „nur Info“.
+
+Fehlt das Feld – alte Daten, eine Zeile ohne Typ-Join –, gilt wie vor dem
+Schalter: Zusagen sind möglich (`EventTypeModel::rsvp_allowed()`).
+
+### Tags
+
+Der Termintyp gibt Tags vor (Feld „Tags“, durch Komma getrennt), etwa
+Altersklassen: U9, U11, U13, Veteranen. Am Termin werden daraus die
+zutreffenden angehakt; das Backend-Formular zeigt jeweils die Auswahl des
+gewählten Typs. Auf der Kachel stehen sie als kleine Pillen unter dem
+Titel, in der Backend-Übersicht unter dem Titel.
+
+- Gespeichert wird als JSON-Liste in `vp_event_types.tags` und
+  `vp_events.tags`; Umgang damit in `Support\Tags`.
+- Am Termin bleibt nur, was der Typ kennt, in der Reihenfolge des Typs
+  (`Tags::restrict()`) – beim Speichern im Backend wie über die
+  Schnittstelle (`tags` in `POST`/`PUT /events`). Wer ein Tag am Typ
+  streicht, verliert es am Termin beim nächsten Speichern.
+- Ein `PUT` ohne `tags` lässt die Tags unverändert.
+- Bei Serien gelten die Tags für alle Termine der Serie.
+- Auswählbar überall, wo Termine angelegt oder geändert werden: im
+  Backend, in `[vp_create_event]` und im Bearbeiten-Dialog an der Kachel
+  (alle drei zeigen nur die Tags des gewählten Typs). Im Dialog nicht bei
+  „nur dieser Termin“ – Tags gelten für die ganze Serie.
+- **Noch nicht** als Filter der Terminliste.
+
 ### Entwurf und live
 
 Jeder Termin, den ein Administrator verwaltet, ist entweder **Entwurf** oder

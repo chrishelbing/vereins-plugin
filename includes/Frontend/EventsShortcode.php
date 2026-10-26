@@ -358,6 +358,8 @@ class EventsShortcode {
         $multi_day = DateRange::is_multi_day( $event['start_at'], $event['end_at'] );
         $badge     = DateRange::badge( $event['start_at'], $event['end_at'] );
 
+        $allows_rsvp = EventTypeModel::rsvp_allowed( $event );
+
         return [
             'event_id'      => $event_id,
             'inst_date'     => $inst_date,
@@ -365,6 +367,7 @@ class EventsShortcode {
             'color'         => esc_attr( $event['type_color'] ?? '#3B82F6' ),
             'type'          => esc_html( $event['type_name'] ?? '' ),
             'title'         => esc_html( $event['title'] ),
+            'tags'          => \VereinsPlugin\Support\Tags::decode( $event['tags'] ?? null ),
             'loc'           => $event['location'] ? esc_html( $event['location'] ) : '',
             'multi_day'     => $multi_day,
             'day'           => $badge['day'],
@@ -381,8 +384,12 @@ class EventsShortcode {
             'helps'         => $stats['help'][ $key ] ?? [ 'items' => 0, 'open' => 0 ],
             'photo_count'   => $stats['photos'][ $key ] ?? 0,
             // Was der Termintyp erlaubt, entscheidet über die Bereiche.
-            'allows_items'  => ! empty( $event['allows_items'] ),
-            'needs_helpers' => ! empty( $event['needs_helpers'] ),
+            // Ein reiner Infotermin kennt weder Zusagen noch Helfer noch
+            // Mitbringliste – auch wenn an einem älteren Typ noch etwas
+            // davon eingetragen sein sollte.
+            'allows_rsvp'   => $allows_rsvp,
+            'allows_items'  => $allows_rsvp && ! empty( $event['allows_items'] ),
+            'needs_helpers' => $allows_rsvp && ! empty( $event['needs_helpers'] ),
             // Fotos bleiben angemeldeten Mitgliedern vorbehalten.
             'allows_photos' => ! $is_public && ! empty( $event['allows_photos'] ),
             // Bearbeiten darf, wer den Termin angelegt hat, dazu das
@@ -409,6 +416,13 @@ class EventsShortcode {
                     <span class="vp-events__type" style="color:<?php echo $t['color']; ?>"><?php echo $t['type']; ?></span>
                 <?php endif; ?>
                 <span class="vp-events__title"><?php echo $t['title']; ?></span>
+                <?php if ( $t['tags'] ) : ?>
+                    <span class="vp-events__tags">
+                        <?php foreach ( $t['tags'] as $tag ) : ?>
+                            <span class="vp-events__tag"><?php echo esc_html( $tag ); ?></span>
+                        <?php endforeach; ?>
+                    </span>
+                <?php endif; ?>
                 <span class="vp-events__meta">
                     <?php echo $t['time']; ?>
                     <?php if ( $t['loc'] ) : ?>
@@ -424,7 +438,9 @@ class EventsShortcode {
                 <?php endif; ?>
 
         <?php
-        $this->tile_rsvp( $t, $is_public );
+        if ( $t['allows_rsvp'] ) {
+            $this->tile_rsvp( $t, $is_public );
+        }
         $this->tile_chips( $t );
         ?>
         </div><?php // /vp-tile__body ?>

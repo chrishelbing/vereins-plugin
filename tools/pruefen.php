@@ -22,6 +22,7 @@ $pruefungen = [
     'startdatentest.php' => 'Startdaten: einmalig, nachlegbar, am Termin wirksam',
     'qrtest.php'         => 'QR-Encoder gegen hinterlegte Sollwerte',
     'bannertest.php'     => 'Terminbanner: Auswahl, Zeitfenster, Serien, Freigabe',
+    'tagtest.php'        => 'Infotermine ohne Zusage, Tags aus dem Termintyp',
 ];
 
 $exec_frei = function_exists( 'exec' )

@@ -79,6 +79,18 @@ class CreateEventShortcode {
             const API     = <?php echo json_encode( $api ); ?>;
             const NONCE   = <?php echo json_encode( $nonce ); ?>;
 
+            // Tags des gewählten Termintyps zeigen, die übrigen ausblenden.
+            const typeSel = form.querySelector('[name="event_type_id"]');
+            const zeigeTags = () => {
+                form.querySelectorAll('[data-vp-tagset]').forEach(set => {
+                    const an = set.dataset.vpTagset === typeSel.value;
+                    set.hidden = !an;
+                    set.querySelectorAll('input').forEach(i => { i.disabled = !an; });
+                });
+            };
+            typeSel.addEventListener('change', zeigeTags);
+            zeigeTags();
+
             recurCb.addEventListener('change', () => {
                 panel.style.display = recurCb.checked ? 'block' : 'none';
             });
@@ -101,6 +113,7 @@ class CreateEventShortcode {
                     start_at:      fd.get('start_at').replace('T', ' ') + ':00',
                     end_at:        fd.get('end_at').replace('T', ' ') + ':00',
                     is_full_day:   fd.get('is_full_day') === 'on',
+                    tags:          [...form.querySelectorAll('[data-vp-tagset]:not([hidden]) input:checked')].map(el => el.value),
                 };
 
                 if ( recurCb.checked ) {
@@ -134,6 +147,7 @@ class CreateEventShortcode {
                         msg.className   = 'vp-form__msg vp-form__msg--ok';
                         form.reset();
                         panel.style.display = 'none';
+                        zeigeTags();
                     } else {
                         msg.textContent = data.message || '<?php echo esc_js( __( 'Fehler beim Speichern.', 'vereins-plugin' ) ); ?>';
                         msg.className   = 'vp-form__msg vp-form__msg--err';

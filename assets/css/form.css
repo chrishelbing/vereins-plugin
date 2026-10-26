@@ -60,3 +60,7 @@
 
 /* Solange die Serienfrage offen ist, gehören die Felder nicht angefasst. */
 .vp-edit__fields.is-locked { opacity: .5; pointer-events: none; }
+
+/* Tags am Termin – Auswahl aus den Vorgaben des Termintyps. */
+.vp-tags { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.vp-tags__btn { display: flex; align-items: center; gap: 4px; font-size: .85rem; font-weight: 400; cursor: pointer; }

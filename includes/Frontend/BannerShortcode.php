@@ -106,6 +106,12 @@ class BannerShortcode {
             ? $i['type_color']
             : '#3B82F6';
 
+        // Bei einem reinen Infotermin gibt es nichts zuzusagen – der Knopf
+        // führt dann nur zum Termin.
+        if ( isset( $i['allows_rsvp'] ) && ! $i['allows_rsvp'] ) {
+            $button = __( 'Zum Termin', 'vereins-plugin' );
+        }
+
         $url = $base
             ? PublicLink::url( $base, $event_id, $date ) . '#' . EventsShortcode::anchor( $event_id, $date )
             : '';

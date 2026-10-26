@@ -37,6 +37,7 @@ class AdminStyles {
         /* Felder, die von einer Checkbox abhängen */
         .vp-admin-wrap .vp-dependent { margin-left: 24px; padding-left: 12px; border-left: 2px solid #e5e7eb; transition: opacity .15s; }
         .vp-admin-wrap .vp-dependent.is-disabled { opacity: .45; }
+        .vp-admin-wrap #vp-rsvp-dependent.is-disabled { opacity: .45; }
         .vp-admin-wrap .vp-dependent.is-disabled select { background: #f3f4f6; cursor: not-allowed; }
                 .vp-admin-wrap .vp-roles { margin-top: 6px; }
         .vp-admin-wrap .vp-roles > summary { cursor: pointer; color: #2271b1; font-size: 12px; }

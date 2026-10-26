@@ -3,7 +3,8 @@
 Terminorganisation für Vereine – als WordPress-Plugin, im Frontend bedienbar,
 mit Zusagen, Mitbringliste, Helferaufgaben, Fotos und Aushängen.
 
-**Autor:** Chris Helbing
+**Autor:** Chris Helbing  
+**Quellcode:** https://github.com/chrishelbing/vereins-plugin
 
 ---
 

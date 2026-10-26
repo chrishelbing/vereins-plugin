@@ -6,6 +6,7 @@ use VereinsPlugin\Auth\AuthController;
 use VereinsPlugin\Members\GuestService;
 use VereinsPlugin\Support\Capabilities;
 use VereinsPlugin\Support\PublicLink;
+use VereinsPlugin\Support\Tags;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
@@ -424,6 +425,13 @@ class EventController {
             return new WP_Error( 'not_approved', __( 'Dieser Termin ist noch nicht freigegeben.', 'vereins-plugin' ), [ 'status' => 409 ] );
         }
 
+        // Reine Infotermine: Die Kachel zeigt keine Knöpfe, aber die
+        // Schnittstelle muss es auch selbst ablehnen.
+        $type = ( new EventTypeModel() )->find( (int) $event['event_type_id'] );
+        if ( $type && ! EventTypeModel::rsvp_allowed( $type ) ) {
+            return new WP_Error( 'no_rsvp', __( 'Für diesen Termin gibt es keine Zu- oder Absage – er dient nur zur Information.', 'vereins-plugin' ), [ 'status' => 409 ] );
+        }
+
         $user_id  = (int) $request->get_param( '_vp_person_id' );
         $date     = $this->normalize_date( $request->get_param( 'instance_date' ) );
         $response = $request->get_param( 'response' );
@@ -832,7 +840,26 @@ class EventController {
             $data['recurrence'] = $recurrence;
         }
 
-        return array_filter( $data, fn( $v ) => $v !== null );
+        $result = array_filter( $data, fn( $v ) => $v !== null );
+
+        // Tags nur, wenn sie mitgeschickt wurden – sonst bleiben sie beim
+        // Ändern, wie sie sind. Erlaubt ist, was der Typ vorgibt: der neue,
+        // falls er mitkommt, sonst der bisherige des Termins.
+        $tags = $request->get_param( 'tags' );
+        if ( $tags !== null ) {
+            $type_id = (int) ( $request->get_param( 'event_type_id' ) ?: 0 );
+            if ( ! $type_id && $request->get_param( 'id' ) ) {
+                $type_id = (int) ( $this->model->find( (int) $request->get_param( 'id' ) )['event_type_id'] ?? 0 );
+            }
+            $result['tags'] = Tags::encode( Tags::restrict(
+                array_map( 'strval', (array) $tags ),
+                EventTypeModel::tags_of( ( new EventTypeModel() )->find( $type_id ) )
+            ) );
+            // NULL („keine“) bleibt bewusst stehen: EventModel::update()
+            // prüft mit array_key_exists und leert die Spalte dann.
+        }
+
+        return $result;
     }
 
     private function event_args( bool $required = true ): array {
@@ -846,6 +873,8 @@ class EventController {
             'is_full_day'   => [ 'required' => false,     'type' => 'boolean', 'default' => false ],
             'resource_id'   => [ 'required' => false,     'type' => 'integer' ],
             'recurrence'    => [ 'required' => false,     'type' => 'object' ],
+            // Auswahl aus den Tags des Termintyps; alles andere fällt weg.
+            'tags'          => [ 'required' => false,     'type' => 'array', 'items' => [ 'type' => 'string' ] ],
             // Vorlagen: weglassen = Standard des Termintyps, 0 = keine Vorlage
             'item_template_id' => [ 'required' => false, 'type' => 'integer' ],
             'help_template_id' => [ 'required' => false, 'type' => 'integer' ],

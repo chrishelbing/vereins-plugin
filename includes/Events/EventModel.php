@@ -43,7 +43,7 @@ class EventModel {
         global $wpdb;
 
         $sql    = "SELECT e.*, et.name AS type_name, et.color AS type_color, et.is_resource,
-                       et.allows_items, et.needs_helpers, et.allows_photos
+                       et.allows_rsvp, et.allows_items, et.needs_helpers, et.allows_photos
                     FROM {$this->table} e
                     LEFT JOIN {$wpdb->prefix}vp_event_types et ON et.id = e.event_type_id";
         $params = [];
@@ -82,7 +82,7 @@ class EventModel {
         global $wpdb;
 
         $sql    = "SELECT e.*, et.name AS type_name, et.color AS type_color, et.is_resource,
-                       et.allows_items, et.needs_helpers, et.allows_photos
+                       et.allows_rsvp, et.allows_items, et.needs_helpers, et.allows_photos
                     FROM {$this->table} e
                     LEFT JOIN {$wpdb->prefix}vp_event_types et ON et.id = e.event_type_id
                     WHERE (e.start_at < %s AND e.end_at > %s OR e.is_recurring = 1)";
@@ -125,9 +125,10 @@ class EventModel {
                 'approval_status' => $data['approval_status'] ?? 'approved',
                 'photo_upload_days' => $data['photo_upload_days'] ?? null,
                 'banner_days_before' => $data['banner_days_before'] ?? null,
+                'tags'            => $data['tags'] ?? null,
                 'created_by'      => $data['created_by'],
             ],
-            [ '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%d', '%d' ]
+            [ '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%d' ]
         );
 
         $event_id = (int) $wpdb->insert_id;
@@ -160,6 +161,7 @@ class EventModel {
             'photo_upload_days' => '%d',
             'image_attachment_id' => '%d',
             'banner_days_before'  => '%d',
+            'tags'                => '%s',
         ];
 
         foreach ( $map as $key => $fmt ) {

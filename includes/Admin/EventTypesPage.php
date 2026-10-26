@@ -5,6 +5,7 @@ namespace VereinsPlugin\Admin;
 use VereinsPlugin\Events\EventTypeModel;
 use VereinsPlugin\Events\TemplateModel;
 use VereinsPlugin\Support\Capabilities;
+use VereinsPlugin\Support\Tags;
 
 /**
  * wp-admin-Seite "Termintypen": Liste + Anlegen/Bearbeiten/Löschen.
@@ -68,14 +69,16 @@ class EventTypesPage {
                         <th><?php esc_html_e( 'Name', 'vereins-plugin' ); ?></th>
                         <th><?php esc_html_e( 'Farbe', 'vereins-plugin' ); ?></th>
                         <th><?php esc_html_e( 'Ressource?', 'vereins-plugin' ); ?></th>
+                        <th><?php esc_html_e( 'Zusagen', 'vereins-plugin' ); ?></th>
                         <th><?php esc_html_e( 'Mitbringliste', 'vereins-plugin' ); ?></th>
                         <th><?php esc_html_e( 'Helfer', 'vereins-plugin' ); ?></th>
+                        <th><?php esc_html_e( 'Tags', 'vereins-plugin' ); ?></th>
                         <th><?php esc_html_e( 'Aktionen', 'vereins-plugin' ); ?></th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php if ( empty( $types ) ) : ?>
-                    <tr><td colspan="6"><?php esc_html_e( 'Noch keine Termintypen angelegt.', 'vereins-plugin' ); ?></td></tr>
+                    <tr><td colspan="8"><?php esc_html_e( 'Noch keine Termintypen angelegt.', 'vereins-plugin' ); ?></td></tr>
                 <?php endif; ?>
                 <?php foreach ( $types as $t ) : ?>
                     <tr class="<?php echo (int) $t['id'] === $edit_id ? 'is-editing' : ''; ?>">
@@ -85,8 +88,10 @@ class EventTypesPage {
                             <?php echo esc_html( $t['color'] ); ?>
                         </td>
                         <td><?php echo $t['is_resource'] ? esc_html__( 'Ja', 'vereins-plugin' ) : esc_html__( 'Nein', 'vereins-plugin' ); ?></td>
+                        <td><?php echo EventTypeModel::rsvp_allowed( $t ) ? esc_html__( 'Ja', 'vereins-plugin' ) : esc_html__( 'Nein – nur Info', 'vereins-plugin' ); ?></td>
                         <td><?php echo esc_html( $this->feature_label( $t, 'allows_items', 'default_item_template_id' ) ); ?></td>
                         <td><?php echo esc_html( $this->feature_label( $t, 'needs_helpers', 'default_help_template_id' ) ); ?></td>
+                        <td><?php echo esc_html( implode( ', ', EventTypeModel::tags_of( $t ) ) ?: '—' ); ?></td>
                         <td class="vp-actions">
                             <a class="button button-small" href="<?php echo esc_url( add_query_arg( [ 'page' => 'vp-event-types', 'edit' => $t['id'] ], admin_url( 'admin.php' ) ) ); ?>">
                                 <?php esc_html_e( 'Bearbeiten', 'vereins-plugin' ); ?>
@@ -139,8 +144,30 @@ class EventTypesPage {
                         </label>
                     </div>
 
+                    <div class="vp-field">
+                        <label for="vp-tags"><?php esc_html_e( 'Tags', 'vereins-plugin' ); ?></label>
+                        <input type="text" <?php echo AdminForms::NO_AUTOFILL; ?> id="vp-tags" name="tags"
+                               value="<?php echo esc_attr( implode( ', ', EventTypeModel::tags_of( $editing ) ) ); ?>"
+                               placeholder="<?php esc_attr_e( 'z. B. U9, U11, U13, Veteranen', 'vereins-plugin' ); ?>">
+                        <p class="description">
+                            <?php esc_html_e( 'Durch Komma getrennt. Beim Termin wählst du daraus aus, welche zutreffen; die Reihenfolge hier ist auch die Reihenfolge auf der Kachel. Ein Tag, das du hier entfernst, verschwindet beim nächsten Speichern auch am Termin.', 'vereins-plugin' ); ?>
+                        </p>
+                    </div>
+
                     <hr>
 
+                    <div class="vp-field">
+                        <label>
+                            <input type="checkbox" id="vp-allows-rsvp" name="allows_rsvp" value="1"
+                                   <?php checked( ! $editing || EventTypeModel::rsvp_allowed( $editing ) ); ?>>
+                            <?php esc_html_e( 'Mitglieder können zu Terminen dieses Typs zu- und absagen', 'vereins-plugin' ); ?>
+                        </label>
+                        <p class="description">
+                            <?php esc_html_e( 'Ohne Häkchen sind Termine dieses Typs reine Information: keine Zu- und Absage, keine Helferaufgaben, keine Mitbringliste. Fotos bleiben davon unberührt.', 'vereins-plugin' ); ?>
+                        </p>
+                    </div>
+
+                    <div id="vp-rsvp-dependent">
                     <div class="vp-field">
                         <label>
                             <input type="checkbox" name="allows_items" value="1"
@@ -192,6 +219,8 @@ class EventTypesPage {
                         </p>
                     </div>
 
+                    </div><?php // /vp-rsvp-dependent ?>
+
                     <div class="vp-field">
                         <label>
                             <input type="checkbox" name="allows_photos" value="1" <?php checked( ! empty( $editing['allows_photos'] ) ); ?>>
@@ -225,6 +254,28 @@ class EventTypesPage {
                             cb.addEventListener('change', sync);
                             sync();
                         });
+
+                        // Ohne Zusagen keine Helfer und keine Mitbringliste:
+                        // Der ganze Block wird ausgegraut, die Häkchen bleiben
+                        // aber stehen, damit sie beim Zurückschalten wieder da
+                        // sind. Gespeichert wird ohnehin 0 (handle_save).
+                        var rsvp = document.getElementById('vp-allows-rsvp');
+                        var dep  = document.getElementById('vp-rsvp-dependent');
+                        if (rsvp && dep) {
+                            var syncRsvp = function(){
+                                dep.classList.toggle('is-disabled', !rsvp.checked);
+                                dep.querySelectorAll('input, select').forEach(function(el){
+                                    if (!rsvp.checked) {
+                                        el.disabled = true;
+                                    } else if (el.type === 'checkbox') {
+                                        el.disabled = false;
+                                        el.dispatchEvent(new Event('change'));
+                                    }
+                                });
+                            };
+                            rsvp.addEventListener('change', syncRsvp);
+                            syncRsvp();
+                        }
                     })();
                     </script>
 
@@ -249,16 +300,20 @@ class EventTypesPage {
             wp_die( esc_html__( 'Keine Berechtigung.', 'vereins-plugin' ) );
         }
 
-        $id   = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
+        $id          = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
+        $mit_zusagen = ! empty( $_POST['allows_rsvp'] ) ? 1 : 0;
         $data = [
             'name'                     => sanitize_text_field( $_POST['name'] ?? '' ),
             'color'                    => preg_match( '/^#[0-9A-Fa-f]{6}$/', $_POST['color'] ?? '' ) ? $_POST['color'] : '#3B82F6',
             'is_resource'              => ! empty( $_POST['is_resource'] ) ? 1 : 0,
-            'allows_items'             => ! empty( $_POST['allows_items'] ) ? 1 : 0,
-            'needs_helpers'            => ! empty( $_POST['needs_helpers'] ) ? 1 : 0,
+            'allows_rsvp'              => $mit_zusagen,
+            // Helfer und Mitbringliste setzen Zusagen voraus.
+            'allows_items'             => $mit_zusagen && ! empty( $_POST['allows_items'] ) ? 1 : 0,
+            'needs_helpers'            => $mit_zusagen && ! empty( $_POST['needs_helpers'] ) ? 1 : 0,
             'allows_photos'            => ! empty( $_POST['allows_photos'] ) ? 1 : 0,
             'default_item_template_id' => (int) ( $_POST['default_item_template_id'] ?? 0 ) ?: null,
             'default_help_template_id' => (int) ( $_POST['default_help_template_id'] ?? 0 ) ?: null,
+            'tags'                     => Tags::encode( Tags::parse( wp_unslash( (string) ( $_POST['tags'] ?? '' ) ) ) ),
         ];
 
         if ( $id ) {

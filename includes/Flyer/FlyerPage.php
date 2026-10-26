@@ -141,6 +141,8 @@ class FlyerPage {
             'qr_matrix' => QrCode::matrix( $link ),
             'needs'     => $needs,
             'brand'     => Branding::all(),
+            // Reiner Infotermin: Der QR-Code führt zum Termin, nicht zur Zusage.
+            'rsvp'      => ! isset( $instance['allows_rsvp'] ) || (bool) $instance['allows_rsvp'],
         ];
     }
 
@@ -257,7 +259,7 @@ class FlyerPage {
         'needs'    => $c['needs'],
         'brand'    => $c['brand'],
         'matrix'   => $matrix,
-        'callout'  => __( 'Scannen und zusagen', 'vereins-plugin' ),
+        'callout'  => $c['rsvp'] ? __( 'Scannen und zusagen', 'vereins-plugin' ) : __( 'Scannen für alle Infos', 'vereins-plugin' ),
         'helpers'  => __( 'Wir suchen noch', 'vereins-plugin' ),
         'bring'    => __( 'Bitte mitbringen', 'vereins-plugin' ),
         'file'      => sanitize_title( $c['title'] ) . '-' . $date,
@@ -330,8 +332,13 @@ class FlyerPage {
                 <div class="sheet__cta">
                     <div class="sheet__qr"><?php echo $c['qr']; ?></div>
                     <div class="sheet__ctatext">
-                        <strong><?php esc_html_e( 'Scannen und zusagen', 'vereins-plugin' ); ?></strong>
-                        <span><?php esc_html_e( 'Mit der Handykamera auf den Code halten. Anmelden ist nicht nötig.', 'vereins-plugin' ); ?></span>
+                        <?php if ( $c['rsvp'] ) : ?>
+                            <strong><?php esc_html_e( 'Scannen und zusagen', 'vereins-plugin' ); ?></strong>
+                            <span><?php esc_html_e( 'Mit der Handykamera auf den Code halten. Anmelden ist nicht nötig.', 'vereins-plugin' ); ?></span>
+                        <?php else : ?>
+                            <strong><?php esc_html_e( 'Scannen für alle Infos', 'vereins-plugin' ); ?></strong>
+                            <span><?php esc_html_e( 'Mit der Handykamera auf den Code halten.', 'vereins-plugin' ); ?></span>
+                        <?php endif; ?>
                     </div>
                 </div>
 
