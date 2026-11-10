@@ -257,84 +257,104 @@
     });
 
     /**
-     * Ersetzt die Zeile eines Postens durch ein kleines Formular:
-     * Bezeichnung, beim Bedarf zusätzlich die Menge. Enter speichert,
-     * Escape bricht ab (ohne das ganze Overlay zu schließen).
+     * Bearbeitet einen Posten direkt an Ort und Stelle: Der Text wird zum
+     * Eingabefeld, beim Bedarf der Mitbringliste steht die Menge daneben.
+     * Enter oder Klick daneben speichert, Escape bricht ab – ohne das
+     * Overlay zu schließen. Kein zusätzliches Formular unter dem Posten.
      */
-    function openEditor(btn) {
-        var li = btn.closest('.vp-bring__item');
-        if (!li || li.querySelector('.vp-bring__edit')) { return; }
+    function openEditor(pen) {
+        var li    = pen.closest('.vp-bring__item');
+        var label = li && li.querySelector('.vp-bring__itemhead > strong');
+        if (!label || li.querySelector('.vp-bring__inline')) { return; }
 
-        var form = document.createElement('div');
-        form.className = 'vp-bring__edit vp-bring__addrow';
+        var head = label.parentNode;
+        var meta = head.querySelector('.vp-bring__meta');
 
         var input = document.createElement('input');
         input.type = 'text';
-        input.value = btn.dataset.label || '';
+        input.value = pen.dataset.label || '';
+        input.className = 'vp-bring__inline';
         input.setAttribute('aria-label', T.editLabel);
-        form.appendChild(input);
 
         var qty = null;
-        if (btn.dataset.request) {
+        if (pen.dataset.request) {
             qty = document.createElement('input');
             qty.type = 'number';
             qty.min = 1;
-            qty.value = btn.dataset.qty || 1;
-            qty.className = 'vp-bring__qty';
+            qty.value = pen.dataset.qty || 1;
+            qty.className = 'vp-bring__qtypick vp-bring__inline-qty';
+            qty.title = T.editQty;
             qty.setAttribute('aria-label', T.editQty);
-            form.appendChild(qty);
         }
 
-        var save = document.createElement('button');
-        save.type = 'button';
-        save.className = 'vp-bring__btn is-primary';
-        save.textContent = T.editItemSave;
-        form.appendChild(save);
-
-        var cancel = document.createElement('button');
-        cancel.type = 'button';
-        cancel.className = 'vp-bring__btn';
-        cancel.textContent = T.editItemCancel;
-        form.appendChild(cancel);
-
-        Array.prototype.forEach.call(li.children, function(c){ c.hidden = true; });
-        li.appendChild(form);
+        label.hidden = true;
+        if (meta) { meta.hidden = true; }
+        head.insertBefore(input, label);
+        if (qty) { head.insertBefore(qty, label); }
         input.focus();
         input.select();
 
+        var done = false;
+
         function close() {
-            form.remove();
-            Array.prototype.forEach.call(li.children, function(c){ c.hidden = false; });
+            if (done) { return; }
+            done = true;
+            input.remove();
+            if (qty) { qty.remove(); }
+            label.hidden = false;
+            if (meta) { meta.hidden = false; }
         }
 
         function submit() {
-            var label = input.value.trim();
-            if (!label) { showError(T.editEmpty); input.focus(); return; }
+            if (done) { return; }
+            var text = input.value.trim();
+            var n    = qty ? Math.max(1, parseInt(qty.value, 10) || 1) : null;
+
+            // Nichts geändert: einfach zurück zur Anzeige.
+            if (text === (pen.dataset.label || '') && (n === null || String(n) === String(pen.dataset.qty))) {
+                close();
+                return;
+            }
+            if (!text) { showError(T.editEmpty); input.focus(); return; }
+
+            done = true;
             showError('');
-            save.disabled = true;
+            input.disabled = true;
+            if (qty) { qty.disabled = true; }
 
-            var body = { label: label };
-            if (qty) { body.quantity_needed = Math.max(1, parseInt(qty.value, 10) || 1); }
+            var body = { label: text };
+            if (n !== null) { body.quantity_needed = n; }
 
-            fetch(API + '/items/' + btn.dataset.itemId, {
+            fetch(API + '/items/' + pen.dataset.itemId, {
                 method: 'PATCH',
                 headers: H(true),
                 body: JSON.stringify(body)
             })
             .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
             .then(function(res){
-                if (!res.ok) { showError(res.data.message || T.error); save.disabled = false; return; }
+                if (!res.ok) { showError(res.data.message || T.error); done = false; close(); return; }
                 renderItems(res.data);
             })
-            .catch(function(){ showError(T.error); save.disabled = false; });
+            .catch(function(){ showError(T.error); done = false; close(); });
         }
 
-        save.addEventListener('click', submit);
-        cancel.addEventListener('click', close);
-        form.addEventListener('keydown', function(e){
+        function onKey(e) {
             if (e.key === 'Enter')  { e.preventDefault(); submit(); }
             if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
-        });
+        }
+        input.addEventListener('keydown', onKey);
+        if (qty) { qty.addEventListener('keydown', onKey); }
+
+        // Klick daneben speichert – aber nicht, wenn der Fokus nur vom Text
+        // ins Mengenfeld wandert.
+        function onBlur() {
+            setTimeout(function(){
+                var a = document.activeElement;
+                if (a !== input && a !== qty) { submit(); }
+            }, 0);
+        }
+        input.addEventListener('blur', onBlur);
+        if (qty) { qty.addEventListener('blur', onBlur); }
     }
 
     // Stift: Posten bearbeiten (nur Orgateam)

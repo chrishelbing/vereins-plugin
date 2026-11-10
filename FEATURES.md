@@ -236,6 +236,14 @@ im Backend, im Anlegen-Formular und im Bearbeiten-Dialog. Es öffnet beim
 Überfahren, Antippen oder per Tastatur einen kleinen Tooltip mit Beispielen
 (`EventForm::format_hint()`, für alle drei Formulare dieselbe Stelle).
 
+**Gekürzte Kacheln.** Damit eine einzelne Kachel die Terminliste nicht
+sprengt, zeigt sie die Beschreibung höchstens vier Zeilen hoch (unten
+ausgeblendet) und die Ortsangabe höchstens zwei Zeilen. Nur wenn wirklich
+etwas abgeschnitten ist, erscheint „Mehr anzeigen“; ein Klick darauf oder in
+den gekürzten Text klappt die Kachel auf, „Weniger anzeigen“ wieder zu.
+Links in der Beschreibung bleiben klickbar. Gemessen wird im Browser
+(`tile.js`), neu bei Größenänderung des Fensters.
+
 ### Ort → Kartenprogramm
 
 Die Ortsangabe auf der Kachel ist ein Link, der die Routenplanung mit dem
@@ -475,8 +483,9 @@ Die Helferzahl wird aus den übernommenen Aufgaben abgeleitet, nicht aus einem
 Häkchen.
 
 **Nachträglich ändern (Orgateam).** Hinter dem Text jedes Postens steht für
-das Orgateam ein Stift: Die Zeile wird zu einem kleinen Formular, Enter
-speichert, Escape bricht ab. Korrigierbar ist die Bezeichnung – etwa ein Tippfehler –
+das Orgateam ein Stift: Der Text wird an Ort und Stelle zum Eingabefeld,
+beim Bedarf der Mitbringliste steht die Menge daneben. Enter oder ein Klick
+daneben speichert, Escape bricht ab. Korrigierbar ist die Bezeichnung – etwa ein Tippfehler –
 und beim Bedarf zusätzlich die Menge. Übernahmen bleiben erhalten, weil sie
 an der ID hängen, nicht am Text. Die Menge sinkt nie unter die bereits
 übernommenen Stücke, sonst stünde „0 offen“ neben drei Zusagen. Bei freien

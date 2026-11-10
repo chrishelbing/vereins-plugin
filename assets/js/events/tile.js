@@ -25,6 +25,64 @@
         });
     }
 
+    // --- Lange Kacheln kürzen --------------------------------------
+    // Beschreibung höchstens vier Zeilen, Ort höchstens zwei – sonst wird
+    // eine einzelne Kachel so hoch, dass die Seite klobig wirkt. Gekürzt
+    // wird nur, was tatsächlich überläuft; dann erscheint „Mehr anzeigen“.
+    function clampTile(item) {
+        var more = item.querySelector('[data-more]');
+        if (!more) { return; }
+
+        var parts = [item.querySelector('.vp-events__text'), item.querySelector('.vp-events__meta')]
+            .filter(Boolean);
+        var cut = false;
+
+        parts.forEach(function(el){
+            el.classList.add('is-clamped');
+            if (el.scrollHeight > el.clientHeight + 1) { cut = true; }
+        });
+
+        if (!cut) {
+            parts.forEach(function(el){ el.classList.remove('is-clamped'); });
+        }
+        more.hidden = !cut;
+    }
+
+    function clampAll() {
+        [].forEach.call(root.querySelectorAll('.vp-events__item:not(.is-expanded)'), clampTile);
+    }
+
+    clampAll();
+    // Schriften laden nach – erst dann stimmt die Höhe sicher.
+    if (document.fonts && document.fonts.ready) { document.fonts.ready.then(clampAll); }
+    var clampTimer = null;
+    window.addEventListener('resize', function(){
+        clearTimeout(clampTimer);
+        clampTimer = setTimeout(clampAll, 150);
+    });
+
+    function toggleTile(item) {
+        var open = !item.classList.contains('is-expanded');
+        var more = item.querySelector('[data-more]');
+        item.classList.toggle('is-expanded', open);
+        if (more) {
+            more.textContent = open ? T.showLess : T.showMore;
+            more.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+    }
+
+    root.addEventListener('click', function(e){
+        var more = e.target.closest('[data-more]');
+        if (more) { toggleTile(more.closest('.vp-events__item')); return; }
+
+        // Klick in den gekürzten Text klappt auf – Links darin bleiben Links.
+        var text = e.target.closest('.vp-events__text.is-clamped');
+        if (text && !e.target.closest('a')) {
+            var item = text.closest('.vp-events__item');
+            if (!item.classList.contains('is-expanded')) { toggleTile(item); }
+        }
+    });
+
     // --- Link zum Teilen ------------------------------------------
     // Wer den Link hat, darf ohne Anmeldung zu- und absagen.
     root.addEventListener('click', function(e){

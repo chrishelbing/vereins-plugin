@@ -4,7 +4,7 @@
  * Plugin URI:  https://github.com/chrishelbing/vereins-plugin
  * Update URI:  https://github.com/chrishelbing/vereins-plugin
  * Description: Digitaler Vereinsalltag – Termine, Kommunikation, Mitgliederverwaltung.
- * Version:     1.14.1
+ * Version:     1.14.2
  * Author:      Chris Helbing
  * License:     GPL-2.0+
  * Text Domain: vereins-plugin
@@ -14,7 +14,7 @@
 defined( 'ABSPATH' ) || exit;
 
 // --- Konstanten -----------------------------------------------------------
-define( 'VP_VERSION',     '1.14.1' );
+define( 'VP_VERSION',     '1.14.2' );
 define( 'VP_PLUGIN_FILE', __FILE__ );
 define( 'VP_PLUGIN_DIR',  plugin_dir_path( __FILE__ ) );
 define( 'VP_PLUGIN_URL',  plugin_dir_url( __FILE__ ) );

@@ -520,6 +520,12 @@ class EventsShortcode {
         <?php endif; ?>
 
         <?php
+        // Lange Beschreibung oder Ortsangabe: gekürzt, aufklappbar. Ob der
+        // Knopf gebraucht wird, misst tile.js – hier steht er nur bereit.
+        ?>
+        <button type="button" class="vp-events__more" data-more hidden aria-expanded="false"><?php esc_html_e( 'Mehr anzeigen', 'vereins-plugin' ); ?></button>
+
+        <?php
         if ( ! empty( $t['teaser_url'] ) ) {
             // Besucher-Übersicht: Zusagen über den Terminlink.
             if ( $t['allows_rsvp'] ) : ?>
@@ -1210,7 +1216,6 @@ class EventsShortcode {
             'edit'          => __( 'Bearbeiten', 'vereins-plugin' ),
             'editLabel'     => __( 'Bezeichnung', 'vereins-plugin' ),
             'editQty'       => __( 'Menge', 'vereins-plugin' ),
-            'editItemSave'  => __( 'Speichern', 'vereins-plugin' ),
             'editItemCancel'=> __( 'Abbrechen', 'vereins-plugin' ),
             'editEmpty'     => __( 'Die Bezeichnung darf nicht leer sein.', 'vereins-plugin' ),
             'openOf'        => __( '%1$d von %2$d offen', 'vereins-plugin' ),
@@ -1234,6 +1239,8 @@ class EventsShortcode {
             'comingNo'      => __( 'Nicht dabei', 'vereins-plugin' ),
             'viaMember'     => __( ' (Begleitung von %s)', 'vereins-plugin' ),
             'linkCopied'    => __( 'Link kopiert', 'vereins-plugin' ),
+            'showMore'      => __( 'Mehr anzeigen', 'vereins-plugin' ),
+            'showLess'      => __( 'Weniger anzeigen', 'vereins-plugin' ),
             'linkCopy'      => __( 'Link zum Teilen:', 'vereins-plugin' ),
             'unconfirmed'   => __( 'Kontakt noch nicht bestätigt', 'vereins-plugin' ),
             'nameNeeded'    => __( 'Bitte gib deinen Namen an.', 'vereins-plugin' ),
