@@ -307,4 +307,42 @@ Pruefung::ok( 'frischer Kontakt bleibt erhalten', (bool) ( new PeopleModel() )->
 Pruefung::ok( 'wiederkehrender Gast bleibt erhalten', (bool) ( new PeopleModel() )->find_by_email( 'wiederkehrer@example.test' ) );
 Pruefung::ok( 'alter Kontakt ist weg', ! ( new PeopleModel() )->find_by_email( 'alt-kontakt@example.test' ) );
 
+// =====================================================================
+echo "\nMitglied bearbeiten (Tippfehler korrigieren)\n";
+
+$mitglieder = new VereinsPlugin\Members\MemberModel();
+$admin_id = stub_user( 'Anna Admin', [ 'administrator' ], 'vorstand@example.test' );
+$GLOBALS['stub_current'] = $admin_id;
+
+$neu = $service->create_by_admin( [ 'display_name' => 'Hanz Müler', 'email' => 'hanz@exmaple.test', 'phone' => '' ] );
+Pruefung::ok( 'Mitglied mit Tippfehlern angelegt', ! is_wp_error( $neu ) );
+$mid = (int) $neu['member']['id'];
+$uid = (int) $neu['member']['wp_user_id'];
+
+$erg = $service->update_profile( $mid, [ 'display_name' => 'Hans Müller', 'email' => 'hans@example.test', 'phone' => '0171 123' ] );
+Pruefung::ok( 'Speichern gelingt', ! is_wp_error( $erg ) );
+Pruefung::gleich( 'Name im Mitgliedseintrag', $mitglieder->find( $mid )['display_name'] ?? '', 'Hans Müller' );
+Pruefung::gleich( 'Name im WordPress-Profil', get_userdata( $uid )->display_name ?? '', 'Hans Müller' );
+Pruefung::gleich( 'E-Mail geändert', get_userdata( $uid )->user_email ?? '', 'hans@example.test' );
+Pruefung::gleich( 'Telefon gespeichert', $mitglieder->find( $mid )['phone'] ?? '', '0171 123' );
+Pruefung::ok( 'Änderung der E-Mail wird gemeldet', ! is_wp_error( $erg ) && $erg['email_changed'] );
+
+$leer = $service->update_profile( $mid, [ 'display_name' => '   ' ] );
+Pruefung::gleich( 'leerer Name wird abgelehnt', is_wp_error( $leer ) ? $leer->get_error_code() : '', 'empty_name' );
+
+$besetzt = $service->update_profile( $mid, [ 'display_name' => 'Hans Müller', 'email' => 'dora@example.test' ] );
+Pruefung::gleich( 'fremde E-Mail wird abgelehnt', is_wp_error( $besetzt ) ? $besetzt->get_error_code() : '', 'email_exists' );
+Pruefung::gleich( 'E-Mail bleibt nach Ablehnung', get_userdata( $uid )->user_email ?? '', 'hans@example.test' );
+
+$ungueltig = $service->update_profile( $mid, [ 'display_name' => 'Hans Müller', 'email' => 'kein-at-zeichen' ] );
+Pruefung::gleich( 'ungültige E-Mail wird abgelehnt', is_wp_error( $ungueltig ) ? $ungueltig->get_error_code() : '', 'invalid_email' );
+
+// Das eigene Konto: Name ja, E-Mail nein – die gehört ins WordPress-Profil.
+$wpdb->insert( 'wp_vp_members', [ 'wp_user_id' => $admin_id, 'display_name' => 'Anna Admin', 'status' => 'active' ] );
+$admin_mid = (int) end( $wpdb->t['wp_vp_members'] )['id'];
+$eigen = $service->update_profile( $admin_mid, [ 'display_name' => 'Anna Adminova', 'email' => 'anders@example.test' ] );
+Pruefung::gleich( 'eigene E-Mail hier nicht änderbar', is_wp_error( $eigen ) ? $eigen->get_error_code() : '', 'protected' );
+$eigen_name = $service->update_profile( $admin_mid, [ 'display_name' => 'Anna Adminova', 'email' => 'vorstand@example.test' ] );
+Pruefung::ok( 'eigener Name schon', ! is_wp_error( $eigen_name ) && get_userdata( $admin_id )->display_name === 'Anna Adminova' );
+
 Pruefung::abschluss( 'Personen' );

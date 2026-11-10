@@ -340,6 +340,26 @@ function wp_insert_user( $d ) {
     return $id;
 }
 
+function wp_update_user( $d ) {
+    $id = (int) ( $d['ID'] ?? 0 );
+    if ( ! isset( $GLOBALS['stub_users'][ $id ] ) ) {
+        return new WP_Error( 'invalid_user_id', 'Unbekannter Nutzer' );
+    }
+    if ( isset( $d['user_email'] ) ) {
+        foreach ( $GLOBALS['stub_users'] as $u ) {
+            if ( $u->ID !== $id && $u->user_email === $d['user_email'] ) {
+                return new WP_Error( 'existing_user_email', 'E-Mail bereits vergeben' );
+            }
+        }
+    }
+    foreach ( [ 'display_name', 'user_email' ] as $feld ) {
+        if ( isset( $d[ $feld ] ) ) {
+            $GLOBALS['stub_users'][ $id ]->$feld = $d[ $feld ];
+        }
+    }
+    return $id;
+}
+
 function wp_delete_user( $id ) { unset( $GLOBALS['stub_users'][ $id ] ); return true; }
 
 function wp_get_current_user() { return $GLOBALS['stub_users'][ $GLOBALS['stub_current'] ] ?? false; }

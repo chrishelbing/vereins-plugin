@@ -373,6 +373,80 @@ class MemberService {
         return [ 'member' => $this->model->find( $member_id ) ];
     }
 
+    /**
+     * Stammdaten eines Mitglieds korrigieren: Name, Telefon, E-Mail.
+     *
+     * Der Name steht an zwei Stellen – im Mitgliedseintrag (Mitgliederliste)
+     * und im WordPress-Profil (Namen an Zusagen, Aufgaben, Fotos). Beide
+     * werden zusammen geändert, sonst hieße dieselbe Person je nach Ansicht
+     * anders.
+     *
+     * Die E-Mail ist zugleich die Anmeldeadresse. Bei Administratoren und
+     * beim eigenen Konto bleibt sie hier unangetastet – das gehört ins
+     * WordPress-Profil, nicht in eine Vereinsliste (gleiche Grenze wie bei
+     * Rollen und Löschung, siehe role_is_changeable()). Der Anmeldename
+     * (user_login) ändert sich nie; WordPress lässt das ohnehin nicht zu.
+     *
+     * @param array{display_name?: string, phone?: string, email?: string} $data
+     * @return array{member: array, email_changed: bool}|WP_Error
+     */
+    public function update_profile( int $member_id, array $data ): array|WP_Error {
+        $member = $this->model->find( $member_id );
+        if ( ! $member ) {
+            return new WP_Error( 'not_found', __( 'Mitglied nicht gefunden.', 'vereins-plugin' ) );
+        }
+
+        $wp_user_id = (int) $member['wp_user_id'];
+        $user       = get_userdata( $wp_user_id );
+        if ( ! $user ) {
+            return new WP_Error( 'not_found', __( 'Zum Mitglied gehört kein WordPress-Konto.', 'vereins-plugin' ) );
+        }
+
+        $display_name = trim( sanitize_text_field( $data['display_name'] ?? $member['display_name'] ) );
+        if ( $display_name === '' ) {
+            return new WP_Error( 'empty_name', __( 'Der Name darf nicht leer sein.', 'vereins-plugin' ) );
+        }
+
+        $phone = array_key_exists( 'phone', $data )
+            ? trim( sanitize_text_field( (string) $data['phone'] ) )
+            : (string) ( $member['phone'] ?? '' );
+
+        $email         = $user->user_email;
+        $email_changed = false;
+        $neue_email    = isset( $data['email'] ) ? sanitize_email( $data['email'] ) : '';
+
+        if ( $neue_email !== '' && strcasecmp( $neue_email, $user->user_email ) !== 0 ) {
+            if ( ! $this->role_is_changeable( $wp_user_id ) ) {
+                return new WP_Error( 'protected', __( 'Die E-Mail von Administratoren und des eigenen Kontos wird im WordPress-Profil geändert.', 'vereins-plugin' ) );
+            }
+            if ( ! is_email( $neue_email ) ) {
+                return new WP_Error( 'invalid_email', __( 'Bitte gib eine gültige E-Mail-Adresse an.', 'vereins-plugin' ) );
+            }
+            $vorhanden = get_user_by( 'email', $neue_email );
+            if ( $vorhanden && (int) $vorhanden->ID !== $wp_user_id ) {
+                return new WP_Error( 'email_exists', __( 'Diese E-Mail-Adresse gehört bereits zu einem anderen Zugang.', 'vereins-plugin' ) );
+            }
+            $email         = $neue_email;
+            $email_changed = true;
+        }
+
+        $result = wp_update_user( [
+            'ID'           => $wp_user_id,
+            'display_name' => $display_name,
+            'user_email'   => $email,
+        ] );
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        $this->model->update( $member_id, [
+            'display_name' => $display_name,
+            'phone'        => $phone !== '' ? $phone : null,
+        ] );
+
+        return [ 'member' => $this->model->find( $member_id ), 'email_changed' => $email_changed ];
+    }
+
     // ------------------------------------------------------------------
     // Status & Rolle
     // ------------------------------------------------------------------

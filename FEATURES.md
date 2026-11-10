@@ -125,6 +125,18 @@ positive ID umgehängt. Es geht nichts verloren.
 **Administratoren** sind eine eigene Achse: Nur sie kommen ins Backend und
 dürfen Termine freigeben. Ein Administrator gilt immer auch als Orgateam.
 
+**Mitglied bearbeiten.** In der Mitgliederverwaltung öffnet „Bearbeiten“
+einen Dialog für Name, E-Mail und Telefon – etwa um einen Tippfehler zu
+korrigieren (`MemberService::update_profile()`). Der Name wird an beiden
+Stellen geändert, im Mitgliedseintrag und im WordPress-Profil, damit die
+Person in der Liste und an Zusagen, Aufgaben und Fotos gleich heißt. Die
+E-Mail ist zugleich die Anmeldeadresse; eine Adresse, die schon zu einem
+anderen Zugang gehört, wird abgelehnt. Bei Administratoren und beim eigenen
+Konto ist die E-Mail hier gesperrt – sie wird im WordPress-Profil geändert
+(dieselbe Grenze wie bei Rollen und Löschung). Der Anmeldename
+(`user_login`) bleibt immer unverändert. Offene Personen (Gäste, wartende
+Registrierungen) lassen sich nicht bearbeiten, nur aufnehmen oder ablehnen.
+
 **Recht auf Löschung.** Ein aufgenommenes Mitglied lässt sich in der
 Mitgliederverwaltung vollständig löschen (`MemberService::erase_member()`):
 Zusagen, übernommene Aufgaben, Begleitpersonen und Fotos werden immer

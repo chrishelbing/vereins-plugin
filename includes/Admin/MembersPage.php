@@ -30,6 +30,7 @@ class MembersPage {
         add_action( 'admin_post_vp_person_decide',      [ $this, 'handle_person_decide' ] );
         add_action( 'admin_post_vp_member_add_existing',[ $this, 'handle_add_existing' ] );
         add_action( 'admin_post_vp_member_erase',       [ $this, 'handle_erase' ] );
+        add_action( 'admin_post_vp_member_update',      [ $this, 'handle_update' ] );
     }
 
     public function render(): void {
@@ -40,6 +41,16 @@ class MembersPage {
         $filter = sanitize_text_field( $_GET['status'] ?? '' );
         $filter = in_array( $filter, [ 'pending', 'active', 'inactive' ], true ) ? $filter : '';
         $members = $this->model->all( $filter ?: null );
+
+        $edit_id = isset( $_GET['edit'] ) ? (int) $_GET['edit'] : 0;
+        $editing = null;
+        if ( $edit_id ) {
+            foreach ( $this->model->all() as $m ) {
+                if ( (int) $m['id'] === $edit_id ) {
+                    $editing = $m;
+                }
+            }
+        }
 
         $counts = [
             'pending'  => $this->model->count_by_status( 'pending' ),
@@ -137,6 +148,9 @@ class MembersPage {
             <?php AdminModal::close(); ?>
 
             <?php $this->render_existing_user_form(); ?>
+            <?php if ( $editing ) : ?>
+                <?php $this->render_edit_form( $editing ); ?>
+            <?php endif; ?>
         </div>
         <?php
     }
@@ -238,13 +252,14 @@ class MembersPage {
                 <tr><td colspan="6"><?php esc_html_e( 'Keine Einträge in dieser Ansicht.', 'vereins-plugin' ); ?></td></tr>
             <?php endif; ?>
             <?php foreach ( $members as $m ) : ?>
-                <tr>
+                <tr<?php echo (int) ( $_GET['edit'] ?? 0 ) === (int) $m['id'] ? ' class="is-editing"' : ''; ?>>
                     <td><?php echo esc_html( $m['display_name'] ?: $m['user_login'] ); ?></td>
                     <td><?php echo esc_html( $m['user_email'] ); ?></td>
                     <td><?php echo esc_html( $m['phone'] ?: '—' ); ?></td>
                     <td><?php $this->render_roles_cell( $m ); ?></td>
                     <td><span class="vp-badge vp-badge--<?php echo esc_attr( $m['status'] ); ?>"><?php echo esc_html( $this->status_label( $m['status'] ) ); ?></span></td>
                     <td class="vp-actions">
+                        <a class="button button-small" href="<?php echo esc_url( add_query_arg( [ 'page' => 'vp-members', 'edit' => $m['id'] ], admin_url( 'admin.php' ) ) ); ?>"><?php esc_html_e( 'Bearbeiten', 'vereins-plugin' ); ?></a>
                         <?php if ( $m['status'] === 'pending' ) : ?>
                             <?php $this->status_button( $m['id'], 'active', __( 'Freischalten', 'vereins-plugin' ), 'button-primary' ); ?>
                             <?php $this->status_button( $m['id'], 'inactive', __( 'Ablehnen', 'vereins-plugin' ) ); ?>
@@ -260,6 +275,85 @@ class MembersPage {
             </tbody>
         </table>
         <?php
+    }
+
+    /**
+     * Dialog zum Korrigieren von Name, E-Mail und Telefon. Öffnet von selbst,
+     * wenn die Seite mit ?edit=<Mitglieds-ID> geladen wird – wie bei den
+     * übrigen Backend-Seiten (siehe AdminModal).
+     */
+    private function render_edit_form( array $m ): void {
+        $email_frei = $this->service->role_is_changeable( (int) $m['wp_user_id'] );
+        $name       = $m['display_name'] ?: $m['user_login'];
+
+        AdminModal::open( 'vp-member-edit', __( 'Mitglied bearbeiten', 'vereins-plugin' ), true, $name );
+        ?>
+        <div class="vp-form-card">
+            <form method="post" <?php echo AdminForms::NO_AUTOFILL_FORM; ?> action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <?php wp_nonce_field( 'vp_member_update_' . $m['id'] ); ?>
+                <input type="hidden" name="action" value="vp_member_update">
+                <input type="hidden" name="id" value="<?php echo esc_attr( $m['id'] ); ?>">
+
+                <div class="vp-row">
+                    <div class="vp-field">
+                        <label for="vp-me-name"><?php esc_html_e( 'Name', 'vereins-plugin' ); ?></label>
+                        <input type="text" <?php echo AdminForms::NO_AUTOFILL; ?> id="vp-me-name" name="display_name" value="<?php echo esc_attr( $name ); ?>" required>
+                    </div>
+                    <div class="vp-field">
+                        <label for="vp-me-email"><?php esc_html_e( 'E-Mail', 'vereins-plugin' ); ?></label>
+                        <input type="email" <?php echo AdminForms::NO_AUTOFILL; ?> id="vp-me-email" name="email" value="<?php echo esc_attr( $m['user_email'] ); ?>" <?php echo $email_frei ? 'required' : 'readonly'; ?>>
+                    </div>
+                </div>
+                <div class="vp-row">
+                    <div class="vp-field">
+                        <label for="vp-me-phone"><?php esc_html_e( 'Telefon (optional)', 'vereins-plugin' ); ?></label>
+                        <input type="tel" <?php echo AdminForms::NO_AUTOFILL; ?> id="vp-me-phone" name="phone" value="<?php echo esc_attr( $m['phone'] ?? '' ); ?>">
+                    </div>
+                </div>
+
+                <p class="description">
+                    <?php if ( $email_frei ) : ?>
+                        <?php esc_html_e( 'Die E-Mail ist zugleich die Anmeldeadresse – nach einer Änderung meldet sich die Person mit der neuen Adresse an.', 'vereins-plugin' ); ?>
+                    <?php else : ?>
+                        <?php esc_html_e( 'Die E-Mail von Administratoren und des eigenen Kontos wird im WordPress-Profil geändert.', 'vereins-plugin' ); ?>
+                    <?php endif; ?>
+                </p>
+
+                <p class="submit">
+                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Speichern', 'vereins-plugin' ); ?></button>
+                    <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=vp-members' ) ); ?>"><?php esc_html_e( 'Abbrechen', 'vereins-plugin' ); ?></a>
+                </p>
+            </form>
+        </div>
+        <?php
+        AdminModal::close();
+    }
+
+    public function handle_update(): void {
+        $id = (int) ( $_POST['id'] ?? 0 );
+        check_admin_referer( 'vp_member_update_' . $id );
+        if ( ! Capabilities::is_admin_user() ) {
+            wp_die( esc_html__( 'Keine Berechtigung.', 'vereins-plugin' ) );
+        }
+
+        $data = [
+            'display_name' => sanitize_text_field( $_POST['display_name'] ?? '' ),
+            'phone'        => sanitize_text_field( $_POST['phone'] ?? '' ),
+        ];
+        if ( isset( $_POST['email'] ) ) {
+            $data['email'] = sanitize_email( $_POST['email'] );
+        }
+
+        $result = $this->service->update_profile( $id, $data );
+
+        $args = [ 'page' => 'vp-members', 'vp_notice' => 'updated' ];
+        if ( is_wp_error( $result ) ) {
+            $args['vp_notice'] = 'update_' . $result->get_error_code();
+            $args['edit']      = $id;
+        }
+
+        wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
+        exit;
     }
 
     /**
@@ -597,6 +691,12 @@ class MembersPage {
             'role_updated'   => [ 'success', __( 'Rollen aktualisiert.', 'vereins-plugin' ) ],
             'role_error'     => [ 'error',   __( 'Rollen konnten nicht geändert werden.', 'vereins-plugin' ) ],
             'created'        => [ 'success', __( 'Mitglied angelegt.', 'vereins-plugin' ) ],
+            'updated'                => [ 'success', __( 'Mitglied gespeichert.', 'vereins-plugin' ) ],
+            'update_empty_name'      => [ 'error',   __( 'Der Name darf nicht leer sein.', 'vereins-plugin' ) ],
+            'update_invalid_email'   => [ 'error',   __( 'Bitte gib eine gültige E-Mail-Adresse an.', 'vereins-plugin' ) ],
+            'update_email_exists'    => [ 'error',   __( 'Diese E-Mail-Adresse gehört bereits zu einem anderen Zugang.', 'vereins-plugin' ) ],
+            'update_protected'       => [ 'error',   __( 'Die E-Mail von Administratoren und des eigenen Kontos wird im WordPress-Profil geändert.', 'vereins-plugin' ) ],
+            'update_not_found'       => [ 'error',   __( 'Mitglied nicht gefunden.', 'vereins-plugin' ) ],
             'create_error'   => [ 'error',   __( 'Mitglied konnte nicht angelegt werden (E-Mail evtl. schon vergeben).', 'vereins-plugin' ) ],
             'person_accepted'=> [ 'success', __( 'Person aufgenommen. Der Zugang wurde angelegt, bisherige Zusagen bleiben erhalten.', 'vereins-plugin' ) ],
             'person_rejected'=> [ 'success', __( 'Eintrag gelöscht.', 'vereins-plugin' ) ],
