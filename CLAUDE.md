@@ -99,8 +99,14 @@ Websites holen Updates aus den GitHub-Releases (`Support\Updater`, Header
 2. Committen und auf `main` pushen. **Kein Tag von Hand** – Claude-Sitzungen
    dürfen keine Tags pushen, deshalb setzt GitHub ihn selbst.
 3. `.github/workflows/release.yml` sieht eine Version ohne Release, lässt die
-   Prüfungen laufen, baut `vereins-plugin.zip` und legt Release und Tag
-   `v1.2.3` an. Pushes ohne neue Version lösen nichts aus.
+   Prüfungen laufen, baut das Paket und legt Release und Tag `v1.2.3` an.
+   Pushes ohne neue Version lösen nichts aus.
+
+Am Release hängen zwei identische Pakete: `vereins-plugin.zip` für den
+Updater und `vereins-plugin-1.2.3.zip` zum Herunterladen. **Der Name
+`vereins-plugin.zip` darf sich nie ändern** – er ist in jeder installierten
+Version fest eingebaut (`Support\Updater::ASSET`); ein neuer Name ließe alle
+bestehenden Websites ohne Update zurück.
 
 Ein Tag von Hand (`v1.2.3` oder `1.2.3`) funktioniert weiterhin, muss aber
 zur Version passen. Lokale Kopien holen den Tag danach mit `git pull`.

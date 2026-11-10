@@ -1,4 +1,12 @@
-# Baut ein Release mit angehängtem vereins-plugin.zip.
+# Baut ein Release mit zwei identischen Paketen:
+#   vereins-plugin.zip          – für den Updater der Websites. Der Name ist in
+#                                 jeder installierten Version fest eingebaut
+#                                 (Support\Updater::ASSET) und darf sich nie
+#                                 ändern, sonst finden alte Websites kein Update.
+#   vereins-plugin-<Version>.zip – zum Herunterladen, damit man die Datei auf
+#                                 der Festplatte wiedererkennt.
+# In beiden liegt der Ordner vereins-plugin/, damit WordPress auch beim
+# Hochladen von Hand in den richtigen Plugin-Ordner installiert.
 #
 # Websites holen Updates über Support\Updater aus dem neuesten Release; ohne
 # angehängtes Paket bietet keine Website das Update an.
@@ -92,13 +100,15 @@ jobs:
           cp -r vereins-plugin.php includes assets README.md FEATURES.md build/vereins-plugin/
           cd build && zip -r -q ../vereins-plugin.zip vereins-plugin
           cd .. && unzip -l vereins-plugin.zip | tail -1
+          cp vereins-plugin.zip "vereins-plugin-${{ steps.version.outputs.version }}.zip"
 
       - name: Release anlegen
         if: steps.version.outputs.neu == 'yes'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ steps.version.outputs.tag }}" vereins-plugin.zip \
+          gh release create "${{ steps.version.outputs.tag }}" \
+            vereins-plugin.zip "vereins-plugin-${{ steps.version.outputs.version }}.zip" \
             --target "$GITHUB_SHA" \
             --title "Vereins-Plugin ${{ steps.version.outputs.version }}" \
             --generate-notes

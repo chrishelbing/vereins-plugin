@@ -43,11 +43,18 @@ class Updater {
 
         // „Erneut prüfen“ unter Dashboard → Aktualisierungen soll wirklich
         // neu fragen, nicht die gemerkte Antwort zeigen.
+        //
+        // Priorität 1, nicht 10: WordPress hängt wp_update_plugins() selbst an
+        // denselben Haken (Priorität 10), und zwar früher als jedes Plugin.
+        // Bei gleicher Priorität lief die Prüfung also VOR dem Löschen und
+        // fand die alte Antwort – etwa ein gemerktes „nichts gefunden“ aus
+        // der Zeit, als das Repo noch privat war. „Erneut prüfen“ blieb dann
+        // bis zu einer Stunde wirkungslos.
         add_action( 'load-update-core.php', static function (): void {
             if ( ! empty( $_GET['force-check'] ) ) {
                 delete_site_transient( self::CACHE );
             }
-        } );
+        }, 1 );
         // Nach einem Update ist die gemerkte Antwort veraltet.
         add_action( 'upgrader_process_complete', static function (): void {
             delete_site_transient( self::CACHE );
