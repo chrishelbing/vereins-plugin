@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.9.0
+> Stand: Version 1.14.4
 
 ---
 
@@ -101,7 +101,12 @@ Das Verständnis dieser Stufen ist Voraussetzung für alles andere.
 | **Gast** | `vp_people`, Herkunft `link` | Zusagen, Helferaufgaben, Mitbringliste – über den Terminlink | Nachbarin sagt zum Sommerfest zu |
 | **Wartende Registrierung** | `vp_people`, Herkunft `registration` | nichts, bis freigegeben | jemand füllt `[vp_register]` aus |
 | **Mitglied** | `wp_users` + `vp_members` | Mitgliederbereich, alle Termine, Fotos | aufgenommenes Vereinsmitglied |
-| **Orgateam** | wie Mitglied, Rolle `vp_orgateam` | zusätzlich: Bedarf vorgeben, Titelbilder, Flyer | wer Termine betreut |
+| **Orgateam** | wie Mitglied, Rolle `vp_orgateam` | zusätzlich: Bedarf vorgeben und Posten bearbeiten, alle Termine bearbeiten, Titelbilder, Flyer | wer Termine betreut |
+
+**Selbstregistrierung wartet standardmäßig.** Wer sich über `[vp_register]`
+meldet, landet als wartende Registrierung in der Mitgliederverwaltung. Unter
+*Verein → Einstellungen* lässt sich die Freischaltung abschalten
+(`require_approval`); dann ist der Zugang sofort aktiv.
 
 **Kein WordPress-Profil für Unbestätigte.** Gäste und wartende Registrierungen
 liegen ausschließlich in `vp_people`. Ein Profil in der WordPress-Nutzer­
@@ -166,8 +171,9 @@ Frei definierbar, mit Farbe. Je Typ wird festgelegt, ob Termine dieser Art
 eine **Mitbringliste**, **Helferaufgaben** und **Fotos** haben. Optional eine
 Standardvorlage je Bereich, die beim Anlegen vorbelegt wird.
 
-Termintypen können auch **Ressourcen** sein (Bus, Vereinsheim) – gedacht für
-Belegungen.
+Ein Termintyp lässt sich als **Ressource** kennzeichnen (Bus, Vereinsheim).
+Das ist bisher nur eine Kennzeichnung in der Typenübersicht – eine
+Belegungsprüfung gibt es nicht (siehe „Bewusste Grenzen“).
 
 ### Termine anlegen und freigeben
 
@@ -275,7 +281,7 @@ Titel, in der Backend-Übersicht unter dem Titel.
   Backend, in `[vp_create_event]` und im Bearbeiten-Dialog an der Kachel
   (alle drei zeigen nur die Tags des gewählten Typs). Im Dialog nicht bei
   „nur dieser Termin“ – Tags gelten für die ganze Serie.
-- **Noch nicht** als Filter der Terminliste.
+- Die Terminliste lässt sich nicht nach Tags filtern.
 
 ### Entwurf und live
 
@@ -641,7 +647,9 @@ nicht wiederbelebt.
 zusätzlich zum Token eine Website-Session – das braucht das Frontend, die App
 nicht. Mit `with_cookie=false` bleibt es aus.
 
-**SMS und WhatsApp sind Platzhalter.** Ohne angehängten Versand
+**SMS und WhatsApp gibt es nicht.** Das Plugin verschickt Einmalcodes nur
+per E-Mail. Für beide Wege stehen lediglich Anschlussstellen bereit, an die
+ein Entwickler einen eigenen Versand hängen könnte. Ohne angehängten Versand
 (`vp_send_sms_otp`, `vp_send_whatsapp_otp`) antwortet `request-otp` mit
 `channel_unavailable` statt mit einem allgemeinen Versandfehler – sonst
 wartete jemand auf eine Nachricht, die nie losgeschickt wurde. Geprüft wird
@@ -720,8 +728,9 @@ begrüßen noch entscheiden, welche Knöpfe sie zeigen darf. Die Angaben steuern
 ausschließlich die Oberfläche – jeder schreibende Endpunkt prüft die Rechte
 selbst noch einmal.
 
-Wie daraus eine App wird, steht im Ordner `Vereins-App` in `APP.md`; die
-Absicherung der App-Seite liegt in `tools/apitest.php`.
+Eine App gehört nicht zum Plugin. Die Schnittstelle ist so gebaut, dass
+eine eigene App darauf aufsetzen kann; abgesichert ist diese Seite in
+`tools/apitest.php`.
 
 ---
 
@@ -735,7 +744,10 @@ Damit niemand danach sucht:
 - **Keine Anwesenheitskontrolle** vor Ort.
 - **Kein eigenes Anmeldesystem.** Wer sich anmeldet, ist WordPress-Nutzer;
   das Plugin baut keine eigene Passwortverwaltung.
-- **Ressourcen** sind als Termintyp angelegt, aber ohne Belegungsprüfung.
+- **Ressourcen** sind nur eine Kennzeichnung am Termintyp, ohne Belegungsprüfung.
+- **Keine App.** Die Schnittstelle ist vorbereitet, eine App gehört nicht dazu.
+- **Kein Versand per SMS oder WhatsApp.** Einmalcodes und Benachrichtigungen gehen per E-Mail.
+- **Kein Filter** der Terminliste nach Tags.
 
 ---
 
@@ -754,16 +766,23 @@ Bei jeder Änderung am Funktionsumfang:
 Das Plugin meldet neue Versionen selbst: Unter *Plugins* erscheint
 „Jetzt aktualisieren“, sobald es auf GitHub ein neueres Release gibt.
 `Support\Updater` fragt dafür alle sechs Stunden
-`api.github.com/repos/chrishelbing/vereins-plugin/releases/latest` ab
-(„Erneut prüfen“ unter *Dashboard → Aktualisierungen* fragt sofort) und
-nimmt das angehängte Paket `vereins-plugin.zip`. „Details ansehen“ zeigt
-die Versionshinweise des Releases.
+`api.github.com/repos/chrishelbing/vereins-plugin/releases/latest` ab und
+nimmt das angehängte Paket `vereins-plugin.zip`. „Erneut prüfen“ unter
+*Dashboard → Aktualisierungen* löscht die gemerkte Antwort vor der Prüfung
+(Priorität 1, vor `wp_update_plugins()`) und fragt damit sofort.
+„Details ansehen“ zeigt die Versionshinweise des Releases.
 
-- Gebaut wird das Paket von `.github/workflows/release.yml` beim Pushen
-  eines Tags `v…` – siehe CLAUDE.md, „Neue Version veröffentlichen“.
+- Ein Release entsteht beim Push auf `main`, sobald `vereins-plugin.php`
+  eine Version trägt, zu der es noch kein Release gibt
+  (`.github/workflows/release.yml`, siehe CLAUDE.md). Ein Tag von Hand geht
+  auch.
+- Am Release hängen zwei identische Pakete: `vereins-plugin.zip` für den
+  Updater – der Name ist in jeder installierten Fassung fest eingebaut und
+  ändert sich nie – und `vereins-plugin-<Version>.zip` zum Herunterladen.
 - Vorabversionen und Entwürfe auf GitHub werden nicht angeboten.
-- **Privates Repository:** In der `wp-config.php` der Website
-  `define( 'VP_GITHUB_TOKEN', '…' );` eintragen (Fine-grained Token, nur
-  dieses Repo, „Contents: Read“). Der Token geht nur an `api.github.com`.
-- Die erste Fassung mit diesem Mechanismus muss noch von Hand hochgeladen
-  werden – eine ältere Fassung weiß nicht, wo sie nachsehen soll.
+- Das Repository ist öffentlich; ein Token ist nicht nötig. Wäre es privat,
+  bräuchte jede Website in der `wp-config.php`
+  `define( 'VP_GITHUB_TOKEN', '…' );` (Fine-grained Token, nur dieses Repo,
+  „Contents: Read“). Der Token ginge nur an `api.github.com`.
+- Fassungen vor 1.12 kennen den Mechanismus noch nicht und müssen einmal von
+  Hand aktualisiert werden.

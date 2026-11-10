@@ -41,7 +41,7 @@ class EventsShortcode {
         return [
             'tag'         => 'vp_events',
             'title'       => __( 'Terminliste', 'vereins-plugin' ),
-            'description' => __( 'Zeigt kommende Termine als Kacheln mit Zu-/Absage, Helferaufgaben, Mitbringliste und Fotos. Darunter vergangene Termine, solange deren Fotos noch abrufbar sind. Angemeldete Mitglieder sehen die ganze Liste. Über einen geteilten Terminlink ist zusätzlich ein einzelner Termin ohne Anmeldung erreichbar – dort ohne Namen und ohne Fotos.', 'vereins-plugin' ),
+            'description' => __( 'Zeigt kommende Termine als Kacheln mit Zu-/Absage, Helferaufgaben, Mitbringliste und Fotos. Darunter vergangene Termine, solange deren Fotos noch abrufbar sind. Angemeldete Mitglieder sehen die ganze Liste, Besucher ohne Anmeldung nur die als öffentlich markierten kommenden Termine. Über einen geteilten Terminlink ist zusätzlich ein einzelner Termin ohne Anmeldung erreichbar – dort ohne Namen und ohne Fotos.', 'vereins-plugin' ),
             'atts'        => [
                 [ 'days',  '30', __( 'Wie viele Tage in die Zukunft geschaut wird.', 'vereins-plugin' ) ],
                 [ 'limit', '10', __( 'Maximale Anzahl Termine je Abschnitt.', 'vereins-plugin' ) ],
