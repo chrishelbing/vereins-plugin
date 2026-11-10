@@ -22,7 +22,9 @@ $pruefungen = [
     'startdatentest.php' => 'Startdaten: einmalig, nachlegbar, am Termin wirksam',
     'qrtest.php'         => 'QR-Encoder gegen hinterlegte Sollwerte',
     'bannertest.php'     => 'Terminbanner: Auswahl, Zeitfenster, Serien, Freigabe',
-    'tagtest.php'        => 'Infotermine ohne Zusage, Tags aus dem Termintyp',
+    'tagtest.php'        => 'Infotermine ohne Zusage, Tags, ganztägige Termine',
+    'updatertest.php'    => 'Updates: Auswertung der GitHub-Releases',
+    'texttest.php'       => 'Beschreibung: Links erkennen, nichts Gefährliches durchlassen',
 ];
 
 $exec_frei = function_exists( 'exec' )

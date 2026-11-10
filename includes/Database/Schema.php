@@ -141,6 +141,8 @@ class Schema {
         // approval_status: 'approved' (live: vom Admin angelegt oder freigegeben) | 'pending' (wartet auf Freigabe) | 'rejected'
         //                  | 'draft' (Entwurf: nur im Backend sichtbar, per Schalter live zu stellen)
         // tags: JSON-Liste, Auswahl aus den Tags des Termintyps (NULL = keine).
+        // is_public: 1 = auch Besuchern ohne Anmeldung in [vp_events] gezeigt
+        //            (als Übersicht; zusagen geht über den Terminlink).
         // banner_days_before: NULL = kein Banner. Sonst erscheint der Termin im
         //                     Shortcode [vp_banner] ab so vielen Tagen vor
         //                     Beginn bis zu seinem Ende; 0 = sofort.
@@ -162,6 +164,7 @@ class Schema {
             image_attachment_id BIGINT UNSIGNED DEFAULT NULL,
             banner_days_before SMALLINT UNSIGNED DEFAULT NULL,
             tags             TEXT            DEFAULT NULL,
+            is_public        TINYINT(1)      NOT NULL DEFAULT 0,
             created_by       BIGINT UNSIGNED NOT NULL,
             created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

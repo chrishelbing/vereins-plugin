@@ -126,9 +126,10 @@ class EventModel {
                 'photo_upload_days' => $data['photo_upload_days'] ?? null,
                 'banner_days_before' => $data['banner_days_before'] ?? null,
                 'tags'            => $data['tags'] ?? null,
+                'is_public'       => ! empty( $data['is_public'] ) ? 1 : 0,
                 'created_by'      => $data['created_by'],
             ],
-            [ '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%d' ]
+            [ '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%d', '%s', '%d', '%d' ]
         );
 
         $event_id = (int) $wpdb->insert_id;
@@ -162,6 +163,7 @@ class EventModel {
             'image_attachment_id' => '%d',
             'banner_days_before'  => '%d',
             'tags'                => '%s',
+            'is_public'           => '%d',
         ];
 
         foreach ( $map as $key => $fmt ) {

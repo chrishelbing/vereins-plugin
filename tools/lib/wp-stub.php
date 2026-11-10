@@ -113,7 +113,13 @@ class StubDb {
     }
 
     public function get_results( $sql, $out = null ) { return $this->filter( $sql ); }
-    public function get_row( $sql, $out = null )     { return $this->filter( $sql )[0] ?? null; }
+    // Wie WordPress: ohne ARRAY_A kommt ein Objekt zurück (Standard OBJECT).
+    // Vorher immer ein Array – OtpModel liest $row->token_hash und wäre im
+    // Test nie durchgekommen.
+    public function get_row( $sql, $out = null ) {
+        $row = $this->filter( $sql )[0] ?? null;
+        return ( $row === null || $out === ARRAY_A ) ? $row : (object) $row;
+    }
 
     public function get_col( $sql ) {
         preg_match( '/SELECT\s+(?:\w+\.)?(\w+)/i', (string) $sql, $m );

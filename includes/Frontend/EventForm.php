@@ -38,6 +38,28 @@ class EventForm {
     }
 
     /**
+     * Das „?“ neben „Beschreibung“: ein Tooltip, wie Links gesetzt werden.
+     *
+     * Reines CSS (Hover und Fokus), kein Skript – damit es in allen drei
+     * Formularen gleich funktioniert, auch im Backend. Auf dem Handy öffnet
+     * Antippen (Fokus), Tippen daneben schließt. Die Stile stehen in
+     * assets/css/form.css und für das Backend in AdminStyles.
+     */
+    public static function format_hint(): void {
+        ?>
+        <?php // Steht in einem <label>: ohne preventDefault würde ein Tipp den Fokus ins Textfeld schieben und den Tooltip gleich wieder schließen. ?>
+        <span class="vp-hint" tabindex="0" role="button" onclick="event.preventDefault()" aria-label="<?php esc_attr_e( 'So setzt du Links', 'vereins-plugin' ); ?>">?
+            <span class="vp-hint__box" role="tooltip">
+                <strong><?php esc_html_e( 'Links setzen', 'vereins-plugin' ); ?></strong>
+                <span class="vp-hint__row"><?php esc_html_e( 'Adresse einfach einfügen:', 'vereins-plugin' ); ?><br><code>https://www.bjv-online.de</code></span>
+                <span class="vp-hint__row"><?php esc_html_e( 'Mit eigenem Text:', 'vereins-plugin' ); ?><br><code>[Ausschreibung](https://…)</code></span>
+                <span class="vp-hint__row vp-hint__note"><?php esc_html_e( 'Eckige Klammern für den Text, runde direkt dahinter für die Adresse. Zeilenumbrüche bleiben erhalten, HTML wird nicht übernommen.', 'vereins-plugin' ); ?></span>
+            </span>
+        </span>
+        <?php
+    }
+
+    /**
      * Alle Felder eines Termins, ohne das <form> selbst.
      *
      * @param array  $types  Termintypen für die Auswahlliste.
@@ -97,7 +119,7 @@ class EventForm {
         </div>
 
         <div class="vp-form__group">
-            <label for="<?php echo esc_attr( $id( 'description' ) ); ?>"><?php esc_html_e( 'Beschreibung', 'vereins-plugin' ); ?></label>
+            <label for="<?php echo esc_attr( $id( 'description' ) ); ?>"><?php esc_html_e( 'Beschreibung', 'vereins-plugin' ); ?> <?php self::format_hint(); ?></label>
             <textarea id="<?php echo esc_attr( $id( 'description' ) ); ?>" name="description" rows="3"
                       placeholder="<?php esc_attr_e( 'Optional…', 'vereins-plugin' ); ?>"></textarea>
         </div>

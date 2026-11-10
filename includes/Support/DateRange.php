@@ -70,6 +70,19 @@ class DateRange {
      *   ganztägig     „Fr, 12. Sep. – So, 14. Sep.“
      */
     public static function detail( string $start, string $end, bool $full_day = false ): string {
+        return self::ohne_doppelpunkt( self::detail_roh( $start, $end, $full_day ) );
+    }
+
+    /**
+     * Deutsche Monatskürzel bringen ihren Punkt selbst mit („Dez.“), andere
+     * nicht („Mai“). Das Format hängt deshalb einen Punkt an, der hier
+     * wieder wegfällt, wo er doppelt stünde.
+     */
+    private static function ohne_doppelpunkt( string $s ): string {
+        return str_replace( '..', '.', $s );
+    }
+
+    private static function detail_roh( string $start, string $end, bool $full_day ): string {
         $day = 'D, j. M.';
 
         // Eintägig: Den Tag nur einmal nennen. „Fr, 11. Sep. – Fr, 11. Sep.“
@@ -128,6 +141,26 @@ class DateRange {
             // Über den Monatswechsel hinweg beide Monate nennen.
             'month' => $month_from === $month_to ? $month_from : $month_from . '/' . $month_to,
         ];
+    }
+
+    /**
+     * Grenzen eines ganztägigen Termins: vom ersten Tag 00:00 bis zum letzten
+     * Tag 23:59. Nimmt nur das Datum der Eingabe – egal, ob mit Uhrzeit
+     * („2026-11-15T00:00“) oder ohne („2026-11-15“).
+     *
+     * Wichtig für mehrtägige Termine: Ein Ende „15. Nov. 00:00“ zählt sonst
+     * als 14. Nov. (siehe end_date()), und aus Sa–So würde ein eintägiger
+     * Termin am Samstag.
+     *
+     * @return array{0:string,1:string}
+     */
+    public static function full_day_bounds( string $start, string $end ): array {
+        $von = substr( trim( $start ), 0, 10 );
+        $bis = substr( trim( $end ), 0, 10 );
+        if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $bis ) || $bis < $von ) {
+            $bis = $von;
+        }
+        return [ $von . ' 00:00:00', $bis . ' 23:59:00' ];
     }
 
     // ------------------------------------------------------------------

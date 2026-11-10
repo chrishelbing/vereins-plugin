@@ -16,6 +16,7 @@ declare( strict_types=1 );
 require_once __DIR__ . '/lib/wp-stub.php';
 
 stub_load( [
+    'Support/DateRange.php',
     'Support/Tags.php',
     'Events/EventTypeModel.php',
     'Events/EventModel.php',
@@ -25,6 +26,7 @@ stub_load( [
 use VereinsPlugin\Events\EventModel;
 use VereinsPlugin\Events\EventTypeModel;
 use VereinsPlugin\Events\RecurrenceExpander;
+use VereinsPlugin\Support\DateRange;
 use VereinsPlugin\Support\Tags;
 
 // ---------------------------------------------------------------------
@@ -68,5 +70,22 @@ $id = $model->create( [
 Pruefung::gleich( 'gespeichert',  Tags::decode( $model->find( $id )['tags'] ?? null ), [ 'U11', 'U13' ] );
 $model->update( $id, [ 'tags' => null ] );
 Pruefung::gleich( 'geleert',      Tags::decode( $model->find( $id )['tags'] ?? null ), [] );
+
+// ---------------------------------------------------------------------
+echo "\nGanztägige Termine\n";
+// ---------------------------------------------------------------------
+// Der Fehler, um den es geht: Sa–So ganztägig, Ende als „So 00:00“
+// gespeichert, zählte als eintägiger Termin am Samstag.
+[ $von, $bis ] = DateRange::full_day_bounds( '2026-11-14', '2026-11-15' );
+Pruefung::gleich( 'reine Datumsangaben',       "$von / $bis", '2026-11-14 00:00:00 / 2026-11-15 23:59:00' );
+Pruefung::gleich( 'zwei Tage',                 DateRange::days( $von, $bis ), 2 );
+Pruefung::gleich( 'Kopf zeigt beide Tage',     DateRange::badge( $von, $bis )['day'], '14.–15.' );
+[ $von, $bis ] = DateRange::full_day_bounds( '2026-11-14T00:00', '2026-11-15T00:00' );
+Pruefung::gleich( 'Uhrzeit wird ignoriert',    "$von / $bis", '2026-11-14 00:00:00 / 2026-11-15 23:59:00' );
+[ $von, $bis ] = DateRange::full_day_bounds( '2026-11-14', '' );
+Pruefung::gleich( 'ohne Ende: ein Tag',        "$von / $bis", '2026-11-14 00:00:00 / 2026-11-14 23:59:00' );
+[ $von, $bis ] = DateRange::full_day_bounds( '2026-11-15', '2026-11-14' );
+Pruefung::gleich( 'Ende vor Start: ein Tag',   $bis, '2026-11-15 23:59:00' );
+Pruefung::gleich( 'eintägig: ein Tag im Kopf', DateRange::badge( ...DateRange::full_day_bounds( '2026-11-14', '2026-11-14' ) )['day'], '14.' );
 
 Pruefung::abschluss( 'Infotermine und Tags' );

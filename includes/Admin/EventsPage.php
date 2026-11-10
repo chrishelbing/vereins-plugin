@@ -138,6 +138,9 @@ class EventsPage {
                                     (int) $e['banner_days_before']
                                 ) ); ?>"><?php esc_html_e( 'Banner', 'vereins-plugin' ); ?></span>
                             <?php endif; ?>
+                            <?php if ( ! empty( $e['is_public'] ) ) : ?>
+                                <span class="vp-badge vp-badge--active" title="<?php esc_attr_e( 'Auch ohne Anmeldung in der Terminliste sichtbar', 'vereins-plugin' ); ?>"><?php esc_html_e( 'Öffentlich', 'vereins-plugin' ); ?></span>
+                            <?php endif; ?>
                             <?php $e_tags = Tags::decode( $e['tags'] ?? null ); ?>
                             <?php if ( $e_tags ) : ?>
                                 <br><span class="description"><?php echo esc_html( implode( ' · ', $e_tags ) ); ?></span>
@@ -353,8 +356,9 @@ class EventsPage {
                     </div>
 
                     <div class="vp-field">
-                        <label for="vp-description"><?php esc_html_e( 'Beschreibung', 'vereins-plugin' ); ?></label>
+                        <label for="vp-description"><?php esc_html_e( 'Beschreibung', 'vereins-plugin' ); ?> <?php \VereinsPlugin\Frontend\EventForm::format_hint(); ?></label>
                         <textarea id="vp-description" name="description" rows="3"><?php echo esc_textarea( $editing['description'] ?? '' ); ?></textarea>
+
                     </div>
 
                     <div class="vp-row">
@@ -370,7 +374,7 @@ class EventsPage {
 
                     <div class="vp-field">
                         <label>
-                            <input type="checkbox" name="is_full_day" value="1" <?php checked( ! empty( $editing['is_full_day'] ) ); ?>>
+                            <input type="checkbox" id="vp-fullday" name="is_full_day" value="1" <?php checked( ! empty( $editing['is_full_day'] ) ); ?>>
                             <?php esc_html_e( 'Ganztägig', 'vereins-plugin' ); ?>
                         </label>
                     </div>
@@ -410,6 +414,16 @@ class EventsPage {
                         </p>
                     </div>
                     <?php endif; ?>
+
+                    <div class="vp-field" style="background:#f9fafb;border-radius:8px;padding:14px;">
+                        <label>
+                            <input type="checkbox" name="is_public" value="1" <?php checked( ! empty( $editing['is_public'] ) ); ?>>
+                            <?php esc_html_e( 'Öffentlich – auch ohne Anmeldung in der Terminliste sichtbar', 'vereins-plugin' ); ?>
+                        </label>
+                        <p class="description">
+                            <?php esc_html_e( 'Besucher sehen den Termin mit Datum, Ort, Beschreibung und Tags, aber keine Namen, Helferaufgaben oder Fotos. Ein Klick auf „Zusagen“ führt sie zum Terminlink, über den sie ohne Konto zu- oder absagen.', 'vereins-plugin' ); ?>
+                        </p>
+                    </div>
 
                     <?php
                     // Banner auf der Website: NULL = aus. Beim Einschalten ist
@@ -549,6 +563,31 @@ class EventsPage {
                     var typ  = document.getElementById('vp-type');
                     var foto = document.getElementById('vp-photo-field');
 
+                    // Ganztägig: Start und Ende nur als Datum, ohne Uhrzeit.
+                    // Die Uhrzeit wird gemerkt, falls das Häkchen wieder
+                    // rausgeht. Der Server setzt 00:00 bis 23:59.
+                    var ganz = document.getElementById('vp-fullday');
+                    var nurTage = function(){
+                        ['vp-start', 'vp-end'].forEach(function(id, i){
+                            var f = document.getElementById(id);
+                            if (!f) { return; }
+                            if (ganz.checked && f.type !== 'date') {
+                                f.dataset.zeit = f.value.slice(11, 16);
+                                var tag = f.value.slice(0, 10);
+                                f.type = 'date';
+                                f.value = tag;
+                            } else if (!ganz.checked && f.type === 'date') {
+                                var tag2 = f.value;
+                                f.type = 'datetime-local';
+                                f.value = tag2 ? tag2 + 'T' + (f.dataset.zeit || (i ? '17:00' : '09:00')) : '';
+                            }
+                        });
+                    };
+                    if ( ganz ) {
+                        ganz.addEventListener('change', nurTage);
+                        nurTage();
+                    }
+
                     // Tag-Auswahl des gewählten Typs zeigen, die übrigen
                     // ausblenden und deaktivieren, damit sie nicht mitgehen.
                     if ( typ ) {
@@ -590,6 +629,7 @@ class EventsPage {
             'start_at'      => $this->from_local( $_POST['start_at'] ?? '' ),
             'end_at'        => $this->from_local( $_POST['end_at'] ?? '' ),
             'is_full_day'   => ! empty( $_POST['is_full_day'] ) ? 1 : 0,
+            'is_public'     => ! empty( $_POST['is_public'] ) ? 1 : 0,
             'created_by'    => get_current_user_id(),
             // Leeres Feld = globaler Standard (NULL), "0" = kein Zeitlimit.
             'photo_upload_days' => ( $_POST['photo_upload_days'] ?? '' ) === ''
@@ -603,6 +643,15 @@ class EventsPage {
                     ? self::BANNER_DEFAULT_DAYS
                     : max( 0, min( 365, (int) $_POST['banner_days_before'] ) ) ),
         ];
+
+        // Ganztägig: nur die Tage zählen – 00:00 bis 23:59. Das Formular
+        // schickt dann reine Datumsfelder.
+        if ( $data['is_full_day'] ) {
+            [ $data['start_at'], $data['end_at'] ] = DateRange::full_day_bounds(
+                sanitize_text_field( $_POST['start_at'] ?? '' ),
+                sanitize_text_field( $_POST['end_at'] ?? '' )
+            );
+        }
 
         // Nur Tags, die der gewählte Typ vorgibt.
         $data['tags'] = Tags::encode( Tags::restrict(

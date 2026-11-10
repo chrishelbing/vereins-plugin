@@ -15,6 +15,16 @@
     var T    = VP.t;
     var H    = VP.headers;
 
+    // --- Ort → Kartenprogramm --------------------------------------
+    // Im HTML steht der Google-Maps-Link, der überall funktioniert. Auf
+    // iPhone, iPad und Mac öffnet der Apple-Link stattdessen die Karten-App.
+    // iPadOS meldet sich als „Macintosh“ – deshalb zählt das mit.
+    if (/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)) {
+        [].forEach.call(root.querySelectorAll('.vp-maplink[data-apple]'), function(a){
+            a.href = a.dataset.apple;
+        });
+    }
+
     // --- Link zum Teilen ------------------------------------------
     // Wer den Link hat, darf ohne Anmeldung zu- und absagen.
     root.addEventListener('click', function(e){

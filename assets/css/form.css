@@ -64,3 +64,14 @@
 /* Tags am Termin – Auswahl aus den Vorgaben des Termintyps. */
 .vp-tags { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .vp-tags__btn { display: flex; align-items: center; gap: 4px; font-size: .85rem; font-weight: 400; cursor: pointer; }
+
+/* „?“ mit Tooltip neben einer Feldbeschriftung (EventForm::format_hint). */
+.vp-hint { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 4px; border-radius: 999px; background: #e5e7eb; color: #374151; font-size: 11px; font-weight: 700; line-height: 1; cursor: help; vertical-align: middle; }
+.vp-hint:focus { outline: 2px solid #2563eb; outline-offset: 1px; }
+.vp-hint__box { display: none; position: absolute; z-index: 100; left: -10px; bottom: calc(100% + 8px); width: 260px; max-width: calc(100vw - 40px); padding: 10px 12px; border-radius: 8px; background: #111827; color: #f9fafb; font-size: 12px; font-weight: 400; line-height: 1.45; text-align: left; box-shadow: 0 6px 20px rgba(0,0,0,.2); white-space: normal; }
+.vp-hint__box::after { content: ""; position: absolute; top: 100%; left: 12px; border: 6px solid transparent; border-top-color: #111827; }
+.vp-hint:hover .vp-hint__box, .vp-hint:focus .vp-hint__box, .vp-hint:focus-within .vp-hint__box { display: block; }
+.vp-hint__box strong { display: block; margin-bottom: 6px; font-size: 12px; }
+.vp-hint__row { display: block; margin-top: 6px; }
+.vp-hint__box code { display: inline-block; margin-top: 2px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.12); color: #f9fafb; font-size: 11px; word-break: break-all; }
+.vp-hint__note { color: #d1d5db; }

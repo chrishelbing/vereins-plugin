@@ -130,7 +130,7 @@ class FlyerPage {
             'type'      => (string) ( $instance['type_name'] ?? '' ),
             'color'     => (string) ( $instance['type_color'] ?? '#3B82F6' ),
             'location'  => (string) ( $instance['location'] ?? '' ),
-            'text'      => wp_trim_words( (string) ( $instance['description'] ?? '' ), 40 ),
+            'text'      => wp_trim_words( \VereinsPlugin\Support\RichText::plain( (string) ( $instance['description'] ?? '' ), true ), 40 ),
             'badge'     => DateRange::badge( $start, $end ),
             'when'      => DateRange::detail( $start, $end, $full_day ),
             'short'     => DateRange::short( $start, $end, $full_day ),

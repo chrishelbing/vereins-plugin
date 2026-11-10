@@ -77,6 +77,12 @@ class EventsShortcode {
                 );
             }
 
+            // Ohne Anmeldung: die öffentlichen Termine als Übersicht.
+            $oeffentlich = $this->public_upcoming( $atts );
+            if ( $oeffentlich ) {
+                return $notice . $this->render_teaser( $oeffentlich );
+            }
+
             return $notice . '<p class="vp-notice">'
                    . esc_html__( 'Bitte melde dich an, um die Termine zu sehen.', 'vereins-plugin' )
                    . '</p>';
@@ -146,6 +152,68 @@ class EventsShortcode {
      * Eine einzelne Termininstanz für den öffentlichen Link auflösen.
      * Nur freigegebene Termine sind über den Link erreichbar.
      */
+    /**
+     * Kommende Termine mit „Öffentlich“, für Besucher ohne Anmeldung.
+     * Gleicher Zeitraum und dieselbe Obergrenze wie die Liste der Mitglieder;
+     * vergangene Termine nicht – bei denen geht es nur noch um Fotos, und
+     * die bleiben Mitgliedern vorbehalten.
+     */
+    private function public_upcoming( $atts ): array {
+        $atts  = shortcode_atts( [ 'days' => 30, 'limit' => 10 ], (array) $atts );
+        $days  = max( 1, min( 365, (int) $atts['days'] ) );
+        $limit = max( 1, min( 100, (int) $atts['limit'] ) );
+
+        $now = current_time( 'Y-m-d H:i:s' );
+        $to  = gmdate( 'Y-m-d H:i:s', strtotime( "+{$days} days" ) );
+
+        $raw = array_filter(
+            ( new EventModel() )->in_range( $now, $to ),
+            fn( $e ) => ! empty( $e['is_public'] )
+        );
+        $instances = RecurrenceExpander::expand( array_values( $raw ), $now, $to );
+
+        [ $upcoming ] = $this->split_by_time( $instances, $now );
+        return array_slice( $upcoming, 0, $limit );
+    }
+
+    /**
+     * Übersicht für Besucher: dieselben Kacheln, aber ohne Namen, Zähler,
+     * Helfer, Mitbringliste und Fotos. Statt der Zusage-Knöpfe ein Link auf
+     * den Terminlink – dort sagt man ohne Konto zu, mit der bewährten
+     * Gast-Kennung je Termin.
+     */
+    private function render_teaser( array $upcoming ): string {
+        self::register_assets();
+        wp_enqueue_style( self::STYLE );
+
+        $basis = get_permalink() ?: PublicLink::events_page();
+        $stats = $this->collect_stats( $upcoming, 0 );
+
+        ob_start();
+        ?>
+        <div class="vp-events vp-events--teaser" id="vp-events">
+            <ul class="vp-events__list">
+                <?php foreach ( $upcoming as $event ) : ?>
+                    <?php
+                    $t = $this->prepare_tile( $event, false, $stats, true );
+                    $t['teaser_url'] = PublicLink::url( (string) $basis, $t['event_id'], $t['inst_date'] )
+                        . '#' . self::anchor( $t['event_id'], $t['inst_date'] );
+                    $this->render_tile( $t, true, false );
+                    ?>
+                <?php endforeach; ?>
+            </ul>
+            <p class="vp-events__hint"><?php esc_html_e( 'Mitglieder sehen nach der Anmeldung alle Termine.', 'vereins-plugin' ); ?></p>
+        </div>
+        <script>
+        // Ortslinks auf Apple-Geräten in die Karten-App (wie tile.js).
+        if (/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)) {
+            document.querySelectorAll('.vp-events--teaser .vp-maplink[data-apple]').forEach(function(a){ a.href = a.dataset.apple; });
+        }
+        </script>
+        <?php
+        return (string) ob_get_clean();
+    }
+
     private function public_instance( int $event_id, string $date ): ?array {
         return InstanceLocator::find( $event_id, $date );
     }
@@ -368,12 +436,19 @@ class EventsShortcode {
             'type'          => esc_html( $event['type_name'] ?? '' ),
             'title'         => esc_html( $event['title'] ),
             'tags'          => \VereinsPlugin\Support\Tags::decode( $event['tags'] ?? null ),
+            // Beschreibung mit erkannten Links – schon maskiert (RichText).
+            'text'          => \VereinsPlugin\Support\RichText::html( (string) ( $event['description'] ?? '' ) ),
             'loc'           => $event['location'] ? esc_html( $event['location'] ) : '',
+            // Ort als Link ins Kartenprogramm (Ziel der Routenplanung).
+            'loc_google'    => $event['location'] ? \VereinsPlugin\Support\MapLink::google( (string) $event['location'] ) : '',
+            'loc_apple'     => $event['location'] ? \VereinsPlugin\Support\MapLink::apple( (string) $event['location'] ) : '',
             'multi_day'     => $multi_day,
             'day'           => $badge['day'],
             'month'         => $badge['month'],
             'time'          => esc_html( DateRange::short( $event['start_at'], $event['end_at'], $full_day ) ),
-            'span'          => $multi_day
+            // Die ausführliche Zeile nur, wenn es Uhrzeiten zu nennen gibt.
+            // Ganztägig steht der Zeitraum schon im Kopf der Kachel.
+            'span'          => $multi_day && ! $full_day
                                   ? esc_html( DateRange::detail( $event['start_at'], $event['end_at'], $full_day ) )
                                   : '',
             'cover'         => PhotoService::cover_urls( (int) ( $event['image_attachment_id'] ?? 0 ) ),
@@ -426,7 +501,10 @@ class EventsShortcode {
                 <span class="vp-events__meta">
                     <?php echo $t['time']; ?>
                     <?php if ( $t['loc'] ) : ?>
-                        &middot; <?php echo $t['loc']; ?>
+                        &middot; <a class="vp-maplink" href="<?php echo esc_url( $t['loc_google'] ); ?>"
+                                    data-apple="<?php echo esc_url( $t['loc_apple'] ); ?>"
+                                    target="_blank" rel="noopener"
+                                    title="<?php esc_attr_e( 'Route in der Karten-App öffnen', 'vereins-plugin' ); ?>"><?php echo Icons::svg( 'map-pin' ); ?><?php echo $t['loc']; ?></a>
                     <?php endif; ?>
                 </span>
 
@@ -437,11 +515,24 @@ class EventsShortcode {
                     </span>
                 <?php endif; ?>
 
+        <?php if ( $t['text'] !== '' ) : ?>
+            <div class="vp-events__text"><?php echo $t['text']; // RichText::html() maskiert selbst ?></div>
+        <?php endif; ?>
+
         <?php
-        if ( $t['allows_rsvp'] ) {
-            $this->tile_rsvp( $t, $is_public );
+        if ( ! empty( $t['teaser_url'] ) ) {
+            // Besucher-Übersicht: Zusagen über den Terminlink.
+            if ( $t['allows_rsvp'] ) : ?>
+                <div class="vp-rsvp">
+                    <a class="vp-teaser__btn" href="<?php echo esc_url( $t['teaser_url'] ); ?>"><?php esc_html_e( 'Zu- oder absagen', 'vereins-plugin' ); ?></a>
+                </div>
+            <?php endif;
+        } else {
+            if ( $t['allows_rsvp'] ) {
+                $this->tile_rsvp( $t, $is_public );
+            }
+            $this->tile_chips( $t );
         }
-        $this->tile_chips( $t );
         ?>
         </div><?php // /vp-tile__body ?>
         </li>

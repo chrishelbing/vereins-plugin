@@ -126,6 +126,18 @@ class AuthController {
             );
         }
 
+        // Ohne Mitgliedskonto kein Code. Sonst käme er an, beim Bestätigen
+        // fände sich aber kein Konto – und die Meldung lautete „Ungültiger
+        // Code“, obwohl der Code stimmt. Typischer Fall: eine zweite
+        // Adresse, die nicht im Profil steht.
+        if ( $channel === 'email' && ! get_user_by( 'email', $identifier ) ) {
+            return new WP_Error(
+                'unknown_account',
+                __( 'Zu dieser E-Mail-Adresse gibt es kein Mitgliedskonto. Bitte nimm die Adresse, mit der du beim Verein angemeldet bist.', 'vereins-plugin' ),
+                [ 'status' => 404 ]
+            );
+        }
+
         $sent = $this->service->request_otp( $identifier, $channel );
 
         if ( ! $sent ) {

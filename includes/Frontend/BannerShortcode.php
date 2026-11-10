@@ -98,7 +98,7 @@ class BannerShortcode {
         $full_day = ! empty( $i['is_full_day'] );
         $badge    = DateRange::badge( $i['start_at'], $i['end_at'] );
         $cover    = PhotoService::cover_urls( (int) ( $i['image_attachment_id'] ?? 0 ) );
-        $text     = wp_trim_words( wp_strip_all_tags( (string) ( $i['description'] ?? '' ) ), 28 );
+        $text     = wp_trim_words( \VereinsPlugin\Support\RichText::plain( wp_strip_all_tags( (string) ( $i['description'] ?? '' ) ) ), 28 );
 
         // Die Farbe kommt aus dem Termintyp; nur echte Hex-Werte gelangen ins
         // style-Attribut.

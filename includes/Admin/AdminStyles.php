@@ -38,6 +38,16 @@ class AdminStyles {
         .vp-admin-wrap .vp-dependent { margin-left: 24px; padding-left: 12px; border-left: 2px solid #e5e7eb; transition: opacity .15s; }
         .vp-admin-wrap .vp-dependent.is-disabled { opacity: .45; }
         .vp-admin-wrap #vp-rsvp-dependent.is-disabled { opacity: .45; }
+        /* „?“ mit Tooltip neben „Beschreibung“ (EventForm::format_hint). */
+        .vp-admin-wrap .vp-hint { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 4px; border-radius: 999px; background: #e5e7eb; color: #374151; font-size: 11px; font-weight: 700; line-height: 1; cursor: help; vertical-align: middle; }
+        .vp-admin-wrap .vp-hint:focus { outline: 2px solid #2563eb; outline-offset: 1px; }
+        .vp-admin-wrap .vp-hint__box { display: none; position: absolute; z-index: 100; left: -10px; bottom: calc(100% + 8px); width: 260px; max-width: calc(100vw - 40px); padding: 10px 12px; border-radius: 8px; background: #111827; color: #f9fafb; font-size: 12px; font-weight: 400; line-height: 1.45; text-align: left; box-shadow: 0 6px 20px rgba(0,0,0,.2); white-space: normal; }
+        .vp-admin-wrap .vp-hint__box::after { content: ""; position: absolute; top: 100%; left: 12px; border: 6px solid transparent; border-top-color: #111827; }
+        .vp-admin-wrap .vp-hint:hover .vp-hint__box, .vp-admin-wrap .vp-hint:focus .vp-hint__box, .vp-admin-wrap .vp-hint:focus-within .vp-hint__box { display: block; }
+        .vp-admin-wrap .vp-hint__box strong { display: block; margin-bottom: 6px; font-size: 12px; }
+        .vp-admin-wrap .vp-hint__row { display: block; margin-top: 6px; }
+        .vp-admin-wrap .vp-hint__box code { display: inline-block; margin-top: 2px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.12); color: #f9fafb; font-size: 11px; word-break: break-all; }
+        .vp-admin-wrap .vp-hint__note { color: #d1d5db; }
         .vp-admin-wrap .vp-dependent.is-disabled select { background: #f3f4f6; cursor: not-allowed; }
                 .vp-admin-wrap .vp-roles { margin-top: 6px; }
         .vp-admin-wrap .vp-roles > summary { cursor: pointer; color: #2271b1; font-size: 12px; }

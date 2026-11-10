@@ -134,9 +134,13 @@ class LoginShortcode {
                 msg.className = 'vp-form__msg ' + (ok ? 'vp-form__msg--ok' : 'vp-form__msg--err');
             }
 
-            document.getElementById('vp-otp-request').addEventListener('click', function(){
+            var reqBtn = document.getElementById('vp-otp-request');
+            reqBtn.addEventListener('click', function(){
                 var email = emailEl.value.trim();
-                if (!email) { return; }
+                if (!email || reqBtn.disabled) { return; }
+                // Gesperrt, bis die Antwort da ist: Ein zweiter Klick
+                // erzeugte einen neuen Code und machte den ersten ungültig.
+                reqBtn.disabled = true;
                 setMsg('<?php echo esc_js( __( 'Sende Code…', 'vereins-plugin' ) ); ?>', true);
                 fetch(API + '/auth/request-otp', {
                     method: 'POST',
@@ -144,15 +148,16 @@ class LoginShortcode {
                     body: JSON.stringify({ identifier: email, channel: 'email' })
                 }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
                   .then(function(res){
+                      reqBtn.disabled = false;
                       if (res.ok) {
-                          setMsg('<?php echo esc_js( __( 'Code gesendet. Bitte E-Mail prüfen.', 'vereins-plugin' ) ); ?>', true);
+                          setMsg('<?php echo esc_js( __( 'Code gesendet. Bitte E-Mail prüfen – es gilt nur der zuletzt gesendete Code.', 'vereins-plugin' ) ); ?>', true);
                           step1.hidden = true;
                           step2.hidden = false;
                       } else {
                           setMsg(res.data.message || '<?php echo esc_js( __( 'Fehler beim Senden.', 'vereins-plugin' ) ); ?>', false);
                       }
                   })
-                  .catch(function(){ setMsg('<?php echo esc_js( __( 'Netzwerkfehler.', 'vereins-plugin' ) ); ?>', false); });
+                  .catch(function(){ reqBtn.disabled = false; setMsg('<?php echo esc_js( __( 'Netzwerkfehler.', 'vereins-plugin' ) ); ?>', false); });
             });
 
             document.getElementById('vp-otp-verify').addEventListener('click', function(){

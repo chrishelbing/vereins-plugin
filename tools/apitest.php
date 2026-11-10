@@ -38,6 +38,7 @@ stub_load( [
 
 use VereinsPlugin\Api\MeController;
 use VereinsPlugin\Auth\AuthService;
+use VereinsPlugin\Auth\OtpModel;
 use VereinsPlugin\Auth\SessionModel;
 use VereinsPlugin\Core\Activator;
 use VereinsPlugin\Events\CompanionModel;
@@ -179,5 +180,27 @@ Pruefung::gleich( 'mit angehängtem Versand wird SMS verfügbar',
     AuthService::channel_available( 'sms' ), true );
 Pruefung::gleich( 'WhatsApp bleibt davon unberührt',
     AuthService::channel_available( 'whatsapp' ), false );
+
+// =====================================================================
+echo "\nEinmalcode: Adresse ohne Konto verbraucht keinen Code\n";
+
+// Der gemeldete Fehler: Code an eine Adresse ohne Mitgliedskonto angefordert,
+// beim Bestätigen „ungültig“ – und der Code war danach verbraucht.
+$otp     = new OtpModel();
+$service = new AuthService();
+$code    = $otp->create( 'zweitadresse@example.test', 'email' );
+
+Pruefung::gleich( 'ohne Konto: keine Anmeldung',
+    $service->verify_otp( 'zweitadresse@example.test', $code ), null );
+
+stub_user( 'zweit', [ $M ], 'zweitadresse@example.test' );
+Pruefung::gleich( 'Code danach noch gültig (nicht verbraucht)',
+    is_array( $service->verify_otp( 'zweitadresse@example.test', $code ) ), true );
+Pruefung::gleich( 'derselbe Code ein zweites Mal: ungültig',
+    $service->verify_otp( 'zweitadresse@example.test', $code ), null );
+
+// Dass ein erneutes Anfordern den alten Code entwertet, erledigt
+// invalidate_pending() per UPDATE-Abfrage – die führt der Ersatz nicht aus
+// (query() tut nichts), deshalb hier kein Fall dafür.
 
 Pruefung::abschluss( 'Schnittstelle' );

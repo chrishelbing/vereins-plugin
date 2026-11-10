@@ -184,6 +184,57 @@ Backend-Übersicht steht unter Rückmeldungen „nur Info“.
 Fehlt das Feld – alte Daten, eine Zeile ohne Typ-Join –, gilt wie vor dem
 Schalter: Zusagen sind möglich (`EventTypeModel::rsvp_allowed()`).
 
+### Öffentliche Termine
+
+Am Termin (Backend) steht „Öffentlich – auch ohne Anmeldung in der
+Terminliste sichtbar“ (`vp_events.is_public`, Standard aus). Besucher ohne
+Anmeldung sehen in `[vp_events]` dann statt „Bitte melde dich an …“ die
+kommenden öffentlichen Termine – gleicher Zeitraum und dieselbe Obergrenze
+wie bei Mitgliedern (`days`, `limit`), aber nur kommende.
+
+Die Kacheln zeigen Datum, Ort, Beschreibung und Tags, aber keine Namen,
+Zähler, Helferaufgaben, Mitbringliste oder Fotos. Statt der Zusage-Knöpfe
+steht „Zu- oder absagen“: ein Link auf den signierten Terminlink, über den
+Gäste wie gewohnt ohne Konto zusagen. So bleibt die Gast-Kennung je Termin
+gebunden – eine Liste mit mehreren Gast-Zusagen auf einer Seite bräuchte
+einen eigenen Schlüssel je Kachel.
+
+Den Schalter gibt es nur im Backend: Was öffentlich auf der Website steht,
+entscheiden Administratoren. Nicht freigegebene Termine und Entwürfe
+bleiben unsichtbar, auch mit gesetztem Schalter (`in_range()` liefert nur
+freigegebene).
+
+### Beschreibung mit Links
+
+Die Beschreibung steht auf der Kachel unter Datum und Ort. Links darin
+werden erkannt (`Support\RichText`), ohne Editor:
+
+| Eingabe | Ergebnis |
+|---|---|
+| `https://…` oder `www.…` | Link, angezeigt als gekürzte Adresse |
+| `[Ausschreibung](https://…)` | Link mit dem Text „Ausschreibung“ |
+
+Links öffnen in einem neuen Tab. Alles Übrige wird maskiert – HTML aus dem
+Feld landet nie ungefiltert auf der Seite; Zeilenumbrüche bleiben. Im
+Banner (selbst ein Link) erscheint nur der Text, auf dem Flyer der Text und
+nackte Adressen zum Abtippen.
+
+Wie es geht, zeigt ein **?** neben der Feldbeschriftung „Beschreibung“ –
+im Backend, im Anlegen-Formular und im Bearbeiten-Dialog. Es öffnet beim
+Überfahren, Antippen oder per Tastatur einen kleinen Tooltip mit Beispielen
+(`EventForm::format_hint()`, für alle drei Formulare dieselbe Stelle).
+
+### Ort → Kartenprogramm
+
+Die Ortsangabe auf der Kachel ist ein Link, der die Routenplanung mit dem
+Ort als Ziel öffnet (`Support\MapLink`). Im HTML steht der Google-Maps-
+Link – auf Android öffnet er die Google-Maps-App, sonst den Browser. Auf
+iPhone, iPad und Mac tauscht `tile.js` ihn gegen einen Apple-Karten-Link,
+der die Karten-App öffnet. Je vollständiger die Ortsangabe am Termin
+(Name, Straße, Ort), desto sicherer trifft das Kartenprogramm das Ziel.
+
+Nicht im Banner: Der ist als Ganzes schon ein Link zum Termin.
+
 ### Tags
 
 Der Termintyp gibt Tags vor (Feld „Tags“, durch Komma getrennt), etwa
@@ -277,6 +328,14 @@ Eine Termininstanz ist immer das Paar aus **Termin-ID und Instanzdatum** –
 aufgelöst über `Events\InstanceLocator`.
 
 ### Mehrtägige Termine
+
+**Ganztägig** heißt: nur Tage, keine Uhrzeiten. Mit dem Häkchen werden
+Start und Ende in allen drei Formularen zu reinen Datumsfeldern (die
+Uhrzeit wird gemerkt, falls das Häkchen wieder rausgeht). Gespeichert wird
+vom ersten Tag 00:00 bis zum letzten Tag 23:59 (`DateRange::full_day_bounds()`,
+im Backend und in der Schnittstelle). Vorher landete ein Sa–So-Termin mit
+Ende „So 00:00“ als eintägiger Termin am Samstag – der Kopf der Kachel
+zeigt jetzt beide Tage („14.–15.“).
 
 Ein Camp von Freitag 16 Uhr bis Sonntag 17 Uhr wird als solches dargestellt:
 „Mehrtägig · 3 Tage“ statt „Ganztägig“, auf der Kachel `11.–13. Sep`, dazu
@@ -488,6 +547,15 @@ Einstellungen.
 Passwort über `[vp_login]` und **Einmalcode** per E-Mail. Für die App gibt es
 zusätzlich Bearer-Token (`vp_sessions`).
 
+Einen Code gibt es nur für Adressen mit Mitgliedskonto: Für jede andere
+antwortet `request-otp` mit `unknown_account` (404) und dem Hinweis, die
+Adresse aus dem Vereinskonto zu nehmen. Vorher kam der Code an, beim
+Bestätigen fand sich kein Konto, und die Meldung lautete „Ungültiger
+Code“ – obwohl er stimmte. `verify_otp()` sucht deshalb auch zuerst das
+Konto und prüft dann den Code, damit kein richtiger Code verbraucht wird.
+Es gilt immer nur der zuletzt angeforderte Code; der Knopf „Code senden“
+ist gesperrt, bis die Antwort da ist.
+
 Einmalcode-Anfragen (samt IP-Adresse) werden täglich um 3:15 Uhr per Cron
 aufgeräumt (`Auth\OtpCleanup`), sobald sie abgelaufen sind – nicht erst bei
 der nächsten Anmeldung.
@@ -611,3 +679,22 @@ Bei jeder Änderung am Funktionsumfang:
    sind wertvoller als eine Aufzählung von Funktionen.
 3. Die Versionsangabe oben nachziehen.
 4. Kommt eine bewusste Nichtfunktion hinzu, unter „Bewusste Grenzen“ vermerken.
+
+## Updates
+
+Das Plugin meldet neue Versionen selbst: Unter *Plugins* erscheint
+„Jetzt aktualisieren“, sobald es auf GitHub ein neueres Release gibt.
+`Support\Updater` fragt dafür alle sechs Stunden
+`api.github.com/repos/chrishelbing/vereins-plugin/releases/latest` ab
+(„Erneut prüfen“ unter *Dashboard → Aktualisierungen* fragt sofort) und
+nimmt das angehängte Paket `vereins-plugin.zip`. „Details ansehen“ zeigt
+die Versionshinweise des Releases.
+
+- Gebaut wird das Paket von `.github/workflows/release.yml` beim Pushen
+  eines Tags `v…` – siehe CLAUDE.md, „Neue Version veröffentlichen“.
+- Vorabversionen und Entwürfe auf GitHub werden nicht angeboten.
+- **Privates Repository:** In der `wp-config.php` der Website
+  `define( 'VP_GITHUB_TOKEN', '…' );` eintragen (Fine-grained Token, nur
+  dieses Repo, „Contents: Read“). Der Token geht nur an `api.github.com`.
+- Die erste Fassung mit diesem Mechanismus muss noch von Hand hochgeladen
+  werden – eine ältere Fassung weiß nicht, wo sie nachsehen soll.

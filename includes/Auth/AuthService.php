@@ -72,12 +72,14 @@ class AuthService {
      * @return array{token: string, user_id: int}|null  null bei ungültigem Code oder unbekannter Adresse
      */
     public function verify_otp( string $identifier, string $code, string $device = '' ): ?array {
-        if ( ! $this->otp_model->verify( $identifier, $code ) ) {
+        // Erst das Konto, dann der Code: Andersherum verbrauchte ein
+        // richtiger Code für eine Adresse ohne Konto sich selbst.
+        $wp_user = get_user_by( 'email', $identifier );
+        if ( ! $wp_user ) {
             return null;
         }
 
-        $wp_user = get_user_by( 'email', $identifier );
-        if ( ! $wp_user ) {
+        if ( ! $this->otp_model->verify( $identifier, $code ) ) {
             return null;
         }
 

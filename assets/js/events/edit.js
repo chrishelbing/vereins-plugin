@@ -53,6 +53,34 @@
     function feld(name) { return form.querySelector('[name="' + name + '"]'); }
 
     /**
+     * Ganztägig: Start und Ende nur als Datum, ohne Uhrzeit. Die Uhrzeit
+     * wird gemerkt, falls das Häkchen wieder rausgeht.
+     */
+    function nurTage(form) {
+        var ganz = form.querySelector('[data-vp-fullday]').checked;
+        ['start_at', 'end_at'].forEach(function(name, i){
+            var f = form.querySelector('[name="' + name + '"]');
+            if (ganz && f.type !== 'date') {
+                f.dataset.zeit = f.value.slice(11, 16);
+                var tag = f.value.slice(0, 10);
+                f.type = 'date';
+                f.value = tag;
+            } else if (!ganz && f.type === 'date') {
+                var tag2 = f.value;
+                f.type = 'datetime-local';
+                f.value = tag2 ? tag2 + 'T' + (f.dataset.zeit || (i ? '17:00' : '09:00')) : '';
+            }
+        });
+    }
+
+    /** Feldwert → Server: reines Datum ganztägig 00:00 bzw. 23:59. */
+    function zeitpunkt(f, istEnde) {
+        if (!f.value) { return undefined; }
+        if (f.type === 'date') { return f.value + (istEnde ? ' 23:59:00' : ' 00:00:00'); }
+        return f.value.replace('T', ' ') + ':00';
+    }
+
+    /**
      * Tags gibt der Termintyp vor: Sichtbar ist nur die Auswahl des
      * gewählten Typs, die übrigen sind deaktiviert. Bei „nur dieser
      * Termin“ gar keine – Tags gelten für die ganze Serie.
@@ -78,11 +106,6 @@
         return wert.replace(' ', 'T').slice(0, 16);
     }
 
-    /** Umgekehrt: was das Feld liefert, ergänzt um die Sekunden. */
-    function fuerServer(wert) {
-        if (!wert) { return undefined; }
-        return wert.replace('T', ' ') + ':00';
-    }
 
     function melde(text, artFehler) {
         msg.textContent = text || '';
@@ -117,9 +140,13 @@
         feld('title').value         = d.title || '';
         feld('location').value      = d.location || '';
         feld('description').value   = d.description || '';
-        feld('start_at').value      = fuerFeld(d.start_at);
-        feld('end_at').value        = fuerFeld(d.end_at);
         feld('is_full_day').checked = !!Number(d.is_full_day);
+        // Die Felder sind womöglich noch vom vorigen Termin auf „nur Datum“
+        // gestellt: erst zurück auf Datum mit Uhrzeit, dann neu befüllen.
+        [feld('start_at'), feld('end_at')].forEach(function(f){ f.type = 'datetime-local'; });
+        feld('start_at').value = fuerFeld(d.start_at);
+        feld('end_at').value   = fuerFeld(d.end_at);
+        nurTage(form);
 
         // In der Datenbank steht eine JSON-Liste.
         var tags = d.tags || [];
@@ -165,8 +192,8 @@
             title:       feld('title').value,
             location:    feld('location').value || undefined,
             description: feld('description').value || undefined,
-            start_at:    fuerServer(feld('start_at').value),
-            end_at:      fuerServer(feld('end_at').value),
+            start_at:    zeitpunkt(feld('start_at'), false),
+            end_at:      zeitpunkt(feld('end_at'), true),
         };
 
         if (!typeSel.disabled) {
@@ -268,6 +295,7 @@
         wdBox.style.display = freqSel.value === 'WEEKLY' ? 'block' : 'none';
     });
     scope.addEventListener('change', umfangAnwenden);
+    feld('is_full_day').addEventListener('change', function(){ nurTage(form); });
     typeSel.addEventListener('change', function(){ zeigeTags(false); });
 
     // --- Speichern ------------------------------------------------------

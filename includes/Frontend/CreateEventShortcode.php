@@ -79,6 +79,31 @@ class CreateEventShortcode {
             const API     = <?php echo json_encode( $api ); ?>;
             const NONCE   = <?php echo json_encode( $nonce ); ?>;
 
+            // Ganztägig: Start und Ende nur als Datum, ohne Uhrzeit.
+            const ganz = form.querySelector('[data-vp-fullday]');
+            const nurTage = () => {
+                ['start_at', 'end_at'].forEach((name, i) => {
+                    const f = form.querySelector('[name="' + name + '"]');
+                    if ( ganz.checked && f.type !== 'date' ) {
+                        f.dataset.zeit = f.value.slice(11, 16);
+                        const tag = f.value.slice(0, 10);
+                        f.type = 'date';
+                        f.value = tag;
+                    } else if ( ! ganz.checked && f.type === 'date' ) {
+                        const tag = f.value;
+                        f.type = 'datetime-local';
+                        f.value = tag ? tag + 'T' + (f.dataset.zeit || (i ? '17:00' : '09:00')) : '';
+                    }
+                });
+            };
+            ganz.addEventListener('change', nurTage);
+            // Reines Datum → ganztägig 00:00 bzw. 23:59.
+            const zeitpunkt = (name, istEnde) => {
+                const f = form.querySelector('[name="' + name + '"]');
+                if ( f.type === 'date' ) { return f.value + (istEnde ? ' 23:59:00' : ' 00:00:00'); }
+                return f.value.replace('T', ' ') + ':00';
+            };
+
             // Tags des gewählten Termintyps zeigen, die übrigen ausblenden.
             const typeSel = form.querySelector('[name="event_type_id"]');
             const zeigeTags = () => {
@@ -110,8 +135,8 @@ class CreateEventShortcode {
                     title:         fd.get('title'),
                     location:      fd.get('location') || undefined,
                     description:   fd.get('description') || undefined,
-                    start_at:      fd.get('start_at').replace('T', ' ') + ':00',
-                    end_at:        fd.get('end_at').replace('T', ' ') + ':00',
+                    start_at:      zeitpunkt('start_at', false),
+                    end_at:        zeitpunkt('end_at', true),
                     is_full_day:   fd.get('is_full_day') === 'on',
                     tags:          [...form.querySelectorAll('[data-vp-tagset]:not([hidden]) input:checked')].map(el => el.value),
                 };
@@ -148,6 +173,7 @@ class CreateEventShortcode {
                         form.reset();
                         panel.style.display = 'none';
                         zeigeTags();
+                        nurTage();
                     } else {
                         msg.textContent = data.message || '<?php echo esc_js( __( 'Fehler beim Speichern.', 'vereins-plugin' ) ); ?>';
                         msg.className   = 'vp-form__msg vp-form__msg--err';

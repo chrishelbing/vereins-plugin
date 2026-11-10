@@ -150,6 +150,8 @@ class RecurrenceExpander {
             'image_attachment_id' => $event['image_attachment_id'] ?? null,
             // Banner auf der Website – gilt wie das Titelbild für die ganze Serie.
             'banner_days_before'  => $event['banner_days_before'] ?? null,
+            // Auch ohne Anmeldung in der Terminliste – gilt für die Serie.
+            'is_public'           => ! empty( $event['is_public'] ),
             // Tags gelten für die ganze Serie.
             'tags'                => \VereinsPlugin\Support\Tags::decode( $event['tags'] ?? null ),
             'title'         => $exception['title']       ?? $event['title'],

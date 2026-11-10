@@ -18,9 +18,9 @@ ihr noch glaubt.
 php tools/pruefen.php
 ```
 
-Das ist verbindlich, nicht optional. Der Befehl startet acht Prüfungen und
+Das ist verbindlich, nicht optional. Der Befehl startet zehn Prüfungen und
 liefert Rückgabewert 1, sobald eine anschlägt. Läuft `exec()` in der
-Umgebung nicht, sind die acht Dateien einzeln aufzurufen.
+Umgebung nicht, sind die zehn Dateien einzeln aufzurufen.
 
 | Datei | prüft |
 |---|---|
@@ -32,6 +32,8 @@ Umgebung nicht, sind die acht Dateien einzeln aufzurufen.
 | `tools/qrtest.php` | Der selbstgebaute QR-Encoder gegen hinterlegte Sollwerte |
 | `tools/bannertest.php` | Terminbanner: Sichtbarkeitsfenster, Reihenfolge, nur die nächste Serieninstanz, nur freigegebene Termine |
 | `tools/tagtest.php` | Infotermine (Termintyp ohne Zusagen) und Tags: Vorgabe am Typ, Auswahl am Termin, Speichern und Leeren |
+| `tools/updatertest.php` | Updates aus GitHub-Releases: Version aus dem Tag, Paket am Release, Vorabversionen und Entwürfe ausgenommen |
+| `tools/texttest.php` | Beschreibung mit Links: nackte Adressen, `[Text](Adresse)`, Maskierung, nur http(s), Textfassung für Banner und Flyer |
 
 Neue Fachlogik gehört mit einem Fall in die passende Testdatei. Die Tests
 laufen gegen `tools/lib/wp-stub.php`, einen kleinen WordPress-Ersatz im
@@ -87,6 +89,18 @@ Ehrlich benannt, damit niemand sich in Sicherheit wiegt:
 - **Versionsnummer erhöhen**, sobald sich das Schema oder eine Migration
   ändert – sonst läuft `maybe_upgrade()` nicht an. Kopfzeile und `VP_VERSION`
   müssen übereinstimmen, `tools/check.php` prüft das.
+
+## Neue Version veröffentlichen
+
+Websites holen Updates aus den GitHub-Releases (`Support\Updater`, Header
+`Update URI`). Ein Release entsteht durch einen Tag:
+
+1. Version in `vereins-plugin.php` erhöhen – Kopfzeile **und** `VP_VERSION`.
+2. Committen, `git tag v1.2.3`, `git push && git push --tags`.
+3. `.github/workflows/release.yml` prüft Tag gegen Version, lässt die
+   Prüfungen laufen und hängt `vereins-plugin.zip` ans Release.
+
+Ohne angehängtes Paket bietet keine Website das Update an.
 
 ## Sprache
 

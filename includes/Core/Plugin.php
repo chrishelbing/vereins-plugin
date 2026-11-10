@@ -16,6 +16,7 @@ use VereinsPlugin\Photos\PhotoDownload;
 use VereinsPlugin\Privacy\PersonalData;
 use VereinsPlugin\Support\BackendGuard;
 use VereinsPlugin\Support\Capabilities;
+use VereinsPlugin\Support\Updater;
 
 /**
  * Hauptklasse – verdrahtet alle Komponenten über WordPress-Hooks.
@@ -40,6 +41,9 @@ class Plugin {
 
         // wp-admin ist Administratoren vorbehalten.
         ( new BackendGuard() )->register();
+
+        // Updates aus GitHub-Releases (Plugins → „Jetzt aktualisieren“).
+        ( new Updater() )->register();
 
         // Aushänge und Flyer zu einem Termin.
         ( new FlyerPage() )->register();

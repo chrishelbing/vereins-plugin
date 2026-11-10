@@ -842,6 +842,14 @@ class EventController {
 
         $result = array_filter( $data, fn( $v ) => $v !== null );
 
+        // Ganztägig: nur die Tage zählen – 00:00 bis 23:59 (DateRange).
+        if ( ! empty( $result['is_full_day'] ) && isset( $result['start_at'], $result['end_at'] ) ) {
+            [ $result['start_at'], $result['end_at'] ] = \VereinsPlugin\Support\DateRange::full_day_bounds(
+                (string) $result['start_at'],
+                (string) $result['end_at']
+            );
+        }
+
         // Tags nur, wenn sie mitgeschickt wurden – sonst bleiben sie beim
         // Ändern, wie sie sind. Erlaubt ist, was der Typ vorgibt: der neue,
         // falls er mitkommt, sonst der bisherige des Termins.
