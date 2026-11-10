@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.14.6
+> Stand: Version 1.14.7
 
 ---
 
@@ -612,7 +612,11 @@ Aktion wird gemerkt und danach ausgeführt.
 - Offen sind Zusage, Helferaufgaben und Mitbringliste. **Nicht** Fotos.
 
 Unbestätigte Kontakte sind in Frontend-Listen, Backend-Listen und CSV-Exporten
-gekennzeichnet.
+gekennzeichnet – in der Namensliste als orangefarbenes Ausrufezeichen mit dem
+Hinweis „Kontakt noch nicht bestätigt“, das auch ihre Begleitpersonen
+tragen. Das betrifft nur Gäste: Bestätigt ist ein Gast, sobald er den Link
+in der Bestätigungsmail anklickt. Mitglieder gelten nie als unbestätigt –
+sie hat ein Administrator angelegt oder aufgenommen (`Person::unconfirmed_map()`).
 
 ---
 

@@ -364,4 +364,16 @@ $dabei = $begleit->for_attendance( 9, '2026-12-01', $familie );
 Pruefung::gleich( 'zwei Begleitpersonen am Termin', count( $dabei ), 2 );
 Pruefung::gleich( 'mit eigenen Namen',             array_column( $dabei, 'name' ), [ 'Mia', 'Tom' ] );
 
+// =====================================================================
+echo "\nAusrufezeichen „unbestätigt“ nur bei Gästen\n";
+// Ein Mitglied, das ein Administrator angelegt hat, bekommt nie einen
+// Bestätigungslink – es darf deshalb nicht als unbestätigt gelten.
+$angelegt = $service->create_by_admin( [ 'display_name' => 'Chris Vorstand', 'email' => 'chris-v@example.test' ] );
+$chris_id = (int) $angelegt['member']['wp_user_id'];
+Pruefung::ok( 'angelegtes Mitglied ohne Ausrufezeichen', ! Person::unconfirmed_map( [ $chris_id ] ) );
+
+$neugast = $gast->identify( [ 'name' => 'Nina Neu', 'email' => 'nina@example.test' ], 'https://verein.test/termine' );
+$nina_id = (int) ( $neugast['person_id'] ?? 0 );
+Pruefung::ok( 'Gast ohne Bestätigung mit Ausrufezeichen', $nina_id < 0 && ! empty( Person::unconfirmed_map( [ $nina_id ] )[ $nina_id ] ) );
+
 Pruefung::abschluss( 'Personen' );

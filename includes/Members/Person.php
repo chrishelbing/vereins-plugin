@@ -92,8 +92,16 @@ class Person {
     /**
      * Wessen Kontaktangabe noch nicht bestätigt ist.
      *
-     * Betrifft Gäste aus Terminlinks ebenso wie Mitglieder, die ihre Adresse
-     * nie bestätigt haben. In den Listen erscheinen sie als „unbestätigt“.
+     * Betrifft nur offene Kontakte aus `vp_people` – Gäste über einen
+     * Terminlink, deren Angabe niemand geprüft hat. In den Listen erscheinen
+     * sie als „unbestätigt“ (Ausrufezeichen), ihre Begleitpersonen ebenso.
+     *
+     * Mitglieder nie: Sie hat ein Administrator angelegt oder aufgenommen,
+     * sie haben ein Konto und melden sich an. Früher wurden auch sie
+     * markiert, solange `vp_members.confirmed_at` leer war – das wurde aber
+     * nur über den Bestätigungslink für Gäste gesetzt, den ein angelegtes
+     * Mitglied nie bekommt. Ergebnis: Fast jedes Mitglied samt Kindern stand
+     * mit Ausrufezeichen in der Teilnehmerliste.
      *
      * @param int[] $person_ids
      * @return array<int,bool> Personen-ID => true
@@ -107,18 +115,6 @@ class Person {
         }
 
         $map = [];
-
-        $mitglieder = array_filter( $ids, fn( $id ) => $id > 0 );
-        if ( $mitglieder ) {
-            $in   = implode( ',', $mitglieder );
-            $rows = $wpdb->get_col(
-                "SELECT wp_user_id FROM {$wpdb->prefix}vp_members
-                 WHERE wp_user_id IN ({$in}) AND confirmed_at IS NULL"
-            );
-            foreach ( $rows ?: [] as $id ) {
-                $map[ (int) $id ] = true;
-            }
-        }
 
         $gaeste = array_map( [ self::class, 'guest_id' ], array_filter( $ids, fn( $id ) => $id < 0 ) );
         if ( $gaeste ) {
@@ -169,7 +165,8 @@ class Person {
             'email'     => $user->user_email,
             'phone'     => (string) ( $member['phone'] ?? '' ),
             'source'    => 'member',
-            'confirmed' => ! empty( $member['confirmed_at'] ),
+            // Aufgenommene Mitglieder gelten als bestätigt, siehe unconfirmed_map().
+            'confirmed' => true,
         ];
     }
 
