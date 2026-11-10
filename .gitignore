@@ -4,3 +4,6 @@ node_modules/
 vendor/
 .idea/
 .vscode/
+
+# Lokale Ablage für gebaute Pakete – Releases liegen auf GitHub
+Claude outputs/
