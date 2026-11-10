@@ -25,27 +25,41 @@
         });
     }
 
-    // --- Lange Kacheln kürzen --------------------------------------
-    // Beschreibung höchstens vier Zeilen, Ort höchstens zwei – sonst wird
-    // eine einzelne Kachel so hoch, dass die Seite klobig wirkt. Gekürzt
-    // wird nur, was tatsächlich überläuft; dann erscheint „Mehr anzeigen“.
+    // --- Kompakte Kacheln --------------------------------------------
+    // Zugeklappt zeigt eine Kachel Kopf, Titel, Ort, höchstens drei Zeilen
+    // Beschreibung und die Knöpfe Zusagen/Absagen. Zahlenzeile, Helfer-
+    // aufgaben, Mitbringliste und Fotos kommen erst mit „Details anzeigen“
+    // – sonst wird jede Kachel so hoch, dass die Seite klobig wirkt.
+    //
+    // Nicht zugeklappt werden: vergangene Termine (dort bleiben nur die
+    // Fotos, die sollen sichtbar sein), eine Liste mit nur einem Termin
+    // (Terminlink, Banner-Ziel) und der Termin, auf den die Adresse zeigt.
+    var tiles  = root.querySelectorAll('.vp-events__item');
+    var target = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+
     function clampTile(item) {
         var more = item.querySelector('[data-more]');
         if (!more) { return; }
+
+        var keepOpen = item.classList.contains('is-past') || tiles.length === 1 || item === target;
+        var hidden   = !keepOpen && !!item.querySelector('.vp-rsvp__summary, .vp-chips');
+
+        item.classList.toggle('is-compact', hidden);
 
         var parts = [item.querySelector('.vp-events__text'), item.querySelector('.vp-events__meta')]
             .filter(Boolean);
         var cut = false;
 
-        parts.forEach(function(el){
-            el.classList.add('is-clamped');
-            if (el.scrollHeight > el.clientHeight + 1) { cut = true; }
-        });
-
+        if (!keepOpen) {
+            parts.forEach(function(el){
+                el.classList.add('is-clamped');
+                if (el.scrollHeight > el.clientHeight + 1) { cut = true; }
+            });
+        }
         if (!cut) {
             parts.forEach(function(el){ el.classList.remove('is-clamped'); });
         }
-        more.hidden = !cut;
+        more.hidden = !(cut || hidden);
     }
 
     function clampAll() {

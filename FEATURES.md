@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.14.4
+> Stand: Version 1.14.5
 
 ---
 
@@ -242,13 +242,19 @@ im Backend, im Anlegen-Formular und im Bearbeiten-Dialog. Es öffnet beim
 Überfahren, Antippen oder per Tastatur einen kleinen Tooltip mit Beispielen
 (`EventForm::format_hint()`, für alle drei Formulare dieselbe Stelle).
 
-**Gekürzte Kacheln.** Damit eine einzelne Kachel die Terminliste nicht
-sprengt, zeigt sie die Beschreibung höchstens vier Zeilen hoch (unten
-ausgeblendet) und die Ortsangabe höchstens zwei Zeilen. Nur wenn wirklich
-etwas abgeschnitten ist, erscheint „Mehr anzeigen“; ein Klick darauf oder in
-den gekürzten Text klappt die Kachel auf, „Weniger anzeigen“ wieder zu.
-Links in der Beschreibung bleiben klickbar. Gemessen wird im Browser
-(`tile.js`), neu bei Größenänderung des Fensters.
+**Kompakte Kacheln.** Zugeklappt zeigt eine Kachel nur Kopf, Termintyp,
+Titel, Tags, Zeit und Ort (höchstens zwei Zeilen), die Beschreibung
+(höchstens drei Zeilen, unten ausgeblendet) und die Knöpfe Zusagen/Absagen
+samt „+2“ für Begleitpersonen. Die Zahlenzeile (Zusagen, Absagen, Helfer)
+sowie Helferaufgaben, Mitbringliste und Fotos erscheinen erst nach
+**„Details anzeigen“**; „Weniger anzeigen“ klappt wieder zu. Ein Klick in
+den gekürzten Text klappt ebenfalls auf, Links darin bleiben Links.
+
+Offen bleiben: vergangene Termine (dort zählen nur noch die Fotos), eine
+Liste mit nur einem Termin (Terminlink) und der Termin, auf den die Adresse
+mit `#vp-termin-…` zeigt (Banner, Flyer). Eine aufgeklappte Kachel zieht
+die Nachbarin in derselben Reihe nicht mit in die Höhe. Ohne JavaScript
+bleibt alles offen; gemessen und gesteuert wird in `tile.js`.
 
 ### Ort → Kartenprogramm
 

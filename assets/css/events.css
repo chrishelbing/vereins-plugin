@@ -10,7 +10,7 @@
 
 .vp-events { font-family: inherit; }
 /* Kachelraster – passt sich der Breite an, ab ~340px zweispaltig. */
-.vp-events__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.vp-events__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-items: start; }
 .vp-events__item { display: flex; flex-direction: column; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(17,24,39,.04); }
 .vp-events__item:hover { box-shadow: 0 4px 14px rgba(17,24,39,.08); }
 
@@ -50,12 +50,16 @@
 .vp-maplink:hover { color: #111827; }
 .vp-events__text { margin-top: 8px; font-size: .85rem; line-height: 1.5; color: #374151; overflow-wrap: anywhere; }
 .vp-events__text a { color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
-/* Gekürzte Kachel: Beschreibung höchstens vier Zeilen, Ort höchstens zwei.
-   Aufklappen über „Mehr anzeigen“ oder einen Klick in den gekürzten Text. */
-.vp-events__item:not(.is-expanded) .vp-events__text.is-clamped { max-height: 6em; overflow: hidden; cursor: pointer;
+/* Kompakte Kachel (Klasse is-compact setzt tile.js): Beschreibung höchstens
+   drei Zeilen, Ort höchstens zwei; Zahlenzeile und Listen erst nach
+   „Details anzeigen“. Zusagen/Absagen bleiben immer sichtbar. Ohne
+   JavaScript bleibt alles offen. */
+.vp-events__item.is-compact:not(.is-expanded) .vp-rsvp__summary,
+.vp-events__item.is-compact:not(.is-expanded) .vp-chips { display: none; }
+.vp-events__item:not(.is-expanded) .vp-events__text.is-clamped { max-height: 4.5em; overflow: hidden; cursor: pointer;
     -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent); mask-image: linear-gradient(to bottom, #000 55%, transparent); }
 .vp-events__item:not(.is-expanded) .vp-events__meta.is-clamped { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.vp-events__more { align-self: flex-start; margin-top: 2px; padding: 0; border: 0; background: none; color: #2563eb; font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
+.vp-events__more { align-self: flex-start; margin-top: 8px; padding: 0; border: 0; background: none; color: #2563eb; font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
 .vp-events__more:hover { text-decoration: underline; }
 .vp-maplink svg { width: 12px; height: 12px; margin-right: 3px; vertical-align: -1px; }
 .vp-events__tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0; }
