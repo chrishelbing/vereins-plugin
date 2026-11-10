@@ -1,0 +1,61 @@
+# Baut aus einem Versions-Tag ein Release mit angehängtem vereins-plugin.zip.
+#
+# Websites holen Updates über Support\Updater aus dem neuesten Release; ohne
+# angehängtes Paket bietet keine Website das Update an.
+#
+# Ablauf: Version in vereins-plugin.php erhöhen (Kopfzeile und VP_VERSION),
+# committen, Tag setzen und pushen – z. B. `git tag v1.13.0 && git push --tags`.
+# Tags mit und ohne „v“ werden angenommen; der Updater entfernt das „v“.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v4
+
+      - name: PHP einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Tag gegen Version prüfen
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          KOPF=$(grep -Po '^\s*\*\s*Version:\s*\K[0-9.]+' vereins-plugin.php)
+          KONST=$(grep -Po "define\(\s*'VP_VERSION',\s*'\K[0-9.]+" vereins-plugin.php)
+          echo "Tag: $TAG  Kopfzeile: $KOPF  VP_VERSION: $KONST"
+          if [ "$TAG" != "$KOPF" ] || [ "$TAG" != "$KONST" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME passt nicht zur Version in vereins-plugin.php."
+            exit 1
+          fi
+
+      - name: Prüfungen
+        run: php tools/pruefen.php
+
+      - name: Paket bauen
+        run: |
+          mkdir -p build/vereins-plugin
+          cp -r vereins-plugin.php includes assets README.md FEATURES.md build/vereins-plugin/
+          cd build && zip -r -q ../vereins-plugin.zip vereins-plugin
+          cd .. && unzip -l vereins-plugin.zip | tail -1
+
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" vereins-plugin.zip \
+            --title "Vereins-Plugin ${GITHUB_REF_NAME#v}" \
+            --generate-notes

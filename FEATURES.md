@@ -446,6 +446,21 @@ bestehenden Termin erzeugbar**. Je Termintyp eine Standardvorlage, beim
 Anlegen überschreibbar. Sechs Vorlagen sind bereits vorhanden – siehe
 „Auslieferungszustand“.
 
+Eine Vorlage wird **kopiert, nicht verknüpft**: Der Termin bekommt eigene
+Posten, spätere Änderungen an der Vorlage erreichen ihn nicht von selbst.
+Wechselt ein Termin auf einen Typ ohne Mitbringliste oder Helfer, werden
+die Posten nur ausgeblendet; beim Zurückwechseln sind sie samt Übernahmen
+wieder da.
+
+**Vorlage nachträglich anwenden**: Beim Bearbeiten im Backend steht unter
+„Vorlage anwenden“ je Art eine Auswahl, vorbelegt mit „nicht anwenden“.
+Wer eine Vorlage (oder den Standard des Typs) wählt, bekommt beim
+Speichern nur die **fehlenden Posten** dazu – gleiche Bezeichnung zählt als
+vorhanden. Vorhandene Posten, Übernahmen und nicht mehr in der Vorlage
+stehende Posten bleiben unangetastet; Aufräumen geschieht im Frontend.
+Angewendet wird auf das Datum des Terminbeginns, bei Serien also nur auf
+die erste Instanz (`TemplateModel::resolve_choice()`).
+
 ---
 
 ## Fotos

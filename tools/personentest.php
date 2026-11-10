@@ -257,7 +257,9 @@ Pruefung::ok( 'Export findet auch offenen Kontakt', (bool) array_filter( $export
 
 $loeschung_gast = $privacy->erase( 'gustav@example.test' );
 Pruefung::ok( 'Löschung des offenen Kontakts gelingt', $loeschung_gast['items_removed'] );
-Pruefung::gleich( 'kein Eintrag mehr in vp_people', $personen(), 0 );
+// Gezielt nach Gustav fragen statt die Tabelle zu zählen: Der „Alte Gast“
+// aus der Bestandsübernahme steht zu Recht noch in vp_people.
+Pruefung::ok( 'kein Eintrag mehr in vp_people', ( new PeopleModel() )->find_by_email( 'gustav@example.test' ) === null );
 
 // =====================================================================
 echo "\nAufbewahrungsfrist für offene Gast-Kontakte\n";

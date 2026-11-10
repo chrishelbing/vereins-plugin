@@ -16,10 +16,33 @@ class TemplateModel {
     private string $templates;
     private string $items;
 
+    /** Auswahlwert im Terminformular: „Standard des Termintyps“. */
+    public const CHOICE_DEFAULT = 'default';
+
     public function __construct() {
         global $wpdb;
         $this->templates = $wpdb->prefix . 'vp_templates';
         $this->items     = $wpdb->prefix . 'vp_template_items';
+    }
+
+    /**
+     * Welche Vorlage soll beim Speichern eines Termins angewendet werden?
+     *
+     * Beim Anlegen heißt ein leeres Feld „Standard des Termintyps“ – so wie
+     * bisher. Beim Bearbeiten heißt es „nichts anwenden“: Eine Vorlage greift
+     * an einem bestehenden Termin nur, wenn jemand sie ausdrücklich wählt.
+     * "0" ist in beiden Fällen „keine Vorlage“.
+     *
+     * @return int  Vorlagen-ID oder 0
+     */
+    public static function resolve_choice( string $raw, int $type_default, bool $is_new ): int {
+        if ( $raw === self::CHOICE_DEFAULT ) {
+            return $type_default;
+        }
+        if ( $raw === '' ) {
+            return $is_new ? $type_default : 0;
+        }
+        return max( 0, (int) $raw );
     }
 
     // ------------------------------------------------------------------

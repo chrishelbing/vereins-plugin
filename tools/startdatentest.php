@@ -235,4 +235,38 @@ Pruefung::gleich( 'erneutes Anwenden verdoppelt nichts', count( $items->for_inst
 $nur_bedarf = array_filter( $bring, fn( $p ) => empty( $p['is_request'] ) );
 Pruefung::gleich( 'Posten sind übernehmbarer Bedarf', count( $nur_bedarf ), 0 );
 
+// ---------------------------------------------------------------------
+echo "\nVorlage an einem bestehenden Termin\n";
+// ---------------------------------------------------------------------
+// Eine Vorlage wird kopiert, nicht verknüpft. Am bestehenden Termin greift
+// sie nur auf ausdrücklichen Wunsch – ein leeres Feld beim Bearbeiten darf
+// nichts auslösen, sonst würde jedes Speichern Posten nachschieben.
+
+Pruefung::gleich( 'Anlegen, leer: Standard des Typs',       TemplateModel::resolve_choice( '', 7, true ), 7 );
+Pruefung::gleich( 'Anlegen, „0“: keine Vorlage',            TemplateModel::resolve_choice( '0', 7, true ), 0 );
+Pruefung::gleich( 'Bearbeiten, leer: nichts anwenden',      TemplateModel::resolve_choice( '', 7, false ), 0 );
+Pruefung::gleich( 'Bearbeiten, Standard gewählt',           TemplateModel::resolve_choice( TemplateModel::CHOICE_DEFAULT, 7, false ), 7 );
+Pruefung::gleich( 'Bearbeiten, bestimmte Vorlage gewählt',  TemplateModel::resolve_choice( '12', 7, false ), 12 );
+
+// Die Vorlage wird zwischenzeitlich ergänzt; danach wird sie am Termin
+// erneut angewendet. Neu kommt nur der fehlende Posten, und eine bereits
+// erfolgte Übernahme bleibt stehen.
+$bring_tpl_id = (int) $fest['default_item_template_id'];
+$bring_tpl    = $vorlagen->find( $bring_tpl_id );
+$erster       = $bring[0];
+$wpdb->insert( 'wp_vp_event_item_claims', [ 'item_id' => (int) $erster['id'], 'person_id' => $admin, 'companion_id' => 0, 'quantity' => 1 ] );
+
+$neue_posten   = $bring_tpl['items'];
+$neue_posten[] = [ 'label' => 'Waffeleisen', 'quantity_needed' => 1 ];
+$vorlagen->update( $bring_tpl_id, [ 'items' => $neue_posten ] );
+
+$hinzu = $items->apply_template( $event_id, '2027-07-05', $bring_tpl_id, $admin );
+$nachher = $items->for_instance( $event_id, '2027-07-05', 0, 'bring' );
+
+Pruefung::gleich( 'nur der neue Posten kommt hinzu',  $hinzu, 1 );
+Pruefung::gleich( 'Liste um genau einen länger',      count( $nachher ), count( $bring ) + 1 );
+Pruefung::ok( 'neuer Posten steht in der Liste',      in_array( 'Waffeleisen', array_column( $nachher, 'label' ), true ) );
+$uebernahmen = array_filter( $wpdb->t['wp_vp_event_item_claims'] ?? [], fn( $c ) => (int) $c['item_id'] === (int) $erster['id'] );
+Pruefung::gleich( 'Übernahme bleibt bestehen',        count( $uebernahmen ), 1 );
+
 Pruefung::abschluss( 'Startdaten' );

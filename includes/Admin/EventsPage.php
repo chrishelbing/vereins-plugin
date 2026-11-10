@@ -450,44 +450,47 @@ class EventsPage {
                         </p>
                     </div>
 
-                    <?php if ( ! $editing ) : ?>
-                        <?php
-                        // Vorlagen greifen nur beim Anlegen – bei bestehenden
-                        // Terminen werden Posten direkt im Frontend gepflegt.
-                        $bring_templates = $this->templates->all( 'bring' );
-                        $help_templates  = $this->templates->all( 'help' );
-                        ?>
-                        <?php if ( $bring_templates || $help_templates ) : ?>
-                        <div class="vp-field" style="background:#f9fafb;border-radius:8px;padding:14px;">
-                            <strong style="display:block;margin-bottom:8px;"><?php esc_html_e( 'Vorlagen', 'vereins-plugin' ); ?></strong>
+                    <?php
+                    // Beim Anlegen ist der Standard des Termintyps vorbelegt.
+                    // Beim Bearbeiten steht „nicht anwenden“ oben – eine Vorlage
+                    // greift an einem bestehenden Termin nur auf ausdrücklichen
+                    // Wunsch, und dann kommen nur fehlende Posten hinzu.
+                    $bring_templates = $this->templates->all( 'bring' );
+                    $help_templates  = $this->templates->all( 'help' );
+                    $tpl_selects     = array_filter( [
+                        'item_template_id' => [ 'vp-tpl-bring', __( 'Mitbringliste', 'vereins-plugin' ), $bring_templates ],
+                        'help_template_id' => [ 'vp-tpl-help',  __( 'Helferaufgaben', 'vereins-plugin' ), $help_templates ],
+                    ], fn( $s ) => ! empty( $s[2] ) );
+                    ?>
+                    <?php if ( $tpl_selects ) : ?>
+                    <div class="vp-field" style="background:#f9fafb;border-radius:8px;padding:14px;">
+                        <strong style="display:block;margin-bottom:8px;">
+                            <?php echo esc_html( $editing ? __( 'Vorlage anwenden', 'vereins-plugin' ) : __( 'Vorlagen', 'vereins-plugin' ) ); ?>
+                        </strong>
 
-                            <?php if ( $bring_templates ) : ?>
-                                <label for="vp-tpl-bring"><?php esc_html_e( 'Mitbringliste', 'vereins-plugin' ); ?></label>
-                                <select id="vp-tpl-bring" name="item_template_id">
+                        <?php $erste = true; foreach ( $tpl_selects as $name => [ $sel_id, $label, $tpls ] ) : ?>
+                            <label for="<?php echo esc_attr( $sel_id ); ?>"<?php echo $erste ? '' : ' style="margin-top:10px;"'; ?>><?php echo esc_html( $label ); ?></label>
+                            <select id="<?php echo esc_attr( $sel_id ); ?>" name="<?php echo esc_attr( $name ); ?>">
+                                <?php if ( $editing ) : ?>
+                                    <option value=""><?php esc_html_e( '– nicht anwenden –', 'vereins-plugin' ); ?></option>
+                                    <option value="<?php echo esc_attr( TemplateModel::CHOICE_DEFAULT ); ?>"><?php esc_html_e( 'Standard des Termintyps', 'vereins-plugin' ); ?></option>
+                                <?php else : ?>
                                     <option value=""><?php esc_html_e( 'Standard des Termintyps', 'vereins-plugin' ); ?></option>
                                     <option value="0"><?php esc_html_e( '– keine –', 'vereins-plugin' ); ?></option>
-                                    <?php foreach ( $bring_templates as $tpl ) : ?>
-                                        <option value="<?php echo esc_attr( $tpl['id'] ); ?>"><?php echo esc_html( $tpl['name'] ); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            <?php endif; ?>
+                                <?php endif; ?>
+                                <?php foreach ( $tpls as $tpl ) : ?>
+                                    <option value="<?php echo esc_attr( $tpl['id'] ); ?>"><?php echo esc_html( $tpl['name'] ); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php $erste = false; endforeach; ?>
 
-                            <?php if ( $help_templates ) : ?>
-                                <label for="vp-tpl-help" style="margin-top:10px;"><?php esc_html_e( 'Helferaufgaben', 'vereins-plugin' ); ?></label>
-                                <select id="vp-tpl-help" name="help_template_id">
-                                    <option value=""><?php esc_html_e( 'Standard des Termintyps', 'vereins-plugin' ); ?></option>
-                                    <option value="0"><?php esc_html_e( '– keine –', 'vereins-plugin' ); ?></option>
-                                    <?php foreach ( $help_templates as $tpl ) : ?>
-                                        <option value="<?php echo esc_attr( $tpl['id'] ); ?>"><?php echo esc_html( $tpl['name'] ); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                        <p class="description">
+                            <?php esc_html_e( 'Vorlagen werden nur angewendet, wenn der Termintyp Mitbringliste bzw. Helfer erlaubt.', 'vereins-plugin' ); ?>
+                            <?php if ( $editing ) : ?>
+                                <?php esc_html_e( 'Beim Speichern kommen nur fehlende Posten hinzu; vorhandene Posten und Übernahmen bleiben unverändert.', 'vereins-plugin' ); ?>
                             <?php endif; ?>
-
-                            <p class="description">
-                                <?php esc_html_e( 'Vorlagen werden nur angewendet, wenn der Termintyp Mitbringliste bzw. Helfer erlaubt.', 'vereins-plugin' ); ?>
-                            </p>
-                        </div>
-                        <?php endif; ?>
+                        </p>
+                    </div>
                     <?php endif; ?>
 
                     <?php $rec = $editing['recurrence'] ?? null; ?>
@@ -682,9 +685,10 @@ class EventsPage {
 
         if ( $id ) {
             $this->model->update( $id, $data );
+            $this->apply_templates( $id, $data, false );
         } else {
             $id = $this->model->create( $data );
-            $this->apply_templates( $id, $data );
+            $this->apply_templates( $id, $data, true );
         }
 
         wp_safe_redirect( add_query_arg( [ 'page' => 'vp-events', 'vp_notice' => 'saved' ], admin_url( 'admin.php' ) ) );
@@ -692,10 +696,15 @@ class EventsPage {
     }
 
     /**
-     * Überträgt Mitbring- und Helfervorlagen auf einen neu angelegten Termin.
-     * Leeres Feld = Standard des Termintyps, "0" = ausdrücklich keine Vorlage.
+     * Überträgt Mitbring- und Helfervorlagen auf einen Termin.
+     *
+     * Beim Anlegen: leeres Feld = Standard des Termintyps. Beim Bearbeiten:
+     * leeres Feld = nichts anwenden – nur eine ausdrücklich gewählte Vorlage
+     * greift. Vorhandene Posten samt Übernahmen bleiben in jedem Fall stehen,
+     * es kommen nur fehlende hinzu (siehe ItemModel::apply_template()).
+     * Siehe TemplateModel::resolve_choice().
      */
-    private function apply_templates( int $event_id, array $data ): void {
+    private function apply_templates( int $event_id, array $data, bool $is_new ): void {
         $type = $this->type_model->find( (int) ( $data['event_type_id'] ?? 0 ) );
         if ( ! $type ) {
             return;
@@ -718,10 +727,11 @@ class EventsPage {
                 continue;
             }
 
-            $raw         = $_POST[ $post_key ] ?? '';
-            $template_id = ( $raw === '' )
-                ? (int) ( $type[ $default_key ] ?? 0 )
-                : (int) $raw;
+            $template_id = TemplateModel::resolve_choice(
+                sanitize_text_field( (string) ( $_POST[ $post_key ] ?? '' ) ),
+                (int) ( $type[ $default_key ] ?? 0 ),
+                $is_new
+            );
 
             if ( $template_id ) {
                 $this->items->apply_template( $event_id, $instance_date, $template_id, $user_id );
