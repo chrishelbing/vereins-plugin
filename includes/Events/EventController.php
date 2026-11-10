@@ -218,6 +218,16 @@ class EventController {
                 'callback'            => [ $this, 'destroy_item' ],
                 'permission_callback' => [ $this->auth, 'require_auth_or_link' ],
             ],
+            [
+                // Nur Orgateam: Tippfehler korrigieren, Menge anpassen.
+                'methods'             => 'PATCH',
+                'callback'            => [ $this, 'update_item' ],
+                'permission_callback' => [ $this->auth, 'require_auth_or_link' ],
+                'args'                => [
+                    'label'           => [ 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+                    'quantity_needed' => [ 'required' => false, 'type' => 'integer' ],
+                ],
+            ],
         ] );
 
         register_rest_route( $namespace, '/events/(?P<id>\d+)/exceptions', [
@@ -629,7 +639,14 @@ class EventController {
         );
 
         if ( ! $ok ) {
-            return new WP_Error( 'no_capacity', __( 'Dieser Posten ist bereits vollständig vergeben.', 'vereins-plugin' ), [ 'status' => 409 ] );
+            // Wie viel ist für diese Person noch drin? Der eigene bisherige
+            // Anteil zählt mit, weil er beim Ändern ersetzt wird.
+            $frei = $this->items->available_for( $item_id, $user_id, $companion_id );
+            $text = $frei > 0
+                /* translators: %d: Anzahl, die noch übernommen werden kann */
+                ? sprintf( __( 'So viele sind nicht mehr offen – höchstens %d.', 'vereins-plugin' ), $frei )
+                : __( 'Dieser Posten ist bereits vollständig vergeben.', 'vereins-plugin' );
+            return new WP_Error( 'no_capacity', $text, [ 'status' => 409 ] );
         }
 
         return new WP_REST_Response( [
@@ -667,6 +684,45 @@ class EventController {
      * Kompletten Posten löschen – nur Orgateam/Admin oder der Ersteller eines
      * freien Eintrags.
      */
+    /**
+     * Posten nachträglich ändern – nur das Orgateam. Übernahmen bleiben, weil
+     * sie an der ID hängen, nicht an der Bezeichnung.
+     */
+    public function update_item( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $item_id = (int) $request->get_param( 'item_id' );
+        $item    = $this->items->find( $item_id );
+
+        if ( ! $item ) {
+            return new WP_Error( 'not_found', __( 'Eintrag nicht gefunden.', 'vereins-plugin' ), [ 'status' => 404 ] );
+        }
+
+        $user_id = (int) $request->get_param( '_vp_person_id' );
+        if ( ! Capabilities::is_orga( $user_id ) ) {
+            return new WP_Error( 'forbidden', __( 'Einträge ändern kann nur das Orgateam.', 'vereins-plugin' ), [ 'status' => 403 ] );
+        }
+
+        $data = [];
+        if ( $request->get_param( 'label' ) !== null ) {
+            $data['label'] = (string) $request->get_param( 'label' );
+        }
+        if ( $request->get_param( 'quantity_needed' ) !== null ) {
+            $data['quantity_needed'] = (int) $request->get_param( 'quantity_needed' );
+        }
+
+        if ( ! $this->items->update( $item_id, $data ) ) {
+            return new WP_Error( 'invalid', __( 'Die Bezeichnung darf nicht leer sein.', 'vereins-plugin' ), [ 'status' => 400 ] );
+        }
+
+        return new WP_REST_Response( [
+            'kind'       => $item['kind'],
+            'items'      => $this->mask_claims(
+                $this->items->for_instance( (int) $item['event_id'], $item['instance_date'], $user_id, $item['kind'] ),
+                $request
+            ),
+            'can_manage' => true,
+        ], 200 );
+    }
+
     public function destroy_item( WP_REST_Request $request ): WP_REST_Response|WP_Error {
         $item_id = (int) $request->get_param( 'item_id' );
         $item    = $this->items->find( $item_id );

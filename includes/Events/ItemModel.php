@@ -348,6 +348,80 @@ class ItemModel {
     }
 
     /**
+     * Bezeichnung (und beim Bedarf die Menge) eines Postens korrigieren –
+     * etwa einen Tippfehler. Übernahmen hängen an der ID und bleiben
+     * erhalten.
+     *
+     * Die Menge sinkt nie unter die Zahl der bereits übernommenen Stücke:
+     * Sonst stünde da „0 von 2 offen“, obwohl drei Leute etwas mitbringen.
+     *
+     * @param array{label?: string, quantity_needed?: int} $data
+     */
+    public function update( int $id, array $data ): bool {
+        global $wpdb;
+
+        $item = $this->find( $id );
+        if ( ! $item ) {
+            return false;
+        }
+
+        $fields  = [];
+        $formats = [];
+
+        if ( array_key_exists( 'label', $data ) ) {
+            $label = mb_substr( trim( sanitize_text_field( (string) $data['label'] ) ), 0, 255 );
+            if ( $label === '' ) {
+                return false;
+            }
+            $fields['label'] = $label;
+            $formats[]       = '%s';
+        }
+
+        if ( array_key_exists( 'quantity_needed', $data ) && ! empty( $item['is_request'] ) ) {
+            $fields['quantity_needed'] = max( 1, $this->claimed_quantity( $id ), (int) $data['quantity_needed'] );
+            $formats[]                 = '%d';
+        }
+
+        if ( ! $fields ) {
+            return false;
+        }
+
+        return $wpdb->update( $this->items, $fields, [ 'id' => $id ], $formats, [ '%d' ] ) !== false;
+    }
+
+    /**
+     * Wie viele Stücke kann diese Person (bzw. ihre Begleitperson) höchstens
+     * übernehmen? Bedarf minus das, was andere schon übernommen haben – der
+     * eigene bisherige Anteil zählt nicht dagegen, weil er ersetzt wird.
+     */
+    public function available_for( int $item_id, int $person_id, int $companion_id = 0 ): int {
+        global $wpdb;
+
+        $item = $this->find( $item_id );
+        if ( ! $item ) {
+            return 0;
+        }
+
+        $andere = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COALESCE(SUM(quantity), 0) FROM {$this->claims}
+                 WHERE item_id = %d AND NOT (person_id = %d AND companion_id = %d)",
+                $item_id, $person_id, $companion_id
+            )
+        );
+
+        return max( 0, (int) $item['quantity_needed'] - $andere );
+    }
+
+    /** Summe der übernommenen Stücke eines Postens. */
+    public function claimed_quantity( int $item_id ): int {
+        global $wpdb;
+        return (int) $wpdb->get_var(
+            $wpdb->prepare( "SELECT SUM(quantity) FROM {$this->claims} WHERE item_id = %d", $item_id )
+        );
+    }
+
+    /**
      * Überträgt die Posten einer Vorlage auf eine Termininstanz. Bereits
      * vorhandene Posten derselben Art bleiben unangetastet; doppelte
      * Bezeichnungen werden übersprungen.

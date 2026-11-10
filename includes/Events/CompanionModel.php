@@ -45,6 +45,32 @@ class CompanionModel {
     }
 
     /**
+     * Zerlegt die Eingabe im Feld „Weitere Personen“ in einzelne Namen.
+     *
+     * Wer „Mia, Tom“ oder „Mia und Tom“ einträgt, meint zwei Personen – nicht
+     * eine Person dieses Namens. Getrennt wird an Komma, Semikolon,
+     * Zeilenumbruch, „&“, „+“ und dem Wort „und“. Leere Teile und Dubletten
+     * (ohne Rücksicht auf Groß-/Kleinschreibung) fallen weg; die Reihenfolge bleibt.
+     *
+     * @param string[] $eingaben
+     * @return string[]
+     */
+    public static function split_names( array $eingaben ): array {
+        $namen = [];
+        foreach ( $eingaben as $eingabe ) {
+            $teile = preg_split( '/\s*(?:[,;\n\r&+]|\bund\b)\s*/iu', (string) $eingabe );
+            foreach ( (array) $teile as $teil ) {
+                $teil = trim( $teil );
+                $schluessel = mb_strtolower( $teil );
+                if ( $teil !== '' && ! isset( $namen[ $schluessel ] ) ) {
+                    $namen[ $schluessel ] = $teil;
+                }
+            }
+        }
+        return array_values( $namen );
+    }
+
+    /**
      * Person in die persönliche Liste aufnehmen – oder die vorhandene
      * zurückgeben, wenn der Name schon existiert.
      *
@@ -186,7 +212,7 @@ class CompanionModel {
             }
         }
 
-        foreach ( $new_names as $name ) {
+        foreach ( self::split_names( $new_names ) as $name ) {
             $id = $this->remember( $person_id, $name );
             if ( $id ) {
                 $saved = $this->find_saved( $person_id, $id );

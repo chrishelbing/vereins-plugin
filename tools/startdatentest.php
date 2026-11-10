@@ -269,4 +269,64 @@ Pruefung::ok( 'neuer Posten steht in der Liste',      in_array( 'Waffeleisen', a
 $uebernahmen = array_filter( $wpdb->t['wp_vp_event_item_claims'] ?? [], fn( $c ) => (int) $c['item_id'] === (int) $erster['id'] );
 Pruefung::gleich( 'Übernahme bleibt bestehen',        count( $uebernahmen ), 1 );
 
+// ---------------------------------------------------------------------
+echo "\nPosten nachträglich ändern (Orgateam)\n";
+// ---------------------------------------------------------------------
+// Ein Tippfehler im Posten darf korrigiert werden, ohne dass Übernahmen
+// verloren gehen – sie hängen an der ID, nicht an der Bezeichnung.
+$tippfehler = $items->create( [
+    'event_id' => $event_id, 'instance_date' => '2027-07-05', 'kind' => 'bring',
+    'label' => 'Kuchn', 'quantity_needed' => 3, 'is_request' => 1, 'created_by' => $admin,
+] );
+$wpdb->insert( 'wp_vp_event_item_claims', [ 'item_id' => $tippfehler, 'person_id' => $admin, 'companion_id' => 0, 'quantity' => 2 ] );
+
+Pruefung::ok( 'Bezeichnung korrigieren gelingt', $items->update( $tippfehler, [ 'label' => 'Kuchen (Blech)' ] ) );
+Pruefung::gleich( 'neue Bezeichnung steht da',     $items->find( $tippfehler )['label'] ?? '', 'Kuchen (Blech)' );
+$haengt = array_filter( $wpdb->t['wp_vp_event_item_claims'], fn( $c ) => (int) $c['item_id'] === $tippfehler );
+Pruefung::gleich( 'Übernahme bleibt erhalten',     count( $haengt ), 1 );
+
+Pruefung::ok( 'leere Bezeichnung abgelehnt',       ! $items->update( $tippfehler, [ 'label' => '   ' ] ) );
+Pruefung::gleich( 'Bezeichnung unverändert',       $items->find( $tippfehler )['label'] ?? '', 'Kuchen (Blech)' );
+
+$items->update( $tippfehler, [ 'quantity_needed' => 5 ] );
+Pruefung::gleich( 'Menge erhöhen',                 (int) $items->find( $tippfehler )['quantity_needed'], 5 );
+$items->update( $tippfehler, [ 'quantity_needed' => 1 ] );
+Pruefung::gleich( 'Menge nie unter Übernommenes',  (int) $items->find( $tippfehler )['quantity_needed'], 2 );
+
+// Freier Eintrag („Ich bringe Salat mit“): nur die Bezeichnung zählt.
+$frei = $items->create( [
+    'event_id' => $event_id, 'instance_date' => '2027-07-05', 'kind' => 'bring',
+    'label' => 'Slaat', 'quantity_needed' => 1, 'is_request' => 0, 'created_by' => $admin,
+] );
+$items->update( $frei, [ 'label' => 'Salat', 'quantity_needed' => 4 ] );
+Pruefung::gleich( 'freier Eintrag: Bezeichnung',   $items->find( $frei )['label'] ?? '', 'Salat' );
+Pruefung::gleich( 'freier Eintrag: Menge bleibt 1', (int) $items->find( $frei )['quantity_needed'], 1 );
+
+// ---------------------------------------------------------------------
+echo "\nMehr als ein Stück übernehmen\n";
+// ---------------------------------------------------------------------
+// „30 Brötchen“: Wer 15 mitbringt, trägt 15 ein – nicht fünfzehnmal eins.
+$broetchen = $items->create( [
+    'event_id' => $event_id, 'instance_date' => '2027-07-05', 'kind' => 'bring',
+    'label' => 'Brötchen', 'quantity_needed' => 30, 'is_request' => 1, 'created_by' => $admin,
+] );
+$bea = stub_user( 'Bea Bäcker', [ VereinsPlugin\Core\Activator::ROLE_MEMBER ], 'bea@example.test' );
+$udo = stub_user( 'Udo Ufer',   [ VereinsPlugin\Core\Activator::ROLE_MEMBER ], 'udo@example.test' );
+
+Pruefung::ok( '15 von 30 übernehmen',            $items->claim( $broetchen, $bea, 15 ) );
+Pruefung::gleich( 'für Udo noch frei',           $items->available_for( $broetchen, $udo ), 15 );
+Pruefung::ok( '16 sind zu viel',                 ! $items->claim( $broetchen, $udo, 16 ) );
+Pruefung::ok( '15 passen genau',                 $items->claim( $broetchen, $udo, 15 ) );
+Pruefung::gleich( 'jetzt vollständig',           $items->claimed_quantity( $broetchen ), 30 );
+
+// Ändern ersetzt die eigene Menge – der eigene Anteil zählt dabei nicht
+// gegen einen selbst.
+Pruefung::gleich( 'Bea kann bis 15 ändern',      $items->available_for( $broetchen, $bea ), 15 );
+Pruefung::ok( 'Bea verringert auf 10',           $items->claim( $broetchen, $bea, 10 ) );
+Pruefung::gleich( 'danach 25 übernommen',        $items->claimed_quantity( $broetchen ), 25 );
+Pruefung::ok( 'Bea erhöht wieder auf 15',        $items->claim( $broetchen, $bea, 15 ) );
+Pruefung::ok( 'aber nicht auf 16',               ! $items->claim( $broetchen, $bea, 16 ) );
+$bea_zeilen = array_filter( $wpdb->t['wp_vp_event_item_claims'], fn( $c ) => (int) $c['item_id'] === $broetchen && (int) $c['person_id'] === $bea );
+Pruefung::gleich( 'Bea hat eine Zeile, nicht drei', count( $bea_zeilen ), 1 );
+
 Pruefung::abschluss( 'Startdaten' );

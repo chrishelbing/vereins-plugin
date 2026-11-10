@@ -918,14 +918,20 @@ class EventsShortcode {
                         <?php // Eine Zeile je Person, gleiche Pill-Buttons wie am Termin ?>
                         <ul class="vp-bring__list" data-people-list></ul>
 
+                        <?php // Summe: man selbst (falls dabei) plus alle Begleitpersonen ?>
+                        <p class="vp-people__total" data-people-total></p>
+
                         <div class="vp-bring__add">
-                            <strong class="vp-modal__label"><?php esc_html_e( 'Weitere Person', 'vereins-plugin' ); ?></strong>
+                            <strong class="vp-modal__label"><?php esc_html_e( 'Weitere Personen mitbringen', 'vereins-plugin' ); ?></strong>
                             <div class="vp-bring__addrow">
-                                <input type="text" data-people-new placeholder="<?php esc_attr_e( 'z. B. Mia', 'vereins-plugin' ); ?>">
+                                <input type="text" data-people-new placeholder="<?php esc_attr_e( 'z. B. Mia, Tom', 'vereins-plugin' ); ?>">
                                 <button type="button" class="vp-bring__addbtn" data-people-add><?php esc_html_e( 'Hinzufügen', 'vereins-plugin' ); ?></button>
                             </div>
                             <p class="description vp-people__note">
-                                <?php esc_html_e( 'Einmal eingetragen, steht die Person beim nächsten Termin gleich zur Auswahl.', 'vereins-plugin' ); ?>
+                                <?php esc_html_e( 'Ein Name pro Person. Mehrere auf einmal mit Komma trennen – „Mia, Tom“ sind zwei Personen. Jede steht danach als eigene Zeile in der Liste und zählt einzeln.', 'vereins-plugin' ); ?>
+                            </p>
+                            <p class="description vp-people__note">
+                                <?php esc_html_e( 'Einmal eingetragen, stehen die Personen beim nächsten Termin gleich zur Auswahl.', 'vereins-plugin' ); ?>
                             </p>
                         </div>
 
@@ -1196,7 +1202,15 @@ class EventsShortcode {
             'take'          => __( 'Übernehmen', 'vereins-plugin' ),
             'takeFor'       => __( 'Für %s übernehmen', 'vereins-plugin' ),
             'release'       => __( 'Zurückziehen', 'vereins-plugin' ),
+            'qty'           => __( 'Anzahl', 'vereins-plugin' ),
+            'changeQty'     => __( 'Anzahl ändern', 'vereins-plugin' ),
             'remove'        => __( 'Löschen', 'vereins-plugin' ),
+            'edit'          => __( 'Bearbeiten', 'vereins-plugin' ),
+            'editLabel'     => __( 'Bezeichnung', 'vereins-plugin' ),
+            'editQty'       => __( 'Menge', 'vereins-plugin' ),
+            'editItemSave'  => __( 'Speichern', 'vereins-plugin' ),
+            'editItemCancel'=> __( 'Abbrechen', 'vereins-plugin' ),
+            'editEmpty'     => __( 'Die Bezeichnung darf nicht leer sein.', 'vereins-plugin' ),
             'openOf'        => __( '%1$d von %2$d offen', 'vereins-plugin' ),
             'covered'       => __( 'vollständig', 'vereins-plugin' ),
             'noPhotos'      => __( 'Noch keine Fotos zu diesem Termin.', 'vereins-plugin' ),
@@ -1210,6 +1224,8 @@ class EventsShortcode {
             'uploadOpen'    => __( 'Noch %1$d Tage Zeit zum Hochladen – bis zum %2$s.', 'vereins-plugin' ),
             'uploadLastDay' => __( 'Letzter Tag zum Hochladen!', 'vereins-plugin' ),
             'people'        => __( '%d Personen', 'vereins-plugin' ),
+            'peopleTotal'   => __( 'Zusammen dabei: %d', 'vereins-plugin' ),
+            'peopleTotalOf' => __( 'Zusammen dabei: %1$d (du und %2$d Begleitperson(en))', 'vereins-plugin' ),
             'forget'        => __( 'Dauerhaft aus meiner Liste entfernen', 'vereins-plugin' ),
             'selfComing'    => __( 'Ich', 'vereins-plugin' ),
             'comingYes'     => __( 'Dabei', 'vereins-plugin' ),

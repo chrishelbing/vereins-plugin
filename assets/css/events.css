@@ -79,6 +79,7 @@
 .vp-person__forget { background: none; border: none; color: #9ca3af; font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 0 2px; }
 .vp-person__forget:hover { color: #dc2626; }
 .vp-people__note { font-size: .78rem; color: #6b7280; margin: 6px 0 0; }
+.vp-people__total { font-weight: 600; margin: 10px 0 12px; }
 .vp-rsvp__toggle { display: flex; align-items: center; gap: 10px; background: none; border: none; cursor: pointer; font-size: .8rem; color: #4b5563; font-family: inherit; padding: 4px 0; }
 .vp-rsvp__count--yes  { color: #059669; font-weight: 600; }
 .vp-rsvp__count--no   { color: #dc2626; font-weight: 600; }
@@ -116,6 +117,7 @@
 .vp-bring__btn:disabled { opacity: .5; }
 .vp-bring__btn.is-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
 .vp-bring__btn.is-danger  { color: #dc2626; border-color: #fecaca; }
+.vp-bring__qtypick { width: 64px; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 999px; font-size: .78rem; font-family: inherit; text-align: center; }
 .vp-bring__add, .vp-bring__request { padding-top: 14px; border-top: 1px solid #e5e7eb; margin-top: 4px; }
 .vp-bring__addrow { display: flex; gap: 6px; margin-top: 6px; }
 .vp-bring__addrow input[type=text] { flex: 1; min-width: 0; }

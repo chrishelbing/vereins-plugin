@@ -40,6 +40,7 @@ stub_load( [
 ] );
 
 use VereinsPlugin\Core\Activator;
+use VereinsPlugin\Events\CompanionModel;
 use VereinsPlugin\Members\GuestService;
 use VereinsPlugin\Members\MemberService;
 use VereinsPlugin\Members\PeopleCleanup;
@@ -344,5 +345,23 @@ $eigen = $service->update_profile( $admin_mid, [ 'display_name' => 'Anna Adminov
 Pruefung::gleich( 'eigene E-Mail hier nicht änderbar', is_wp_error( $eigen ) ? $eigen->get_error_code() : '', 'protected' );
 $eigen_name = $service->update_profile( $admin_mid, [ 'display_name' => 'Anna Adminova', 'email' => 'vorstand@example.test' ] );
 Pruefung::ok( 'eigener Name schon', ! is_wp_error( $eigen_name ) && get_userdata( $admin_id )->display_name === 'Anna Adminova' );
+
+// =====================================================================
+echo "\nBegleitpersonen: mehrere Namen auf einmal\n";
+// „Mia, Tom“ im Feld „Weitere Personen mitbringen“ sind zwei Personen,
+// nicht eine namens „Mia, Tom“. Jede zählt einzeln.
+Pruefung::gleich( 'Komma trennt',             CompanionModel::split_names( [ 'Mia, Tom' ] ), [ 'Mia', 'Tom' ] );
+Pruefung::gleich( '„und“ trennt',             CompanionModel::split_names( [ 'Mia und Tom' ] ), [ 'Mia', 'Tom' ] );
+Pruefung::gleich( '& ; + trennen',            CompanionModel::split_names( [ 'Mia & Tom; Lea + Ben' ] ), [ 'Mia', 'Tom', 'Lea', 'Ben' ] );
+Pruefung::gleich( 'Bindestrich bleibt',       CompanionModel::split_names( [ 'Hans-Peter' ] ), [ 'Hans-Peter' ] );
+Pruefung::gleich( '„und“ im Namen bleibt',    CompanionModel::split_names( [ 'Undine, Sigmund' ] ), [ 'Undine', 'Sigmund' ] );
+Pruefung::gleich( 'Leeres und Doppeltes weg', CompanionModel::split_names( [ 'Mia, , mia', 'Tom' ] ), [ 'Mia', 'Tom' ] );
+
+$begleit = new CompanionModel();
+$familie = stub_user( 'Fam Becker', [ Activator::ROLE_MEMBER ], 'becker@example.test' );
+$begleit->set_for_attendance( 9, '2026-12-01', $familie, [], [ 'Mia, Tom' ] );
+$dabei = $begleit->for_attendance( 9, '2026-12-01', $familie );
+Pruefung::gleich( 'zwei Begleitpersonen am Termin', count( $dabei ), 2 );
+Pruefung::gleich( 'mit eigenen Namen',             array_column( $dabei, 'name' ), [ 'Mia', 'Tom' ] );
 
 Pruefung::abschluss( 'Personen' );

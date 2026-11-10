@@ -130,6 +130,10 @@ class StubDb {
         if ( stripos( (string) $sql, 'COUNT(' ) !== false ) {
             return count( $this->filter( $sql ) );
         }
+        if ( preg_match( '/SUM\(\s*(?:\w+\.)?(\w+)\s*\)/i', (string) $sql, $s ) ) {
+            $rows = $this->filter( $sql );
+            return $rows ? array_sum( array_map( fn( $r ) => (int) ( $r[ $s[1] ] ?? 0 ), $rows ) ) : null;
+        }
         $rows = $this->filter( $sql );
         preg_match( '/SELECT\s+(?:\w+\.)?(\w+)/i', (string) $sql, $m );
         return $rows ? ( $rows[0][ $m[1] ] ?? null ) : null;
@@ -144,6 +148,15 @@ class StubDb {
         return preg_match( '/FROM\s+(\S+)/i', $sql, $m ) ? $m[1] : '';
     }
 
+    /** Wendet eine nackte Bedingung (ohne WHERE) auf die übergebenen Zeilen an. */
+    private function filter_rows( array $rows, string $bedingung ): array {
+        $merk = $this->t['__tmp'] ?? null;
+        $this->t['__tmp'] = $rows;
+        $erg = $this->filter( 'SELECT * FROM __tmp WHERE ' . $bedingung );
+        if ( $merk === null ) { unset( $this->t['__tmp'] ); } else { $this->t['__tmp'] = $merk; }
+        return $erg;
+    }
+
     private function filter( $sql ): array {
         $sql  = (string) $sql;
         $rows = $this->t[ $this->tabelle( $sql ) ] ?? [];
@@ -154,8 +167,25 @@ class StubDb {
 
         $bedingung = $m[1];
 
-        return array_values( array_filter( $rows, static function ( $r ) use ( $bedingung ) {
+        // „NOT (a = 1 AND b = 2)“ als Gruppe herauslösen. Ohne das zerfiel die
+        // Klammer beim Trennen an AND in „NOT (a = 1“ (ignoriert) und
+        // „b = 2)“ (passt nie) – jede Zeile flog raus, und eine Prüfung wie
+        // „wie viel haben die anderen schon übernommen?“ ergab immer 0.
+        $verneint = [];
+        $bedingung = preg_replace_callback( '/NOT\s*\(([^)]*)\)/i', function ( $g ) use ( &$verneint ) {
+            $verneint[] = $g[1];
+            return '__NOT' . ( count( $verneint ) - 1 ) . '__ = __NOT__';
+        }, $bedingung );
+
+        return array_values( array_filter( $rows, function ( $r ) use ( $bedingung, $verneint ) {
             foreach ( explode( ' AND ', $bedingung ) as $teil ) {
+                if ( preg_match( '/__NOT(\d+)__/', $teil, $nm ) ) {
+                    $innen = $this->filter_rows( [ $r ], $verneint[ (int) $nm[1] ] );
+                    if ( $innen ) {
+                        return false;
+                    }
+                    continue;
+                }
                 // Tabellenkürzel am Anfang entfernen: 'm.status' wirkt wie
                 // 'status'. Bewusst nur am Zeilenanfang – ein Muster wie
                 // \b\w+\. schlüge sonst auch im Wert zu und machte aus

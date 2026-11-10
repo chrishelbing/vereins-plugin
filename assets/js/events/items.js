@@ -115,11 +115,36 @@
             // Wer aus der Familie hat diesen Posten übernommen?
             var mine = item.claims.filter(function(c){ return c.own; });
 
+            // Anzahl: Beim Bedarf („30 Brötchen“) bringt man oft mehr als
+            // ein Stück mit. Ein Feld für alle Knöpfe dieser Zeile; der
+            // Server prüft, dass nicht mehr übernommen wird als offen ist.
+            var maxOwn   = mine.reduce(function(m, c){ return Math.max(m, c.quantity || 1); }, 0);
+            var maxQty   = item.open + maxOwn;
+            var qtyInput = null;
+            if (item.is_request && maxQty > 1 && (item.open > 0 || mine.length)) {
+                qtyInput = document.createElement('input');
+                qtyInput.type = 'number';
+                qtyInput.min = 1;
+                qtyInput.max = maxQty;
+                qtyInput.value = mine.length === 1 ? (mine[0].quantity || 1) : 1;
+                qtyInput.className = 'vp-bring__qtypick';
+                qtyInput.setAttribute('aria-label', T.qty);
+                qtyInput.title = T.qty;
+                actions.appendChild(qtyInput);
+            }
+
             mine.forEach(function(c){
-                var label = c.companion_id
-                    ? T.release + ' – ' + c.name
-                    : T.release;
-                var btn = makeBtn(label, 'release', item.id);
+                var who = c.companion_id ? ' – ' + c.name : '';
+
+                // Bereits übernommen: Anzahl ändern (gleicher Endpunkt, der
+                // Server ersetzt die eigene Menge).
+                if (qtyInput) {
+                    var change = makeBtn(T.changeQty + who, 'claim', item.id);
+                    change.dataset.companionId = c.companion_id || 0;
+                    actions.appendChild(change);
+                }
+
+                var btn = makeBtn(T.release + who, 'release', item.id);
                 btn.dataset.companionId = c.companion_id || 0;
                 actions.appendChild(btn);
             });
@@ -141,6 +166,15 @@
                     b.dataset.companionId = p.id;
                     actions.appendChild(b);
                 });
+            }
+
+            // Orgateam: Tippfehler korrigieren, beim Bedarf auch die Menge.
+            if (data.can_manage) {
+                var edit = makeBtn(T.edit, 'edit', item.id);
+                edit.dataset.label    = item.label;
+                edit.dataset.qty      = item.quantity_needed;
+                edit.dataset.request  = item.is_request ? '1' : '';
+                actions.appendChild(edit);
             }
 
             if (data.can_manage || (!item.is_request && item.own_claim)) {
@@ -220,10 +254,93 @@
         }
     });
 
-    // Übernehmen / Zurückziehen / Löschen
+    /**
+     * Ersetzt die Zeile eines Postens durch ein kleines Formular:
+     * Bezeichnung, beim Bedarf zusätzlich die Menge. Enter speichert,
+     * Escape bricht ab (ohne das ganze Overlay zu schließen).
+     */
+    function openEditor(btn) {
+        var li = btn.closest('.vp-bring__item');
+        if (!li || li.querySelector('.vp-bring__edit')) { return; }
+
+        var form = document.createElement('div');
+        form.className = 'vp-bring__edit vp-bring__addrow';
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.value = btn.dataset.label || '';
+        input.setAttribute('aria-label', T.editLabel);
+        form.appendChild(input);
+
+        var qty = null;
+        if (btn.dataset.request) {
+            qty = document.createElement('input');
+            qty.type = 'number';
+            qty.min = 1;
+            qty.value = btn.dataset.qty || 1;
+            qty.className = 'vp-bring__qty';
+            qty.setAttribute('aria-label', T.editQty);
+            form.appendChild(qty);
+        }
+
+        var save = document.createElement('button');
+        save.type = 'button';
+        save.className = 'vp-bring__btn is-primary';
+        save.textContent = T.editItemSave;
+        form.appendChild(save);
+
+        var cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'vp-bring__btn';
+        cancel.textContent = T.editItemCancel;
+        form.appendChild(cancel);
+
+        Array.prototype.forEach.call(li.children, function(c){ c.hidden = true; });
+        li.appendChild(form);
+        input.focus();
+        input.select();
+
+        function close() {
+            form.remove();
+            Array.prototype.forEach.call(li.children, function(c){ c.hidden = false; });
+        }
+
+        function submit() {
+            var label = input.value.trim();
+            if (!label) { showError(T.editEmpty); input.focus(); return; }
+            showError('');
+            save.disabled = true;
+
+            var body = { label: label };
+            if (qty) { body.quantity_needed = Math.max(1, parseInt(qty.value, 10) || 1); }
+
+            fetch(API + '/items/' + btn.dataset.itemId, {
+                method: 'PATCH',
+                headers: H(true),
+                body: JSON.stringify(body)
+            })
+            .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+            .then(function(res){
+                if (!res.ok) { showError(res.data.message || T.error); save.disabled = false; return; }
+                renderItems(res.data);
+            })
+            .catch(function(){ showError(T.error); save.disabled = false; });
+        }
+
+        save.addEventListener('click', submit);
+        cancel.addEventListener('click', close);
+        form.addEventListener('keydown', function(e){
+            if (e.key === 'Enter')  { e.preventDefault(); submit(); }
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+        });
+    }
+
+    // Übernehmen / Zurückziehen / Löschen / Bearbeiten
     bring.addEventListener('click', function(e){
         var btn = e.target.closest('.vp-bring__btn');
-        if (!btn) { return; }
+        if (!btn || !btn.dataset.action) { return; }
+
+        if (btn.dataset.action === 'edit') { openEditor(btn); return; }
 
         var id        = btn.dataset.itemId;
         var companion = parseInt(btn.dataset.companionId || 0, 10);
@@ -242,11 +359,15 @@
             url += '?companion_id=' + companion;
         }
 
+        // Anzahl aus dem Feld derselben Zeile – ohne Feld genau ein Stück.
+        var qtyEl    = btn.parentNode.querySelector('.vp-bring__qtypick');
+        var quantity = qtyEl ? Math.max(1, parseInt(qtyEl.value, 10) || 1) : 1;
+
         fetch(url, {
             method: cfg.method,
             headers: H(true),
             body: cfg.method === 'POST'
-                ? JSON.stringify({ quantity: 1, companion_id: companion })
+                ? JSON.stringify({ quantity: quantity, companion_id: companion })
                 : undefined
         })
         .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })

@@ -20,6 +20,7 @@
     var peList    = peModal.querySelector('[data-people-list]');
     var peNew     = peModal.querySelector('[data-people-new]');
     var peError   = peModal.querySelector('[data-people-error]');
+    var peTotal   = peModal.querySelector('[data-people-total]');
     var peItem    = null;
     // saved  = eigene Personenliste, chosen = wer bei diesem Termin dabei ist,
     // self   = eigene Antwort ('yes' | 'no' | null)
@@ -102,6 +103,22 @@
                 personRow(p.name, !!peState.chosen[p.id], { companionId: p.id }, true)
             );
         });
+
+        renderTotal();
+    }
+
+    /**
+     * Wie viele kommen insgesamt? Jede Begleitperson zählt einzeln, man
+     * selbst nur bei eigener Zusage.
+     */
+    function renderTotal() {
+        var guests = peState.saved.filter(function(p){ return peState.chosen[p.id]; }).length;
+        var self   = peState.self === 'yes' ? 1 : 0;
+        var total  = guests + self;
+
+        peTotal.textContent = (self && guests)
+            ? T.peopleTotalOf.replace('%1$d', total).replace('%2$d', guests)
+            : T.peopleTotal.replace('%d', total);
     }
 
     function updatePeopleBadge(item, count) {
@@ -227,20 +244,16 @@
         .catch(function(){ peopleError(T.error); });
     });
 
+    /**
+     * Neue Personen sind direkt dabei – sonst hätte man sie nicht
+     * eingetragen. „Mia, Tom“ zerlegt der Server in zwei Personen
+     * (CompanionModel::split_names()); jede bekommt eine eigene Zeile.
+     */
     function addPerson() {
-        var name = peNew.value.trim();
-        if (!name) { return; }
+        var raw = peNew.value.trim();
+        if (!raw) { return; }
         peNew.value = '';
-        // Neue Personen sind direkt dabei – sonst hätte man sie nicht
-        // eingetragen.
-        savePeople([ name ]).then(function(){
-            var added = peState.saved.filter(function(p){ return p.name === name; })[0];
-            if (added && !peState.chosen[added.id]) {
-                peState.chosen[added.id] = true;
-                renderPeople();
-                savePeople();
-            }
-        });
+        savePeople([ raw ]).then(function(){ peNew.focus(); });
     }
 
     peModal.querySelector('[data-people-add]').addEventListener('click', addPerson);

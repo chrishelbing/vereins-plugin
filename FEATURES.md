@@ -429,6 +429,16 @@ Weil aus einer Familie mehrere kommen, lässt sich die Zusage um Begleit­
 personen erweitern. Namen werden je Mitglied als **persönliche Vorschlagsliste**
 gespeichert, damit man sie nicht jedes Mal tippt.
 
+**Mehrere auf einmal.** Im Dialog „Wer kommt mit?“ steht jede Person als
+eigene Zeile mit „Dabei“/„Nicht dabei“. Im Feld „Weitere Personen
+mitbringen“ ist ein Name eine Person; mehrere lassen sich auf einmal
+eintragen, getrennt durch Komma, Semikolon, „und“, „&“ oder „+“ – „Mia,
+Tom“ sind zwei Personen, nicht eine dieses Namens
+(`CompanionModel::split_names()`, auf dem Server, damit es auch für eine
+App gilt). Über dem Feld steht die Summe („Zusammen dabei: 3 (du und 2
+Begleitperson(en))“). Am Termin zeigt das Abzeichen „+2“ die Zahl der
+eigenen Begleitpersonen.
+
 **Eigene Antwort und Begleitpersonen sind unabhängig.** Man kann selbst
 absagen und die Kinder trotzdem anmelden. In der Auswertung erscheinen sie
 deshalb bei den Zusagen, mit dem Vermerk, zu wem sie gehören.
@@ -442,6 +452,13 @@ Technisch dasselbe, per `kind` getrennt:
 - **Mitbringliste** – das Orgateam gibt Bedarf vor („3× Kuchen“), Mitglieder
   übernehmen. Zusätzlich kann jeder einen freien Eintrag machen („Ich bringe
   Salat mit“).
+
+**Mehr als ein Stück.** Beim Bedarf steht neben „Übernehmen“ ein Feld
+„Anzahl“: Von 30 Brötchen trägt man 15 ein, nicht fünfzehnmal eins. Wer schon
+übernommen hat, ändert die Zahl über „Anzahl ändern“ – die eigene Menge wird
+ersetzt, nicht addiert. Mehr als offen ist geht nicht; die Meldung nennt
+dann die Höchstzahl (`ItemModel::available_for()`). Das Feld erscheint nur,
+wenn mehr als ein Stück möglich ist; Begleitpersonen nutzen dasselbe Feld.
 - **Helferaufgaben** – legt nur das Orgateam an („Auf- und Abbau“, „Catering“,
   „Einlass“). Mitglieder übernehmen sie.
 
@@ -450,6 +467,16 @@ mehrere Posten.
 
 Die Helferzahl wird aus den übernommenen Aufgaben abgeleitet, nicht aus einem
 Häkchen.
+
+**Nachträglich ändern (Orgateam).** An jedem Posten steht für das Orgateam
+„Bearbeiten“: Die Zeile wird zu einem kleinen Formular, Enter speichert,
+Escape bricht ab. Korrigierbar ist die Bezeichnung – etwa ein Tippfehler –
+und beim Bedarf zusätzlich die Menge. Übernahmen bleiben erhalten, weil sie
+an der ID hängen, nicht am Text. Die Menge sinkt nie unter die bereits
+übernommenen Stücke, sonst stünde „0 offen“ neben drei Zusagen. Bei freien
+Einträgen („Ich bringe Salat mit“) bleibt die Menge 1. Gilt für
+Mitbringliste und Helferaufgaben gleichermaßen (`PATCH /items/{id}`,
+`ItemModel::update()`); Mitglieder ohne Orgateam-Rolle bekommen 403.
 
 ### Vorlagen
 
