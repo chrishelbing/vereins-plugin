@@ -33,7 +33,7 @@ Umgebung nicht, sind die zehn Dateien einzeln aufzurufen.
 | `tools/bannertest.php` | Terminbanner: Sichtbarkeitsfenster, Reihenfolge, nur die nächste Serieninstanz, nur freigegebene Termine |
 | `tools/tagtest.php` | Infotermine (Termintyp ohne Zusagen) und Tags: Vorgabe am Typ, Auswahl am Termin, Speichern und Leeren |
 | `tools/updatertest.php` | Updates aus GitHub-Releases: Version aus dem Tag, Paket am Release, Vorabversionen und Entwürfe ausgenommen |
-| `tools/texttest.php` | Beschreibung mit Links: nackte Adressen, `[Text](Adresse)`, Maskierung, nur http(s), Textfassung für Banner und Flyer |
+| `tools/texttest.php` | Beschreibung: Links, fett/kursiv, Listen, Maskierung, nur http(s), Gendersternchen bleibt, Textfassung für Banner und Flyer, jedes Beispiel der Hilfe wirkt |
 
 Neue Fachlogik gehört mit einem Fall in die passende Testdatei. Die Tests
 laufen gegen `tools/lib/wp-stub.php`, einen kleinen WordPress-Ersatz im

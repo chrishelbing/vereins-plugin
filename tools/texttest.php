@@ -54,4 +54,47 @@ Pruefung::gleich( 'Banner: Text statt Link, Adresse weg',
 Pruefung::gleich( 'Flyer: Adresse bleibt',
     RichText::plain( 'Mehr unter https://x.de.', true ), 'Mehr unter https://x.de.' );
 
+echo "\nTypografie (Markdown)\n";
+Pruefung::gleich( 'fett',
+    RichText::html( 'Bitte **pünktlich** sein' ), 'Bitte <strong>pünktlich</strong> sein' );
+Pruefung::gleich( 'kursiv mit Sternchen',
+    RichText::html( 'Das ist *wichtig*.' ), 'Das ist <em>wichtig</em>.' );
+Pruefung::gleich( 'kursiv mit Unterstrich',
+    RichText::html( 'Das ist _wichtig_.' ), 'Das ist <em>wichtig</em>.' );
+Pruefung::gleich( 'fett und kursiv in einer Zeile',
+    RichText::html( '**Achtung:** *neu*' ), '<strong>Achtung:</strong> <em>neu</em>' );
+Pruefung::gleich( 'Gendersternchen bleibt',
+    RichText::html( 'Sportler*innen und Trainer*innen' ), 'Sportler*innen und Trainer*innen' );
+Pruefung::gleich( 'snake_case bleibt',
+    RichText::html( 'datei_name_neu' ), 'datei_name_neu' );
+Pruefung::gleich( 'Unterstrich in Adresse bleibt Adresse',
+    RichText::html( 'https://x.de/_a_' ),
+    '<a href="https://x.de/_a_" target="_blank" rel="noopener">x.de/_a_</a>' );
+Pruefung::gleich( 'Link in fettem Text',
+    RichText::html( '**Hier: [Plan](https://x.de)**' ),
+    '<strong>Hier: <a href="https://x.de" target="_blank" rel="noopener">Plan</a></strong>' );
+Pruefung::gleich( 'einzelnes Sternchen bleibt',
+    RichText::html( '5 * 3 = 15' ), '5 * 3 = 15' );
+Pruefung::gleich( 'Aufzählung',
+    RichText::html( "Mitbringen:\n- Sportschuhe\n- **Getränk**\nDanke!" ),
+    "Mitbringen:<ul><li>Sportschuhe</li><li><strong>Getränk</strong></li></ul>Danke!" );
+Pruefung::gleich( 'Aufzählung mit * und •',
+    RichText::html( "* eins\n• zwei" ), '<ul><li>eins</li><li>zwei</li></ul>' );
+Pruefung::gleich( 'nummerierte Liste',
+    RichText::html( "1. Ankommen\n2. Umziehen" ), '<ol><li>Ankommen</li><li>Umziehen</li></ol>' );
+Pruefung::gleich( 'HTML in Listenpunkt maskiert',
+    RichText::html( '- <b>x</b>' ), '<ul><li>&lt;b&gt;x&lt;/b&gt;</li></ul>' );
+Pruefung::gleich( 'Banner: ohne Sternchen, Punkte als •',
+    RichText::plain( "**Wichtig:** bitte\n- Schuhe" ), "Wichtig: bitte\n• Schuhe" );
+Pruefung::gleich( 'Flyer: Unterstrich in Adresse bleibt',
+    RichText::plain( 'Plan: https://x.de/_a_', true ), 'Plan: https://x.de/_a_' );
+
+echo "\nBeispiele der Hilfe (Einstellungen, ? am Feld)\n";
+// Jedes gezeigte Beispiel muss etwas bewirken – sonst verspricht die Hilfe
+// eine Schreibweise, die es nicht gibt.
+foreach ( RichText::syntax() as [ $eingabe, $bedeutung ] ) {
+    $roh = nl2br( htmlspecialchars( $eingabe, ENT_QUOTES, 'UTF-8' ), false );
+    Pruefung::ok( 'wirkt: ' . str_replace( "\n", ' ', $eingabe ), RichText::html( $eingabe ) !== $roh );
+}
+
 Pruefung::abschluss( 'Beschreibung mit Links' );

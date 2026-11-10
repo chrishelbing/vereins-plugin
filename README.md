@@ -217,7 +217,8 @@ schon vergeben hatte.
 - Abweichende Einzeltermine und Absagen innerhalb einer Serie
 - Ganztägige und mehrtägige Termine mit eigener Darstellung („Mehrtägig · 3 Tage")
 - Öffentliche Termine: auch für Besucher ohne Anmeldung in der Terminliste sichtbar
-- Beschreibung mit Links (`https://…` oder `[Text](https://…)`), Ort als Link in die Karten-App
+- Beschreibung mit einfacher Formatierung (Markdown): **fett**, *kursiv*, Aufzählungen, nummerierte Listen und Links – erklärt am Feld und in den Einstellungen
+- Ort als Link in die Karten-App
 - Lange Kacheln gekürzt, aufklappbar mit „Mehr anzeigen“
 - Titelbild je Termin
 - Banner auf der Startseite (`[vp_banner]`): erscheint ab einstellbarem Vorlauf, verschwindet nach dem Termin von selbst

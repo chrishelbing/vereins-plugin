@@ -5,6 +5,7 @@ namespace VereinsPlugin\Admin;
 use VereinsPlugin\Core\Seeder;
 use VereinsPlugin\Frontend\ShortcodeRegistry;
 use VereinsPlugin\Support\Capabilities;
+use VereinsPlugin\Support\RichText;
 
 /**
  * wp-admin-Seite "Einstellungen".
@@ -176,6 +177,7 @@ class SettingsPage {
             </div>
 
             <?php $this->render_shortcodes(); ?>
+            <?php $this->render_formatting(); ?>
         </div>
         <?php
     }
@@ -244,6 +246,42 @@ class SettingsPage {
             admin_url( 'admin.php' )
         ) );
         exit;
+    }
+
+    /**
+     * Wie man die Beschreibung eines Termins formatiert. Die Beispiele kommen
+     * aus RichText::syntax(), die Spalte „Ergebnis“ aus RichText::html() –
+     * was hier steht, ist also genau das, was auf der Kachel erscheint.
+     */
+    private function render_formatting(): void {
+        ?>
+        <h2 style="margin-top:34px;"><?php esc_html_e( 'Beschreibung formatieren', 'vereins-plugin' ); ?></h2>
+        <p class="description" style="max-width:70em;">
+            <?php esc_html_e( 'Die Beschreibung eines Termins versteht eine einfache Schreibweise (ein kleiner Teil von Markdown) – ohne Menü, nur mit Zeichen im Text. Das gilt in allen Formularen: im Backend, beim Termin vorschlagen und beim Bearbeiten an der Kachel. Am Feld „Beschreibung“ zeigt ein ? dieselben Beispiele.', 'vereins-plugin' ); ?>
+        </p>
+        <table class="vp-table" style="max-width:70em;">
+            <thead>
+                <tr>
+                    <th><?php esc_html_e( 'Du schreibst', 'vereins-plugin' ); ?></th>
+                    <th><?php esc_html_e( 'Wirkung', 'vereins-plugin' ); ?></th>
+                    <th><?php esc_html_e( 'Ergebnis', 'vereins-plugin' ); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ( RichText::syntax() as [ $eingabe, $bedeutung ] ) : ?>
+                <tr>
+                    <td><code style="white-space:pre-line;"><?php echo esc_html( $eingabe ); ?></code></td>
+                    <td><?php echo esc_html( $bedeutung ); ?></td>
+                    <td class="vp-richtext"><?php echo RichText::html( $eingabe ); // maskiert selbst ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <p class="description" style="max-width:70em;">
+            <?php esc_html_e( 'Zeilenumbrüche bleiben erhalten. HTML wird nie übernommen, und Links führen nur zu http- und https-Adressen. Sternchen und Unterstriche mitten im Wort bleiben stehen – „Sportler*innen“ wird nicht kursiv. Im Banner und auf dem Flyer erscheint der Text ohne Formatierung, Aufzählungen dort mit •.', 'vereins-plugin' ); ?>
+        </p>
+        <style>.vp-richtext ul, .vp-richtext ol { margin: 0 0 0 1.3em; } .vp-richtext li { margin: 0; }</style>
+        <?php
     }
 
     /**

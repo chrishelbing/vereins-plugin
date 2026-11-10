@@ -48,12 +48,13 @@ class EventForm {
     public static function format_hint(): void {
         ?>
         <?php // Steht in einem <label>: ohne preventDefault würde ein Tipp den Fokus ins Textfeld schieben und den Tooltip gleich wieder schließen. ?>
-        <span class="vp-hint" tabindex="0" role="button" onclick="event.preventDefault()" aria-label="<?php esc_attr_e( 'So setzt du Links', 'vereins-plugin' ); ?>">?
+        <span class="vp-hint" tabindex="0" role="button" onclick="event.preventDefault()" aria-label="<?php esc_attr_e( 'So formatierst du den Text', 'vereins-plugin' ); ?>">?
             <span class="vp-hint__box" role="tooltip">
-                <strong><?php esc_html_e( 'Links setzen', 'vereins-plugin' ); ?></strong>
-                <span class="vp-hint__row"><?php esc_html_e( 'Adresse einfach einfügen:', 'vereins-plugin' ); ?><br><code>https://www.bjv-online.de</code></span>
-                <span class="vp-hint__row"><?php esc_html_e( 'Mit eigenem Text:', 'vereins-plugin' ); ?><br><code>[Ausschreibung](https://…)</code></span>
-                <span class="vp-hint__row vp-hint__note"><?php esc_html_e( 'Eckige Klammern für den Text, runde direkt dahinter für die Adresse. Zeilenumbrüche bleiben erhalten, HTML wird nicht übernommen.', 'vereins-plugin' ); ?></span>
+                <strong><?php esc_html_e( 'Text formatieren', 'vereins-plugin' ); ?></strong>
+                <?php foreach ( \VereinsPlugin\Support\RichText::syntax() as [ $eingabe, $bedeutung ] ) : ?>
+                    <span class="vp-hint__row"><?php echo esc_html( $bedeutung ); ?>:<br><code><?php echo nl2br( esc_html( $eingabe ), false ); ?></code></span>
+                <?php endforeach; ?>
+                <span class="vp-hint__row vp-hint__note"><?php esc_html_e( 'Zeilenumbrüche bleiben erhalten, HTML wird nicht übernommen. Sternchen mitten im Wort (Sportler*innen) bleiben stehen.', 'vereins-plugin' ); ?></span>
             </span>
         </span>
         <?php

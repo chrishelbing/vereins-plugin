@@ -50,6 +50,9 @@
 .vp-maplink:hover { color: #111827; }
 .vp-events__text { margin-top: 8px; font-size: .85rem; line-height: 1.5; color: #374151; overflow-wrap: anywhere; }
 .vp-events__text a { color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.vp-events__text ul, .vp-events__text ol { margin: 2px 0 2px 1.3em; padding: 0; }
+.vp-events__text li { margin: 0; padding: 0; }
+.vp-events__text strong { font-weight: 700; color: #111827; }
 /* Kompakte Kachel (Klasse is-compact setzt tile.js): Beschreibung höchstens
    drei Zeilen, Ort höchstens zwei; Zahlenzeile und Listen erst nach
    „Details anzeigen“. Zusagen/Absagen bleiben immer sichtbar. Ohne

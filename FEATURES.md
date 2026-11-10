@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.14.7
+> Stand: Version 1.15.0
 
 ---
 
@@ -222,25 +222,35 @@ entscheiden Administratoren. Nicht freigegebene Termine und Entwürfe
 bleiben unsichtbar, auch mit gesetztem Schalter (`in_range()` liefert nur
 freigegebene).
 
-### Beschreibung mit Links
+### Beschreibung mit Formatierung und Links
 
-Die Beschreibung steht auf der Kachel unter Datum und Ort. Links darin
-werden erkannt (`Support\RichText`), ohne Editor:
+Die Beschreibung steht auf der Kachel unter Datum und Ort. Sie versteht eine
+kleine Teilmenge von Markdown – ohne Editor und ohne Menü, nur mit Zeichen
+im Text (`Support\RichText`):
 
 | Eingabe | Ergebnis |
 |---|---|
+| `**fett**` | **fett** |
+| `*kursiv*` oder `_kursiv_` | *kursiv* |
+| Zeilen mit `- `, `* ` oder `• ` am Anfang | Aufzählung |
+| Zeilen mit `1. ` oder `1) ` am Anfang | nummerierte Liste |
 | `https://…` oder `www.…` | Link, angezeigt als gekürzte Adresse |
 | `[Ausschreibung](https://…)` | Link mit dem Text „Ausschreibung“ |
 
 Links öffnen in einem neuen Tab. Alles Übrige wird maskiert – HTML aus dem
-Feld landet nie ungefiltert auf der Seite; Zeilenumbrüche bleiben. Im
-Banner (selbst ein Link) erscheint nur der Text, auf dem Flyer der Text und
-nackte Adressen zum Abtippen.
+Feld landet nie ungefiltert auf der Seite; Zeilenumbrüche bleiben. Ein
+Sternchen oder Unterstrich mitten im Wort bleibt stehen: „Sportler*innen“
+wird nicht kursiv, `datei_name` und Unterstriche in Adressen ebenso wenig.
+Im Banner (selbst ein Link) erscheint nur der Text ohne Sternchen, auf dem
+Flyer zusätzlich nackte Adressen zum Abtippen; Aufzählungen stehen dort
+mit „• “.
 
-Wie es geht, zeigt ein **?** neben der Feldbeschriftung „Beschreibung“ –
-im Backend, im Anlegen-Formular und im Bearbeiten-Dialog. Es öffnet beim
-Überfahren, Antippen oder per Tastatur einen kleinen Tooltip mit Beispielen
-(`EventForm::format_hint()`, für alle drei Formulare dieselbe Stelle).
+**Erklärt wird es an zwei Stellen:** am **?** neben der Feldbeschriftung
+„Beschreibung“ – im Backend, im Anlegen-Formular und im Bearbeiten-Dialog
+(`EventForm::format_hint()`) – und unter *Verein → Einstellungen →
+Beschreibung formatieren* als Tabelle mit Eingabe, Wirkung und dem
+tatsächlichen Ergebnis. Beide lesen ihre Beispiele aus
+`RichText::syntax()`; `tools/texttest.php` prüft, dass jedes davon wirkt.
 
 **Kompakte Kacheln.** Zugeklappt zeigt eine Kachel nur Kopf, Termintyp,
 Titel, Tags, Zeit und Ort (höchstens zwei Zeilen), die Beschreibung
