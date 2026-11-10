@@ -1213,6 +1213,7 @@ class EventsShortcode {
             'qtyAsk'        => __( 'Wie viele? (höchstens %d)', 'vereins-plugin' ),
             'qtyOk'         => __( 'Übernehmen', 'vereins-plugin' ),
             'remove'        => __( 'Löschen', 'vereins-plugin' ),
+            'removeAsk'     => __( 'Diesen Eintrag löschen? Übernahmen daran gehen mit verloren.', 'vereins-plugin' ),
             'edit'          => __( 'Bearbeiten', 'vereins-plugin' ),
             'editLabel'     => __( 'Bezeichnung', 'vereins-plugin' ),
             'editQty'       => __( 'Menge', 'vereins-plugin' ),

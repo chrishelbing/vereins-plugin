@@ -26,8 +26,11 @@
         pendingAction = run;
         identModal.hidden = false;
         document.body.style.overflow = 'hidden';
+        // Am Rechner gleich ins Namensfeld. Auf dem Handy nicht: Dort
+        // schöbe die aufspringende Tastatur das Formular weg, bevor man es
+        // überhaupt gelesen hat.
         var n = document.getElementById('vp-ident-name');
-        if (n) { n.focus(); }
+        if (n && window.matchMedia && window.matchMedia('(pointer: fine)').matches) { n.focus(); }
         return true;
     }
 

@@ -12,6 +12,7 @@
 
     var root = VP.root;
     // Gleiches Stift-Symbol wie an der Kachel (Support\Icons 'pencil').
+    var TRASH_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
     var PEN_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>';
     var API  = VP.api;
     var T    = VP.t;
@@ -102,6 +103,20 @@
                 pen.dataset.request = item.is_request ? '1' : '';
                 label.appendChild(pen);
             }
+
+            // Löschen als Papierkorb neben dem Stift statt als eigener Knopf –
+            // für das Orgateam und für den eigenen freien Eintrag.
+            if (data.can_manage || (!item.is_request && item.own_claim)) {
+                var trash = document.createElement('button');
+                trash.type = 'button';
+                trash.className = 'vp-bring__pen vp-bring__trash';
+                trash.title = T.remove;
+                trash.setAttribute('aria-label', T.remove + ': ' + item.label);
+                trash.innerHTML = TRASH_SVG;
+                trash.dataset.action = 'delete';
+                trash.dataset.itemId = item.id;
+                label.appendChild(trash);
+            }
             head.appendChild(label);
 
             var meta = document.createElement('span');
@@ -177,10 +192,6 @@
                     if (multi && item.open > 1) { b.dataset.maxQty = item.open; }
                     actions.appendChild(b);
                 });
-            }
-
-            if (data.can_manage || (!item.is_request && item.own_claim)) {
-                actions.appendChild(makeBtn(T.remove, 'delete', item.id, 'is-danger'));
             }
 
             if (actions.children.length) { li.appendChild(actions); }
@@ -360,7 +371,7 @@
     // Stift: Posten bearbeiten (nur Orgateam)
     bring.addEventListener('click', function(e){
         var pen = e.target.closest('.vp-bring__pen');
-        if (pen) { openEditor(pen); }
+        if (pen && !pen.classList.contains('vp-bring__trash')) { openEditor(pen); }
     });
 
     /**
@@ -414,9 +425,10 @@
 
     // Übernehmen / Zurückziehen / Löschen
     bring.addEventListener('click', function(e){
-        var btn = e.target.closest('.vp-bring__btn');
+        var btn = e.target.closest('.vp-bring__btn, .vp-bring__trash');
         if (!btn || !btn.dataset.action) { return; }
         if (btn.dataset.action === 'qty-ok' || btn.dataset.action === 'qty-cancel') { return; }
+        if (btn.dataset.action === 'delete' && !window.confirm(T.removeAsk)) { return; }
 
         // Mehr als ein Stück möglich: erst nach der Anzahl fragen.
         if (btn.dataset.action === 'claim' && btn.dataset.maxQty && !btn.dataset.quantity) {

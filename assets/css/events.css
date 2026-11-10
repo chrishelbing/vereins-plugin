@@ -122,7 +122,7 @@
 .vp-bring__meta.is-open    { color: #b45309; font-weight: 600; }
 .vp-bring__meta.is-covered { color: #059669; }
 .vp-bring__who { font-size: .82rem; color: #6b7280; margin-top: 2px; }
-.vp-bring__actions { display: flex; gap: 6px; margin-top: 6px; }
+.vp-bring__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .vp-bring__btn { border: 1px solid #d1d5db; background: #fff; color: #374151; padding: 3px 10px; border-radius: 999px; font-size: .78rem; cursor: pointer; font-family: inherit; }
 .vp-bring__btn:hover:not(:disabled) { border-color: #9ca3af; }
 .vp-bring__btn:disabled { opacity: .5; }
@@ -203,3 +203,37 @@
 /* Besucher-Übersicht öffentlicher Termine: Link zur Zusage über den Terminlink. */
 .vp-teaser__btn { display: inline-block; padding: 7px 16px; border-radius: 999px; background: #111827; color: #fff; font-size: .85rem; font-weight: 600; text-decoration: none; }
 .vp-teaser__btn:hover { background: #374151; color: #fff; }
+
+/* ------------------------------------------------------------------
+   Mitbringliste/Helferaufgaben gegen Theme-Stile absichern.
+   Viele Themes setzen input[type=…] { width: 100% } und Großbuchstaben,
+   größere Schrift und Innenabstände für <button>. Mit einfachen
+   Klassenselektoren verlieren wir dagegen – deshalb über die ID des
+   Overlays. Ohne das war beim Bearbeiten das Textfeld winzig und das
+   Mengenfeld riesig, und die Knopfreihe lief rechts aus dem Fenster.
+   ------------------------------------------------------------------ */
+#vp-bring-modal .vp-bring__btn { text-transform: none; letter-spacing: normal; line-height: 1.4; white-space: nowrap; height: auto; min-height: 0; margin: 0; box-shadow: none; font-size: .78rem; font-weight: 500; padding: 3px 10px; }
+#vp-bring-modal .vp-bring__pen { display: inline-flex; align-items: center; width: auto; height: auto; min-height: 0; margin: 0 0 0 4px; padding: 3px; border: 0; background: none; box-shadow: none; color: #9ca3af; border-radius: 4px; line-height: 1; vertical-align: middle; }
+#vp-bring-modal .vp-bring__pen:hover, #vp-bring-modal .vp-bring__pen:focus-visible { color: #2563eb; background: #eff6ff; }
+#vp-bring-modal .vp-bring__trash:hover, #vp-bring-modal .vp-bring__trash:focus-visible { color: #dc2626; background: #fef2f2; }
+#vp-bring-modal .vp-bring__itemhead { align-items: center; }
+#vp-bring-modal input.vp-bring__inline { flex: 1 1 auto; width: auto; min-width: 0; height: auto; margin: 0; padding: 4px 8px; font: inherit; font-size: 1rem; font-weight: 700; color: #111827; border: 1px solid #93c5fd; border-radius: 6px; background: #fff; box-shadow: none; }
+#vp-bring-modal input.vp-bring__qtypick { flex: 0 0 64px; width: 64px; min-width: 0; height: auto; margin: 0; padding: 3px 6px; font-size: .85rem; text-align: center; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; box-shadow: none; }
+#vp-bring-modal .vp-bring__qtylabel { white-space: nowrap; }
+
+/* ------------------------------------------------------------------
+   Handy. Safari auf iPhone/iPad zoomt beim Antippen jedes Eingabefelds
+   mit weniger als 16 px Schrift heran und zoomt nicht von selbst zurück –
+   das Formular stand dann vergrößert und rechts abgeschnitten da. Darum
+   auf Touch-Geräten und schmalen Bildschirmen alle Felder mit 16 px.
+   !important, weil Theme-Stile und die abgesicherten Regeln oben sonst
+   gewinnen.
+   ------------------------------------------------------------------ */
+.vp-modal__box, .vp-modal__box * { box-sizing: border-box; }
+@media (max-width: 782px), (pointer: coarse) {
+    .vp-events input, .vp-events textarea, .vp-events select,
+    .vp-modal input, .vp-modal textarea, .vp-modal select { font-size: 16px !important; }
+    .vp-modal { padding: 12px; }
+    .vp-modal__box { max-width: 100%; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); }
+    .vp-modal__box--wide { max-width: 100%; }
+}

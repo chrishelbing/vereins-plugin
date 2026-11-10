@@ -75,3 +75,9 @@
 .vp-hint__row { display: block; margin-top: 6px; }
 .vp-hint__box code { display: inline-block; margin-top: 2px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.12); color: #f9fafb; font-size: 11px; word-break: break-all; }
 .vp-hint__note { color: #d1d5db; }
+
+/* Handy: Safari zoomt bei Feldern unter 16 px beim Antippen heran und
+   nicht von selbst zurück. Darum auf Touch-Geräten 16 px. */
+@media (max-width: 782px), (pointer: coarse) {
+    .vp-form input, .vp-form textarea, .vp-form select { font-size: 16px !important; }
+}

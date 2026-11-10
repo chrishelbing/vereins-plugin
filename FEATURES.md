@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.14.5
+> Stand: Version 1.14.6
 
 ---
 
@@ -465,6 +465,17 @@ deshalb bei den Zusagen, mit dem Vermerk, zu wem sie gehören.
 
 ---
 
+### Auf dem Handy
+
+Alle Eingabefelder des Plugins – in den Dialogen, in der Terminliste, im
+Termin-, Anmelde- und Registrierungsformular – haben auf Touch-Geräten und
+schmalen Bildschirmen 16 px Schrift. Darunter zoomt Safari auf iPhone und
+iPad beim Antippen heran und zoomt nicht von selbst zurück; das Formular
+stand dann vergrößert und abgeschnitten da. Dialoge nutzen auf dem Handy
+die volle Breite und höchstens die Bildschirmhöhe. Das Namensfeld im Dialog
+„Wer bist du?“ bekommt den Cursor nur am Rechner – auf dem Handy würde die
+Tastatur sonst das Formular verdecken, bevor man es gelesen hat.
+
 ## Mitbringliste und Helferaufgaben
 
 Technisch dasselbe, per `kind` getrennt:
@@ -494,9 +505,17 @@ mehrere Posten.
 Die Helferzahl wird aus den übernommenen Aufgaben abgeleitet, nicht aus einem
 Häkchen.
 
-**Nachträglich ändern (Orgateam).** Hinter dem Text jedes Postens steht für
-das Orgateam ein Stift: Der Text wird an Ort und Stelle zum Eingabefeld,
-beim Bedarf der Mitbringliste steht die Menge daneben. Enter oder ein Klick
+**Stift und Papierkorb.** Hinter dem Text jedes Postens stehen kleine
+Symbole statt eigener Knöpfe: der Papierkorb für das Orgateam und für den
+eigenen freien Eintrag (mit Rückfrage, weil Übernahmen daran mit
+verschwinden), der Stift nur für das Orgateam. Die Knopfreihe darunter
+bricht um, statt aus dem Fenster zu laufen. Gegen Theme-Stile (Eingabefelder
+mit voller Breite, Knöpfe in Großbuchstaben) sind Felder und Knöpfe der
+Liste über die ID des Overlays abgesichert.
+
+**Nachträglich ändern (Orgateam).** Ein Klick auf den Stift: Der Text wird an Ort und Stelle zum Eingabefeld,
+beim Bedarf steht die Menge daneben (bei Helferaufgaben: wie viele Helfer
+gebraucht werden). Enter oder ein Klick
 daneben speichert, Escape bricht ab. Korrigierbar ist die Bezeichnung – etwa ein Tippfehler –
 und beim Bedarf zusätzlich die Menge. Übernahmen bleiben erhalten, weil sie
 an der ID hängen, nicht am Text. Die Menge sinkt nie unter die bereits
