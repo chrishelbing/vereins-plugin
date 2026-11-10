@@ -93,12 +93,17 @@ Ehrlich benannt, damit niemand sich in Sicherheit wiegt:
 ## Neue Version veröffentlichen
 
 Websites holen Updates aus den GitHub-Releases (`Support\Updater`, Header
-`Update URI`). Ein Release entsteht durch einen Tag:
+`Update URI`). Ein Release entsteht beim Push auf `main` von selbst:
 
 1. Version in `vereins-plugin.php` erhöhen – Kopfzeile **und** `VP_VERSION`.
-2. Committen, `git tag v1.2.3`, `git push && git push --tags`.
-3. `.github/workflows/release.yml` prüft Tag gegen Version, lässt die
-   Prüfungen laufen und hängt `vereins-plugin.zip` ans Release.
+2. Committen und auf `main` pushen. **Kein Tag von Hand** – Claude-Sitzungen
+   dürfen keine Tags pushen, deshalb setzt GitHub ihn selbst.
+3. `.github/workflows/release.yml` sieht eine Version ohne Release, lässt die
+   Prüfungen laufen, baut `vereins-plugin.zip` und legt Release und Tag
+   `v1.2.3` an. Pushes ohne neue Version lösen nichts aus.
+
+Ein Tag von Hand (`v1.2.3` oder `1.2.3`) funktioniert weiterhin, muss aber
+zur Version passen. Lokale Kopien holen den Tag danach mit `git pull`.
 
 Ohne angehängtes Paket bietet keine Website das Update an.
 

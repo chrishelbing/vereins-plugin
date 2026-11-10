@@ -1,22 +1,33 @@
-# Baut aus einem Versions-Tag ein Release mit angehängtem vereins-plugin.zip.
+# Baut ein Release mit angehängtem vereins-plugin.zip.
 #
 # Websites holen Updates über Support\Updater aus dem neuesten Release; ohne
 # angehängtes Paket bietet keine Website das Update an.
 #
-# Ablauf: Version in vereins-plugin.php erhöhen (Kopfzeile und VP_VERSION),
-# committen, Tag setzen und pushen – z. B. `git tag v1.13.0 && git push --tags`.
-# Tags mit und ohne „v“ werden angenommen; der Updater entfernt das „v“.
+# Auslöser:
+#   - Push auf main: Steht in vereins-plugin.php eine Version, zu der es noch
+#     keinen Tag gibt, entsteht das Release samt Tag v<Version> automatisch.
+#     Ein Release ist also nur noch: Version erhöhen (Kopfzeile und
+#     VP_VERSION), committen, pushen. Kein Tag von Hand nötig.
+#   - Tag von Hand (v1.2.3 oder 1.2.3): geht weiterhin; der Tag muss zur
+#     Version in vereins-plugin.php passen.
+#   - „Run workflow“ in GitHub unter Actions: wie ein Push auf main.
 
 name: Release
 
 on:
   push:
+    branches: [ main ]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -24,28 +35,58 @@ jobs:
     steps:
       - name: Code holen
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version lesen und entscheiden
+        id: version
+        run: |
+          KOPF=$(grep -Po '^\s*\*\s*Version:\s*\K[0-9.]+' vereins-plugin.php)
+          KONST=$(grep -Po "define\(\s*'VP_VERSION',\s*'\K[0-9.]+" vereins-plugin.php)
+          echo "Kopfzeile: $KOPF  VP_VERSION: $KONST"
+          if [ "$KOPF" != "$KONST" ]; then
+            echo "::error::Kopfzeile ($KOPF) und VP_VERSION ($KONST) stimmen nicht überein."
+            exit 1
+          fi
+
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            if [ "${GITHUB_REF_NAME#v}" != "$KOPF" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME passt nicht zur Version $KOPF in vereins-plugin.php."
+              exit 1
+            fi
+            TAG="$GITHUB_REF_NAME"
+          else
+            TAG="v$KOPF"
+          fi
+
+          # Gibt es zu dieser Version schon ein Release (mit oder ohne „v“),
+          # ist nichts zu tun – ein gewöhnlicher Push ohne neue Version.
+          VORHANDEN=no
+          for t in "v$KOPF" "$KOPF"; do
+            if gh release view "$t" >/dev/null 2>&1; then VORHANDEN=yes; fi
+          done
+
+          echo "version=$KOPF" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"       >> "$GITHUB_OUTPUT"
+          echo "neu=$([ "$VORHANDEN" = no ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+          [ "$VORHANDEN" = yes ] && echo "Release zu $KOPF existiert schon – nichts zu tun."
+          true
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: PHP einrichten
+        if: steps.version.outputs.neu == 'yes'
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           coverage: none
 
-      - name: Tag gegen Version prüfen
-        run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          KOPF=$(grep -Po '^\s*\*\s*Version:\s*\K[0-9.]+' vereins-plugin.php)
-          KONST=$(grep -Po "define\(\s*'VP_VERSION',\s*'\K[0-9.]+" vereins-plugin.php)
-          echo "Tag: $TAG  Kopfzeile: $KOPF  VP_VERSION: $KONST"
-          if [ "$TAG" != "$KOPF" ] || [ "$TAG" != "$KONST" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME passt nicht zur Version in vereins-plugin.php."
-            exit 1
-          fi
-
       - name: Prüfungen
+        if: steps.version.outputs.neu == 'yes'
         run: php tools/pruefen.php
 
       - name: Paket bauen
+        if: steps.version.outputs.neu == 'yes'
         run: |
           mkdir -p build/vereins-plugin
           cp -r vereins-plugin.php includes assets README.md FEATURES.md build/vereins-plugin/
@@ -53,9 +94,11 @@ jobs:
           cd .. && unzip -l vereins-plugin.zip | tail -1
 
       - name: Release anlegen
+        if: steps.version.outputs.neu == 'yes'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" vereins-plugin.zip \
-            --title "Vereins-Plugin ${GITHUB_REF_NAME#v}" \
+          gh release create "${{ steps.version.outputs.tag }}" vereins-plugin.zip \
+            --target "$GITHUB_SHA" \
+            --title "Vereins-Plugin ${{ steps.version.outputs.version }}" \
             --generate-notes
