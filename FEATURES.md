@@ -453,12 +453,18 @@ Technisch dasselbe, per `kind` getrennt:
   übernehmen. Zusätzlich kann jeder einen freien Eintrag machen („Ich bringe
   Salat mit“).
 
-**Mehr als ein Stück.** Beim Bedarf steht neben „Übernehmen“ ein Feld
-„Anzahl“: Von 30 Brötchen trägt man 15 ein, nicht fünfzehnmal eins. Wer schon
-übernommen hat, ändert die Zahl über „Anzahl ändern“ – die eigene Menge wird
-ersetzt, nicht addiert. Mehr als offen ist geht nicht; die Meldung nennt
-dann die Höchstzahl (`ItemModel::available_for()`). Das Feld erscheint nur,
-wenn mehr als ein Stück möglich ist; Begleitpersonen nutzen dasselbe Feld.
+**Mehr als ein Stück (nur Mitbringliste).** Wer beim Bedarf auf
+„Übernehmen“ klickt, wird nach der Anzahl gefragt – aber nur, wenn noch mehr
+als ein Stück offen ist; sonst wird direkt übernommen. Von 30 Brötchen trägt
+man so 15 ein, nicht fünfzehnmal eins. Wer schon übernommen hat, ändert die
+Zahl über „Anzahl ändern“ – die eigene Menge wird ersetzt, nicht addiert.
+Mehr als offen ist geht nicht; die Meldung nennt dann die Höchstzahl
+(`ItemModel::available_for()`). Begleitpersonen werden genauso gefragt.
+
+**Helferaufgaben: eine Person, ein Platz.** Beim Übernehmen gibt es keine
+Anzahl; `ItemModel::claim()` setzt sie bei `kind = help` immer auf 1, auch
+wenn eine App mehr schickt. Wie viele Helfer eine Aufgabe braucht
+(„Aufbau: 4“), legt weiterhin das Orgateam fest.
 - **Helferaufgaben** – legt nur das Orgateam an („Auf- und Abbau“, „Catering“,
   „Einlass“). Mitglieder übernehmen sie.
 
@@ -468,9 +474,9 @@ mehrere Posten.
 Die Helferzahl wird aus den übernommenen Aufgaben abgeleitet, nicht aus einem
 Häkchen.
 
-**Nachträglich ändern (Orgateam).** An jedem Posten steht für das Orgateam
-„Bearbeiten“: Die Zeile wird zu einem kleinen Formular, Enter speichert,
-Escape bricht ab. Korrigierbar ist die Bezeichnung – etwa ein Tippfehler –
+**Nachträglich ändern (Orgateam).** Hinter dem Text jedes Postens steht für
+das Orgateam ein Stift: Die Zeile wird zu einem kleinen Formular, Enter
+speichert, Escape bricht ab. Korrigierbar ist die Bezeichnung – etwa ein Tippfehler –
 und beim Bedarf zusätzlich die Menge. Übernahmen bleiben erhalten, weil sie
 an der ID hängen, nicht am Text. Die Menge sinkt nie unter die bereits
 übernommenen Stücke, sonst stünde „0 offen“ neben drei Zusagen. Bei freien

@@ -1204,6 +1204,8 @@ class EventsShortcode {
             'release'       => __( 'Zurückziehen', 'vereins-plugin' ),
             'qty'           => __( 'Anzahl', 'vereins-plugin' ),
             'changeQty'     => __( 'Anzahl ändern', 'vereins-plugin' ),
+            'qtyAsk'        => __( 'Wie viele? (höchstens %d)', 'vereins-plugin' ),
+            'qtyOk'         => __( 'Übernehmen', 'vereins-plugin' ),
             'remove'        => __( 'Löschen', 'vereins-plugin' ),
             'edit'          => __( 'Bearbeiten', 'vereins-plugin' ),
             'editLabel'     => __( 'Bezeichnung', 'vereins-plugin' ),

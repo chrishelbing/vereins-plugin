@@ -118,6 +118,10 @@
 .vp-bring__btn.is-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
 .vp-bring__btn.is-danger  { color: #dc2626; border-color: #fecaca; }
 .vp-bring__qtypick { width: 64px; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 999px; font-size: .78rem; font-family: inherit; text-align: center; }
+.vp-bring__qtyask { align-items: center; }
+.vp-bring__qtylabel { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; color: #374151; }
+.vp-bring__pen { display: inline-flex; vertical-align: middle; margin-left: 6px; padding: 2px; border: 0; background: none; color: #9ca3af; cursor: pointer; border-radius: 4px; }
+.vp-bring__pen:hover, .vp-bring__pen:focus-visible { color: #2563eb; background: #eff6ff; }
 .vp-bring__add, .vp-bring__request { padding-top: 14px; border-top: 1px solid #e5e7eb; margin-top: 4px; }
 .vp-bring__addrow { display: flex; gap: 6px; margin-top: 6px; }
 .vp-bring__addrow input[type=text] { flex: 1; min-width: 0; }

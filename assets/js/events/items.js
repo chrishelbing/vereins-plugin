@@ -11,6 +11,8 @@
     if (!VP) { return; }
 
     var root = VP.root;
+    // Gleiches Stift-Symbol wie an der Kachel (Support\Icons 'pencil').
+    var PEN_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>';
     var API  = VP.api;
     var T    = VP.t;
     var H    = VP.headers;
@@ -84,6 +86,22 @@
 
             var label = document.createElement('strong');
             label.textContent = item.label;
+
+            // Orgateam: Stift direkt hinter dem Text – Tippfehler korrigieren,
+            // beim Bedarf der Mitbringliste auch die Menge.
+            if (data.can_manage) {
+                var pen = document.createElement('button');
+                pen.type = 'button';
+                pen.className = 'vp-bring__pen';
+                pen.title = T.edit;
+                pen.setAttribute('aria-label', T.edit + ': ' + item.label);
+                pen.innerHTML = PEN_SVG;
+                pen.dataset.itemId  = item.id;
+                pen.dataset.label   = item.label;
+                pen.dataset.qty     = item.quantity_needed;
+                pen.dataset.request = item.is_request ? '1' : '';
+                label.appendChild(pen);
+            }
             head.appendChild(label);
 
             var meta = document.createElement('span');
@@ -115,32 +133,23 @@
             // Wer aus der Familie hat diesen Posten übernommen?
             var mine = item.claims.filter(function(c){ return c.own; });
 
-            // Anzahl: Beim Bedarf („30 Brötchen“) bringt man oft mehr als
-            // ein Stück mit. Ein Feld für alle Knöpfe dieser Zeile; der
-            // Server prüft, dass nicht mehr übernommen wird als offen ist.
-            var maxOwn   = mine.reduce(function(m, c){ return Math.max(m, c.quantity || 1); }, 0);
-            var maxQty   = item.open + maxOwn;
-            var qtyInput = null;
-            if (item.is_request && maxQty > 1 && (item.open > 0 || mine.length)) {
-                qtyInput = document.createElement('input');
-                qtyInput.type = 'number';
-                qtyInput.min = 1;
-                qtyInput.max = maxQty;
-                qtyInput.value = mine.length === 1 ? (mine[0].quantity || 1) : 1;
-                qtyInput.className = 'vp-bring__qtypick';
-                qtyInput.setAttribute('aria-label', T.qty);
-                qtyInput.title = T.qty;
-                actions.appendChild(qtyInput);
-            }
+            // Anzahl: Beim Bedarf der Mitbringliste („30 Brötchen“) bringt man
+            // oft mehr als ein Stück mit. Das Feld erscheint erst nach dem
+            // Klick auf „Übernehmen“ – und nur, wenn mehr als eins möglich ist.
+            // Helferaufgaben: eine Person ist ein Platz, nie mehr.
+            var multi = !isHelp && item.is_request;
 
             mine.forEach(function(c){
                 var who = c.companion_id ? ' – ' + c.name : '';
 
                 // Bereits übernommen: Anzahl ändern (gleicher Endpunkt, der
                 // Server ersetzt die eigene Menge).
-                if (qtyInput) {
+                var ownMax = item.open + (c.quantity || 1);
+                if (multi && ownMax > 1) {
                     var change = makeBtn(T.changeQty + who, 'claim', item.id);
                     change.dataset.companionId = c.companion_id || 0;
+                    change.dataset.maxQty = ownMax;
+                    change.dataset.qty    = c.quantity || 1;
                     actions.appendChild(change);
                 }
 
@@ -157,6 +166,7 @@
                 if (takenIds.indexOf('0') === -1) {
                     var self = makeBtn(T.take, 'claim', item.id, 'is-primary');
                     self.dataset.companionId = 0;
+                    if (multi && item.open > 1) { self.dataset.maxQty = item.open; }
                     actions.appendChild(self);
                 }
 
@@ -164,17 +174,9 @@
                     if (takenIds.indexOf(String(p.id)) !== -1) { return; }
                     var b = makeBtn(T.takeFor.replace('%s', p.name), 'claim', item.id);
                     b.dataset.companionId = p.id;
+                    if (multi && item.open > 1) { b.dataset.maxQty = item.open; }
                     actions.appendChild(b);
                 });
-            }
-
-            // Orgateam: Tippfehler korrigieren, beim Bedarf auch die Menge.
-            if (data.can_manage) {
-                var edit = makeBtn(T.edit, 'edit', item.id);
-                edit.dataset.label    = item.label;
-                edit.dataset.qty      = item.quantity_needed;
-                edit.dataset.request  = item.is_request ? '1' : '';
-                actions.appendChild(edit);
             }
 
             if (data.can_manage || (!item.is_request && item.own_claim)) {
@@ -335,12 +337,76 @@
         });
     }
 
-    // Übernehmen / Zurückziehen / Löschen / Bearbeiten
+    // Stift: Posten bearbeiten (nur Orgateam)
+    bring.addEventListener('click', function(e){
+        var pen = e.target.closest('.vp-bring__pen');
+        if (pen) { openEditor(pen); }
+    });
+
+    /**
+     * Fragt vor dem Übernehmen die Anzahl ab – nur wenn mehr als ein Stück
+     * möglich ist. Ersetzt die Knöpfe der Zeile kurz durch
+     * [Anzahl] [OK] [Abbrechen]; Enter bestätigt, Escape bricht ab.
+     */
+    function askQuantity(btn, done) {
+        var actions = btn.parentNode;
+        var box = document.createElement('div');
+        box.className = 'vp-bring__actions vp-bring__qtyask';
+
+        var label = document.createElement('label');
+        label.className = 'vp-bring__qtylabel';
+        label.textContent = T.qtyAsk.replace('%d', btn.dataset.maxQty);
+
+        var input = document.createElement('input');
+        input.type = 'number';
+        input.min = 1;
+        input.max = btn.dataset.maxQty;
+        input.value = btn.dataset.qty || 1;
+        input.className = 'vp-bring__qtypick';
+        input.setAttribute('aria-label', T.qty);
+        label.appendChild(input);
+        box.appendChild(label);
+
+        var ok = makeBtn(T.qtyOk, 'qty-ok', btn.dataset.itemId, 'is-primary');
+        var no = makeBtn(T.editItemCancel, 'qty-cancel', btn.dataset.itemId);
+        box.appendChild(ok);
+        box.appendChild(no);
+
+        actions.hidden = true;
+        actions.parentNode.insertBefore(box, actions.nextSibling);
+        input.focus();
+        input.select();
+
+        function close() { box.remove(); actions.hidden = false; }
+        function confirm() {
+            var n = Math.max(1, Math.min(parseInt(btn.dataset.maxQty, 10) || 1, parseInt(input.value, 10) || 1));
+            close();
+            done(n);
+        }
+
+        ok.addEventListener('click', function(e){ e.stopPropagation(); confirm(); });
+        no.addEventListener('click', function(e){ e.stopPropagation(); close(); });
+        box.addEventListener('keydown', function(e){
+            if (e.key === 'Enter')  { e.preventDefault(); confirm(); }
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+        });
+    }
+
+    // Übernehmen / Zurückziehen / Löschen
     bring.addEventListener('click', function(e){
         var btn = e.target.closest('.vp-bring__btn');
         if (!btn || !btn.dataset.action) { return; }
+        if (btn.dataset.action === 'qty-ok' || btn.dataset.action === 'qty-cancel') { return; }
 
-        if (btn.dataset.action === 'edit') { openEditor(btn); return; }
+        // Mehr als ein Stück möglich: erst nach der Anzahl fragen.
+        if (btn.dataset.action === 'claim' && btn.dataset.maxQty && !btn.dataset.quantity) {
+            askQuantity(btn, function(n){
+                btn.dataset.quantity = n;
+                btn.click();
+                delete btn.dataset.quantity;
+            });
+            return;
+        }
 
         var id        = btn.dataset.itemId;
         var companion = parseInt(btn.dataset.companionId || 0, 10);
@@ -359,9 +425,8 @@
             url += '?companion_id=' + companion;
         }
 
-        // Anzahl aus dem Feld derselben Zeile – ohne Feld genau ein Stück.
-        var qtyEl    = btn.parentNode.querySelector('.vp-bring__qtypick');
-        var quantity = qtyEl ? Math.max(1, parseInt(qtyEl.value, 10) || 1) : 1;
+        // Anzahl aus der Abfrage – ohne Abfrage genau ein Stück.
+        var quantity = Math.max(1, parseInt(btn.dataset.quantity || 1, 10) || 1);
 
         fetch(url, {
             method: cfg.method,

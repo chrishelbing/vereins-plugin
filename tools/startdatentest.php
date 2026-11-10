@@ -31,6 +31,7 @@ stub_load( [
     'Events/CompanionModel.php',
     'Events/TemplateModel.php',
     'Events/EventTypeModel.php',
+    'Events/AttendanceModel.php',
     'Events/ItemModel.php',
     'Support/Tags.php',
     'Events/RecurrenceExpander.php',
@@ -328,5 +329,13 @@ Pruefung::ok( 'Bea erhöht wieder auf 15',        $items->claim( $broetchen, $be
 Pruefung::ok( 'aber nicht auf 16',               ! $items->claim( $broetchen, $bea, 16 ) );
 $bea_zeilen = array_filter( $wpdb->t['wp_vp_event_item_claims'], fn( $c ) => (int) $c['item_id'] === $broetchen && (int) $c['person_id'] === $bea );
 Pruefung::gleich( 'Bea hat eine Zeile, nicht drei', count( $bea_zeilen ), 1 );
+
+// Helferaufgaben: eine Person ist ein Platz – auch wenn jemand mehr schickt.
+$aufbau = $items->create( [
+    'event_id' => $event_id, 'instance_date' => '2027-07-05', 'kind' => 'help',
+    'label' => 'Aufbau', 'quantity_needed' => 4, 'is_request' => 1, 'created_by' => $admin,
+] );
+$items->claim( $aufbau, $bea, 3 );
+Pruefung::gleich( 'Helferplatz: immer genau 1', $items->claimed_quantity( $aufbau ), 1 );
 
 Pruefung::abschluss( 'Startdaten' );

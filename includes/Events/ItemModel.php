@@ -538,7 +538,9 @@ class ItemModel {
             return false;
         }
 
-        $quantity = max( 1, $quantity );
+        // Helferaufgaben: eine Person ist ein Platz. Mehr als ein Stück gibt
+        // es nur bei der Mitbringliste („15 von 30 Brötchen“).
+        $quantity = $item['kind'] === 'help' ? 1 : max( 1, $quantity );
         $existing = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT id, quantity FROM {$this->claims}
