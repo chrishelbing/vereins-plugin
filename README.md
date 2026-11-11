@@ -271,7 +271,7 @@ schon vergeben hatte.
 
 **Anmeldung und Rollen**
 
-- Anmeldung per Passwort oder Einmalcode per E-Mail
+- Anmeldung im Frontend per Einmalcode per E-Mail, ohne Passwort; Passwörter nur über das normale WordPress-Login
 - Selbstregistrierung mit Freischaltung (abschaltbar)
 - Zwei Vereinsrollen: „Verein: Mitglied" und „Verein: Orgateam"
 - Rollen werden additiv vergeben, bestehende Website-Rollen bleiben unangetastet

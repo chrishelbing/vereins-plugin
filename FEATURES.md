@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.15.0
+> Stand: Version 1.15.1
 
 ---
 
@@ -656,10 +656,21 @@ Einstellungen.
 
 ## Anmeldung und Rollen
 
-### Zwei gleichwertige Wege
+### Anmeldung mit Einmalcode
 
-Passwort über `[vp_login]` und **Einmalcode** per E-Mail. Für die App gibt es
-zusätzlich Bearer-Token (`vp_sessions`).
+`[vp_login]` kennt nur einen Weg: **Einmalcode per E-Mail**. Adresse
+eingeben, sechsstelligen Code aus der Mail eintragen, fertig – ohne
+Passwort. Für eine eigene App gibt es zusätzlich Bearer-Token
+(`vp_sessions`).
+
+**Passwörter nur über das normale WordPress-Login.** Bis 1.15 hatte
+`[vp_login]` auch einen Passwort-Reiter. Der lief ins Leere: Mitglieder, die
+das Plugin anlegt oder aufnimmt, bekommen ein zufälliges Passwort, das
+niemand kennt, und zwei Wege verwirrten nur. Wer ein Passwort hat –
+Administratoren, Redakteure –, nutzt `wp-login.php`; unter dem Formular
+steht dafür ein unauffälliger Link „Mit Passwort anmelden (WordPress-Login)“.
+Auch dort gilt: Nicht freigeschaltete Mitglieder kommen nicht hinein
+(`MemberService::block_unapproved_login()`).
 
 Einen Code gibt es nur für Adressen mit Mitgliedskonto: Für jede andere
 antwortet `request-otp` mit `unknown_account` (404) und dem Hinweis, die
@@ -727,7 +738,7 @@ bleiben gesperrt.
 | `[vp_events]` | Terminliste als Kacheln, mit allem daran; zeigt bei gültigem Schlüssel auch ohne Anmeldung einen einzelnen Termin |
 | `[vp_create_event]` | Termin vorschlagen (bearbeitet wird über den Stift an der Kachel in `[vp_events]`) |
 | `[vp_banner]` | Hervorgehobene Termine als Banner, z. B. auf der Startseite – öffentlich, verschwinden nach Terminende von selbst |
-| `[vp_login]` | Anmeldung mit Passwort oder Einmalcode |
+| `[vp_login]` | Anmeldung mit Einmalcode per E-Mail; Link zum WordPress-Login für Passwörter |
 | `[vp_register]` | Selbstregistrierung |
 
 Eine stets aktuelle Übersicht steht im Backend unter *Verein → Einstellungen*.
