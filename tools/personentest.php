@@ -73,6 +73,10 @@ Pruefung::ok( 'bekommt eine negative Personen-ID', Person::is_guest( $person_id 
 Pruefung::gleich( 'kein WordPress-Profil angelegt', $nutzerzahl(), 0 );
 Pruefung::gleich( 'ein Eintrag in vp_people', $personen(), 1 );
 Pruefung::gleich( 'Name wird aufgelöst', Person::name( $person_id ), 'Anna Berger' );
+// Der gemeldete Fehler: Nach dem Identifizieren erkannte das Cookie den Gast
+// nicht wieder (Prüfung nur gegen WordPress-Konten) – Zusagen über den
+// Terminlink scheiterten immer an „Bitte gib zuerst an, wer du bist“.
+Pruefung::gleich( 'Cookie erkennt den Gast wieder', \VereinsPlugin\Support\PublicLink::current_guest(), $person_id );
 
 // Zusage und übernommene Aufgabe hängen an dieser ID
 $wpdb->insert( 'wp_vp_event_attendance', [ 'event_id' => 7, 'instance_date' => '2026-09-11', 'person_id' => $person_id, 'response' => 'yes' ] );

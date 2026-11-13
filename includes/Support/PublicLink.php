@@ -211,8 +211,12 @@ class PublicLink {
             return 0;
         }
 
-        // Zwischenzeitlich gelöschte Nutzer nicht durchlassen.
-        return get_userdata( (int) $user_id ) ? (int) $user_id : 0;
+        // Zwischenzeitlich gelöschte Personen nicht durchlassen. Gäste haben
+        // negative IDs (Eintrag in vp_people, kein WordPress-Konto) – die
+        // frühere Prüfung mit get_userdata() fand sie nie, und jede Zusage
+        // über einen Terminlink endete bei „Bitte gib zuerst an, wer du bist“.
+        $person_id = (int) $user_id;
+        return \VereinsPlugin\Members\Person::find( $person_id ) ? $person_id : 0;
     }
 
     public static function forget_guest(): void {

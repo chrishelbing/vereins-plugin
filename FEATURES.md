@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.15.1
+> Stand: Version 1.15.2
 
 ---
 
@@ -111,6 +111,12 @@ meldet, landet als wartende Registrierung in der Mitgliederverwaltung. Unter
 **Kein WordPress-Profil für Unbestätigte.** Gäste und wartende Registrierungen
 liegen ausschließlich in `vp_people`. Ein Profil in der WordPress-Nutzer­
 verwaltung entsteht erst bei der Aufnahme durch einen Administrator.
+
+**Wiedererkennung über das Cookie** (`PublicLink::current_guest()`) prüft
+deshalb über `Person::find()` – Mitglieder und Gäste gleichermaßen. Bis
+1.15.1 stand dort `get_userdata()`: Gäste mit ihrer negativen ID galten nie
+als erkannt, und jede Zusage über einen Terminlink endete bei „Bitte gib
+zuerst an, wer du bist“.
 
 **Aufbewahrungsfrist für offene Kontakte.** Ein Gast, der einmal über einen
 Terminlink zugesagt hat und nie wiederkommt, bliebe sonst unbegrenzt mit
