@@ -827,6 +827,26 @@ class EventsShortcode {
                         </p>
                     </div>
 
+                    <?php
+                    // Erscheint erst, wenn die Adresse zu einem Mitgliedskonto
+                    // gehört: Dann geht ein Zugangscode dorthin, und erst
+                    // seine Eingabe meldet das Mitglied an (identity.js).
+                    ?>
+                    <div class="vp-ident__field" data-ident-code-field hidden>
+                        <strong class="vp-modal__label"><?php esc_html_e( 'Zugangscode', 'vereins-plugin' ); ?></strong>
+                        <div class="vp-bring__addrow">
+                            <input type="text" id="vp-ident-code" inputmode="numeric" pattern="[0-9]*"
+                                   maxlength="6" autocomplete="one-time-code"
+                                   placeholder="<?php esc_attr_e( '6 Ziffern', 'vereins-plugin' ); ?>">
+                        </div>
+                        <p class="vp-people__note">
+                            <?php esc_html_e( 'Diese Adresse gehört zu einem Mitgliedskonto. Wir haben dir einen Zugangscode per E-Mail geschickt – er ist 10 Minuten gültig. Nach der Eingabe bist du angemeldet. Kein Mitglied? Dann geh zurück und lass das E-Mail-Feld leer.', 'vereins-plugin' ); ?>
+                        </p>
+                        <p class="vp-people__note">
+                            <a href="#" data-ident-back><?php esc_html_e( 'Zurück', 'vereins-plugin' ); ?></a>
+                        </p>
+                    </div>
+
                     <p class="vp-bring__error" data-ident-error hidden></p>
 
                     <div class="vp-ident__actions">
@@ -1258,6 +1278,7 @@ class EventsShortcode {
             'linkCopy'      => __( 'Link zum Teilen:', 'vereins-plugin' ),
             'unconfirmed'   => __( 'Kontakt noch nicht bestätigt', 'vereins-plugin' ),
             'nameNeeded'    => __( 'Bitte gib deinen Namen an.', 'vereins-plugin' ),
+            'codeNeeded'    => __( 'Bitte gib den sechsstelligen Code aus der E-Mail ein.', 'vereins-plugin' ),
             'guestRename'   => __( 'Name ändern', 'vereins-plugin' ),
             'guestNotYou'   => __( 'Nicht du?', 'vereins-plugin' ),
             'dropReady'     => __( 'oder hierher ziehen', 'vereins-plugin' ),

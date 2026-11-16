@@ -126,10 +126,29 @@ Pruefung::gleich( 'kein WordPress-Profil entstanden', $nutzerzahl(), 1 );
 echo "\nVorhandener Redakteur sagt zu und wird aufgenommen\n";
 
 $redakteur = stub_user( 'Rita Roth', [ 'editor' ], 'rita@example.test' );
-$gast->identify( [ 'name' => 'Rita Roth', 'email' => 'rita@example.test' ] );
+unset( $_COOKIE['vp_guest'] );
+$rita = $gast->identify( [ 'name' => 'Rita Roth', 'email' => 'rita@example.test' ] );
 
 Pruefung::gleich( 'kein zweiter Eintrag für sie', $personen(), 0 );
 Pruefung::gleich( 'kein zweites Konto', $nutzerzahl(), 2 );
+
+// Die Lücke, um die es hier geht: Früher genügte die E-Mail-Adresse eines
+// Kontos, um am Terminlink als dieses Konto erkannt zu werden – mit dessen
+// Zusagen, Begleitpersonen und Rechten. Die Adresse allein darf nichts
+// hinterlegen; erkannt wird ein Konto erst nach dem Zugangscode.
+echo "\nE-Mail eines Kontos am Terminlink: erst der Zugangscode zählt\n";
+
+Pruefung::gleich( 'Konto wird gemeldet, nicht übernommen', (int) ( $rita['member_id'] ?? 0 ), $redakteur );
+Pruefung::gleich( 'keine Personen-ID vergeben', (int) $rita['person_id'], 0 );
+Pruefung::ok( 'kein Cookie gesetzt', empty( $_COOKIE['vp_guest'] ) );
+Pruefung::gleich( 'niemand erkannt', \VereinsPlugin\Support\PublicLink::current_guest(), 0 );
+
+// Ein Cookie, das eine frühere Version noch auf ein Konto ausgestellt hat,
+// ist echt signiert – und darf trotzdem nicht mehr gelten.
+\VereinsPlugin\Support\PublicLink::remember_guest( $redakteur );
+Pruefung::ok( 'altes Cookie auf ein Konto liegt vor', ! empty( $_COOKIE['vp_guest'] ) );
+Pruefung::gleich( 'altes Cookie auf ein Konto gilt nicht mehr', \VereinsPlugin\Support\PublicLink::current_guest(), 0 );
+unset( $_COOKIE['vp_guest'] );
 
 // =====================================================================
 echo "\nBestandsübernahme aus früheren Fassungen\n";

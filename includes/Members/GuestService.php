@@ -41,7 +41,10 @@ class GuestService {
      *
      * @param array{name?:string, email?:string, phone?:string} $data  Kontakt optional
      * @param string $confirm_base_url  Seite, auf die der Bestätigungslink zeigt
-     * @return array{person_id:int, created:bool, confirmed:bool}|WP_Error
+     * @return array{person_id:int, created:bool, confirmed:bool, member_id?:int}|WP_Error
+     *         Gehört die E-Mail zu einem Mitgliedskonto, ist person_id 0 und
+     *         member_id gesetzt: Es wurde NICHTS hinterlegt, der Aufrufer muss
+     *         die Anmeldung per Zugangscode verlangen.
      */
     public function identify( array $data, string $confirm_base_url = '' ): array|WP_Error {
         $name  = trim( sanitize_text_field( $data['name'] ?? '' ) );
@@ -63,13 +66,18 @@ class GuestService {
 
         // Ist die Person längst Mitglied, gehört die Zusage dorthin – sonst
         // entstünde ein Doppeleintrag neben dem eigenen Zugang.
+        //
+        // Die Adresse allein weist aber niemanden aus: Sie steht in jedem
+        // Verteiler. Deshalb wird hier nichts hinterlegt, kein Cookie und
+        // kein Eintrag. Der Aufrufer schickt einen Zugangscode an die
+        // Adresse; erst wer ihn eingibt, ist als dieses Mitglied angemeldet.
         $mitglied = $email ? get_user_by( 'email', $email ) : false;
         if ( $mitglied ) {
-            PublicLink::remember_guest( (int) $mitglied->ID );
             return [
-                'person_id' => (int) $mitglied->ID,
+                'person_id' => 0,
+                'member_id' => (int) $mitglied->ID,
                 'created'   => false,
-                'confirmed' => true,
+                'confirmed' => false,
             ];
         }
 
@@ -116,14 +124,15 @@ class GuestService {
      */
     public function confirm( int $person_id ): bool {
         // Auch Mitglieder können einen Bestätigungslink einlösen – etwa wenn
-        // sie zwischenzeitlich aufgenommen wurden.
+        // sie zwischenzeitlich aufgenommen wurden. Bestätigt sind damit die
+        // Kontaktdaten; angemeldet ist dadurch niemand, und ein Gast-Cookie
+        // gibt es für Mitglieder nicht (siehe PublicLink::current_guest()).
         if ( ! Person::is_guest( $person_id ) ) {
             $mitglied = ( new MemberModel() )->find_by_user_id( $person_id );
             if ( ! $mitglied ) {
                 return false;
             }
             ( new MemberModel() )->update( (int) $mitglied['id'], [ 'confirmed_at' => current_time( 'mysql' ) ] );
-            PublicLink::remember_guest( $person_id );
             return true;
         }
 

@@ -216,6 +216,17 @@ class PublicLink {
         // frühere Prüfung mit get_userdata() fand sie nie, und jede Zusage
         // über einen Terminlink endete bei „Bitte gib zuerst an, wer du bist“.
         $person_id = (int) $user_id;
+
+        // Das Cookie weist ausschließlich Gäste aus. Ein Mitgliedskonto
+        // (positive ID) wird darüber nie erkannt – auch nicht mit einem
+        // Cookie, das eine frühere Version noch so ausgestellt hat. Als
+        // Mitglied gilt nur, wer sich angemeldet hat (Passwort oder
+        // Einmalcode); sonst genügte es, eine fremde E-Mail-Adresse zu
+        // kennen, um im Namen dieses Mitglieds zu handeln.
+        if ( ! \VereinsPlugin\Members\Person::is_guest( $person_id ) ) {
+            return 0;
+        }
+
         return \VereinsPlugin\Members\Person::find( $person_id ) ? $person_id : 0;
     }
 

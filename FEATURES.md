@@ -113,10 +113,20 @@ liegen ausschließlich in `vp_people`. Ein Profil in der WordPress-Nutzer­
 verwaltung entsteht erst bei der Aufnahme durch einen Administrator.
 
 **Wiedererkennung über das Cookie** (`PublicLink::current_guest()`) prüft
-deshalb über `Person::find()` – Mitglieder und Gäste gleichermaßen. Bis
-1.15.1 stand dort `get_userdata()`: Gäste mit ihrer negativen ID galten nie
-als erkannt, und jede Zusage über einen Terminlink endete bei „Bitte gib
-zuerst an, wer du bist“.
+deshalb über `Person::find()`. Bis 1.15.1 stand dort `get_userdata()`: Gäste
+mit ihrer negativen ID galten nie als erkannt, und jede Zusage über einen
+Terminlink endete bei „Bitte gib zuerst an, wer du bist“.
+
+**Das Cookie weist nur Gäste aus, nie ein Mitgliedskonto.** Bis 1.15.5
+genügte es, am Terminlink die E-Mail-Adresse eines Mitglieds einzutragen: Das
+Cookie wurde ungeprüft auf dessen Konto ausgestellt – mit seinen Zusagen,
+seinen gespeicherten Begleitpersonen und, bei Orgateam und Administratoren,
+dem Recht, Mitbringliste und Helferaufgaben zu verwalten. Seit 1.15.6 gilt:
+Gehört die Adresse zu einem Konto, wird nichts hinterlegt; es geht ein
+**Zugangscode** an die Adresse, und erst seine Eingabe meldet das Mitglied an
+(siehe „Teilnahme ohne Anmeldung“). Cookies, die frühere Versionen auf ein
+Konto ausgestellt haben, gelten nicht mehr – betroffene Mitglieder werden
+beim nächsten Besuch über den Link einmal nach dem Code gefragt.
 
 **Name sichtbar und änderbar.** Im Dialog „Wer kommt mit?“ steht in der
 eigenen Zeile, unter welchem Namen der Gast erkannt wurde („Ich – Anna
@@ -642,6 +652,15 @@ Aktion wird gemerkt und danach ausgeführt.
   Benachrichtigung sowie der Wiedererkennung.
 - Die Zusage gilt **sofort**; eine Bestätigungsmail folgt nach.
 - Ein Cookie erkennt beim nächsten Mal wieder.
+- **Mitglieder brauchen auch am Terminlink ihren Zugangscode.** Trägt jemand
+  eine Adresse ein, die zu einem Mitgliedskonto gehört, wechselt der Dialog
+  auf das Feld „Zugangscode“: Der Code geht per E-Mail an diese Adresse
+  (derselbe Einmalcode wie bei `[vp_login]`, 10 Minuten gültig). Nach der
+  Eingabe ist das Mitglied angemeldet und die Seite lädt neu; die begonnene
+  Aktion ist dann noch einmal anzustoßen. Die Antwort der Schnittstelle
+  (`/guest/identify` → `code_required`) nennt weder Namen noch Rolle. Ein
+  Konto ohne freigeschalteten Mitgliederzugang bekommt keinen Code, sondern
+  den Hinweis, das E-Mail-Feld leer zu lassen und als Gast zuzusagen.
 - **Namen anderer bleiben verborgen** – auch in der Schnittstelle. Fremde
   Übernahmen erscheinen nur als „vergeben“.
 - Offen sind Zusage, Helferaufgaben und Mitbringliste. **Nicht** Fotos.
@@ -705,6 +724,18 @@ Code“ – obwohl er stimmte. `verify_otp()` sucht deshalb auch zuerst das
 Konto und prüft dann den Code, damit kein richtiger Code verbraucht wird.
 Es gilt immer nur der zuletzt angeforderte Code; der Knopf „Code senden“
 ist gesperrt, bis die Antwort da ist.
+
+**Falsche Codes werden gezählt** (seit 1.15.6). Nach fünf falschen Eingaben
+ist die Adresse 15 Minuten gesperrt (`OtpModel::MAX_FAILURES`,
+`LOCK_MINUTES`): offene Codes verfallen, `verify-otp` und `request-otp`
+antworten mit `too_many_attempts` (429), und auch ein neu angeforderter Code
+hilft in dieser Zeit nicht. Vorher war nur das *Anfordern* begrenzt (fünf
+Codes je Adresse in zehn Minuten) – das Raten nicht, und sechs Ziffern lassen
+sich durchprobieren. Ein richtiger Code leert den Zähler. Die Kehrseite: Wer
+die Adresse eines Mitglieds kennt, kann dessen Code-Anmeldung für jeweils
+15 Minuten blockieren; das ist gegenüber einem erratbaren Zugang das
+kleinere Übel. Die Bremse fürs Anfordern (`AuthService::may_request()`) gilt
+gemeinsam für `[vp_login]` und für den Code am Terminlink.
 
 Einmalcode-Anfragen (samt IP-Adresse) werden täglich um 3:15 Uhr per Cron
 aufgeräumt (`Auth\OtpCleanup`), sobald sie abgelaufen sind – nicht erst bei

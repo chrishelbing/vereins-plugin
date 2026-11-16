@@ -203,4 +203,37 @@ Pruefung::gleich( 'derselbe Code ein zweites Mal: ungültig',
 // invalidate_pending() per UPDATE-Abfrage – die führt der Ersatz nicht aus
 // (query() tut nichts), deshalb hier kein Fall dafür.
 
+// =====================================================================
+echo "\nFalsche Codes: nach fünf Versuchen ist Schluss\n";
+
+// Sechs Ziffern sind schnell durchprobiert, wenn niemand mitzählt. Der Code
+// wird hier bewusst nie getroffen ('000000' liegt außerhalb des Bereichs,
+// aus dem Codes gezogen werden).
+$adresse = 'raten@example.test';
+$richtig = $otp->create( $adresse, 'email' );
+
+for ( $i = 1; $i <= OtpModel::MAX_FAILURES; $i++ ) {
+    $otp->verify( $adresse, '000000' );
+}
+
+Pruefung::ok( 'Adresse ist gesperrt', OtpModel::is_locked( $adresse ) );
+Pruefung::ok( 'auch der richtige Code gilt jetzt nicht mehr', ! $otp->verify( $adresse, $richtig ) );
+Pruefung::ok( 'Schreibweise der Adresse umgeht die Sperre nicht', OtpModel::is_locked( ' Raten@Example.test' ) );
+Pruefung::ok( 'andere Adressen bleiben frei', ! OtpModel::is_locked( 'andere@example.test' ) );
+
+// Ein richtiger Code räumt den Zähler ab – wer sich einmal vertippt, soll
+// nicht beim übernächsten Mal ausgesperrt sein.
+$adresse2 = 'vertippt@example.test';
+$code2    = $otp->create( $adresse2, 'email' );
+$otp->verify( $adresse2, '000000' );
+Pruefung::ok( 'nach einem Fehlversuch gilt der richtige Code', $otp->verify( $adresse2, $code2 ) );
+Pruefung::ok( 'der Zähler ist danach wieder leer', get_transient( 'vp_otp_fail_' . md5( $adresse2 ) ) === false );
+
+echo "\nCodes anfordern: fünf je Adresse, dann Pause\n";
+$erlaubt = 0;
+for ( $i = 1; $i <= 7; $i++ ) {
+    $erlaubt += AuthService::may_request( 'viel@example.test' ) ? 1 : 0;
+}
+Pruefung::gleich( 'von sieben Anfragen gehen fünf durch', $erlaubt, 5 );
+
 Pruefung::abschluss( 'Schnittstelle' );

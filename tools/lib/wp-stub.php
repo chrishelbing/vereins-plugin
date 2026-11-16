@@ -456,6 +456,16 @@ function apply_filters( $haken, $wert, ...$args ) {
 }
 
 // ---------------------------------------------------------------------
+// Transients – im Speicher und ohne Ablauf. Wer eine abgelaufene Sperre
+// prüfen will, löscht den Eintrag im Test selbst.
+// ---------------------------------------------------------------------
+$GLOBALS['stub_transients'] = [];
+
+function get_transient( $k ) { return $GLOBALS['stub_transients'][ $k ] ?? false; }
+function set_transient( $k, $v, $dauer = 0 ) { $GLOBALS['stub_transients'][ $k ] = $v; return true; }
+function delete_transient( $k ) { unset( $GLOBALS['stub_transients'][ $k ] ); return true; }
+
+// ---------------------------------------------------------------------
 // Kleine Testhilfe
 // ---------------------------------------------------------------------
 

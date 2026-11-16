@@ -541,16 +541,62 @@ class EventController {
             return $result;
         }
 
-        // GuestService liefert person_id (Gäste negativ, Mitglieder positiv);
-        // get_userdata() fände Gäste nicht.
+        // Die Adresse gehört zu einem Mitgliedskonto: Erkannt wird es erst
+        // mit dem Zugangscode, der jetzt an diese Adresse geht.
+        if ( ! empty( $result['member_id'] ) ) {
+            return $this->send_member_code(
+                (int) $result['member_id'],
+                sanitize_email( (string) $request->get_param( 'email' ) )
+            );
+        }
+
+        // Ab hier nur noch Gäste (negative person_id); get_userdata() fände
+        // sie nicht.
         return new WP_REST_Response( [
             'name'      => \VereinsPlugin\Members\Person::name( (int) $result['person_id'] ),
             'created'   => $result['created'],
             'confirmed' => $result['confirmed'],
-            // Gast (vp_people) oder über die E-Mail als Mitglied erkannt –
-            // nur Gäste dürfen ihren Namen hier ändern.
+            // Seit Mitglieder nur noch mit Zugangscode erkannt werden, steht
+            // hier immer ein Gast. Das Feld bleibt, weil Oberfläche und App
+            // daran ablesen, ob der Name hier änderbar ist.
             'guest'     => \VereinsPlugin\Members\Person::is_guest( (int) $result['person_id'] ),
         ], 200 );
+    }
+
+    /**
+     * Zugangscode an ein Mitglied schicken, das am Terminlink seine
+     * E-Mail-Adresse eingetragen hat.
+     *
+     * Die Antwort nennt weder Namen noch Rolle – wer nur die Adresse kennt,
+     * erfährt hier nichts über das Konto. Eingelöst wird der Code über
+     * /auth/verify-otp, also denselben Weg wie die gewöhnliche Anmeldung;
+     * danach ist das Mitglied angemeldet und braucht den Terminlink nicht
+     * mehr.
+     */
+    private function send_member_code( int $member_id, string $email ): WP_REST_Response|WP_Error {
+        // Ein Konto ohne freigeschalteten Zugang könnte den Code nicht
+        // einlösen. Dann lieber gleich sagen, wie es weitergeht.
+        if ( ! ( new \VereinsPlugin\Members\MemberService() )->is_approved( $member_id ) ) {
+            return new WP_Error(
+                'not_approved',
+                __( 'Zu dieser E-Mail-Adresse gibt es ein Konto, das für den Mitgliederbereich nicht freigeschaltet ist. Lass das Feld leer, um als Gast zuzusagen.', 'vereins-plugin' ),
+                [ 'status' => 403 ]
+            );
+        }
+
+        if ( \VereinsPlugin\Auth\OtpModel::is_locked( $email ) ) {
+            return AuthController::locked_error();
+        }
+
+        if ( ! \VereinsPlugin\Auth\AuthService::may_request( $email ) ) {
+            return new WP_Error( 'too_many_requests', __( 'Zu viele Anfragen. Bitte warte 10 Minuten.', 'vereins-plugin' ), [ 'status' => 429 ] );
+        }
+
+        if ( ! ( new \VereinsPlugin\Auth\AuthService() )->request_otp( $email, 'email' ) ) {
+            return new WP_Error( 'send_failed', __( 'Code konnte nicht gesendet werden.', 'vereins-plugin' ), [ 'status' => 500 ] );
+        }
+
+        return new WP_REST_Response( [ 'code_required' => true ], 200 );
     }
 
     public function rename_guest( WP_REST_Request $request ): WP_REST_Response|WP_Error {

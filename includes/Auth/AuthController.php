@@ -108,13 +108,16 @@ class AuthController {
             );
         }
 
+        // Während der Sperre nach falschen Codes auch keinen neuen schicken:
+        // Er ließe sich ohnehin nicht einlösen.
+        if ( OtpModel::is_locked( $identifier ) ) {
+            return self::locked_error();
+        }
+
         // Rate-Limit: max. 5 Anfragen pro 10 Minuten (einfach via Transient)
-        $rate_key = 'vp_otp_rate_' . md5( $identifier );
-        $attempts = (int) get_transient( $rate_key );
-        if ( $attempts >= 5 ) {
+        if ( ! AuthService::may_request( $identifier ) ) {
             return new WP_Error( 'too_many_requests', __( 'Zu viele Anfragen. Bitte warte 10 Minuten.', 'vereins-plugin' ), [ 'status' => 429 ] );
         }
-        set_transient( $rate_key, $attempts + 1, 10 * MINUTE_IN_SECONDS );
 
         // Noch nicht aufgenommene Personen haben keinen Zugang – ein Code
         // brächte sie nicht weiter. Lieber sagen, woran es liegt.
@@ -148,6 +151,13 @@ class AuthController {
     }
 
     public function verify_otp( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        // Nach zu vielen falschen Codes ist die Adresse eine Weile gesperrt
+        // (OtpModel::verify). Das eigens sagen – „Ungültiger Code“ ließe
+        // jemanden mit dem richtigen Code ratlos zurück.
+        if ( OtpModel::is_locked( (string) $request->get_param( 'identifier' ) ) ) {
+            return self::locked_error();
+        }
+
         $result = $this->service->verify_otp(
             $request->get_param( 'identifier' ),
             $request->get_param( 'code' ),
@@ -285,6 +295,19 @@ class AuthController {
         $request->set_param( '_vp_person_id', $guest_id );
         $request->set_param( '_vp_is_guest', true );
         return true;
+    }
+
+    /** Antwort, solange eine Adresse nach falschen Codes gesperrt ist. */
+    public static function locked_error(): WP_Error {
+        return new WP_Error(
+            'too_many_attempts',
+            sprintf(
+                /* translators: %d: Minuten */
+                __( 'Zu viele falsche Codes. Bitte warte %d Minuten und fordere dann einen neuen Code an.', 'vereins-plugin' ),
+                OtpModel::LOCK_MINUTES
+            ),
+            [ 'status' => 429 ]
+        );
     }
 
     private function extract_bearer( WP_REST_Request $request ): ?string {

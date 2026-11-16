@@ -7,6 +7,12 @@ namespace VereinsPlugin\Auth;
  */
 class OtpModel {
 
+    /** So viele falsche Codes je Adresse, dann Sperre. */
+    public const MAX_FAILURES = 5;
+
+    /** Dauer der Sperre – und zugleich das Fenster, in dem gezählt wird. */
+    public const LOCK_MINUTES = 15;
+
     private string $table;
 
     public function __construct() {
@@ -49,6 +55,18 @@ class OtpModel {
     public function verify( string $identifier, string $code ): bool {
         global $wpdb;
 
+        // Ein sechsstelliger Code hält nur, solange man ihn nicht
+        // durchprobieren kann. Nach MAX_FAILURES falschen Eingaben ist für
+        // diese Adresse Schluss, bis die Sperre abläuft – auch ein frisch
+        // angeforderter Code hilft dann nicht, sonst finge das Raten mit
+        // jedem neuen Code von vorn an.
+        $fail_key = self::fail_key( $identifier );
+        $failures = (int) get_transient( $fail_key );
+        if ( $failures >= self::MAX_FAILURES ) {
+            $this->invalidate_pending( $identifier );
+            return false;
+        }
+
         $row = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT id, token_hash FROM {$this->table}
@@ -63,8 +81,11 @@ class OtpModel {
         );
 
         if ( ! $row || ! password_verify( $code, $row->token_hash ) ) {
+            set_transient( $fail_key, $failures + 1, self::LOCK_MINUTES * MINUTE_IN_SECONDS );
             return false;
         }
+
+        delete_transient( $fail_key );
 
         // Als benutzt markieren
         $wpdb->update(
@@ -76,6 +97,15 @@ class OtpModel {
         );
 
         return true;
+    }
+
+    /** Ist die Adresse nach zu vielen falschen Codes gerade gesperrt? */
+    public static function is_locked( string $identifier ): bool {
+        return (int) get_transient( self::fail_key( $identifier ) ) >= self::MAX_FAILURES;
+    }
+
+    private static function fail_key( string $identifier ): string {
+        return 'vp_otp_fail_' . md5( strtolower( trim( $identifier ) ) );
     }
 
     /**

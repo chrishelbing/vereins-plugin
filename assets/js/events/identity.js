@@ -22,6 +22,23 @@
     var pendingAction = null;
     // Gesetzt, solange der Dialog zum Umbenennen offen ist: {id, date, done}.
     var renameFor = null;
+    // Gesetzt, solange der Dialog auf den Zugangscode wartet: die Adresse,
+    // an die er ging. Sie gehört zu einem Mitgliedskonto, und das wird erst
+    // mit dem Code erkannt – die Adresse allein weist niemanden aus.
+    var codeFor = null;
+
+    /** Zwischen „Name und E-Mail“ und „Zugangscode“ umschalten. */
+    function showCodeStep(email) {
+        codeFor = email || null;
+        var code = identModal.querySelector('[data-ident-code-field]');
+        if (!code) { return; }
+        code.hidden = !codeFor;
+        identModal.querySelector('[data-ident-email-field]').hidden = !!codeFor;
+        document.getElementById('vp-ident-name').disabled = !!codeFor;
+        var input = document.getElementById('vp-ident-code');
+        input.value = '';
+        if (codeFor) { input.focus(); }
+    }
 
     /**
      * Den eigenen Namen ändern (nur Gäste). Derselbe Dialog wie beim ersten
@@ -48,6 +65,7 @@
         identModal.hidden = true;
         pendingAction = null;
         renameFor = null;
+        showCodeStep(null);
         identModal.querySelector('[data-ident-email-field]').hidden = false;
         document.body.style.overflow = '';
     }
@@ -70,6 +88,11 @@
 
         identModal.addEventListener('click', function(e){
             if (e.target.hasAttribute('data-close')) { closeIdent(); }
+            if (e.target.hasAttribute('data-ident-back')) {
+                e.preventDefault();
+                identError.hidden = true;
+                showCodeStep(null);
+            }
         });
 
         identModal.querySelector('[data-ident-save]').addEventListener('click', function(){
@@ -77,6 +100,40 @@
             var email = document.getElementById('vp-ident-email').value.trim();
 
             identError.hidden = true;
+
+            // Zweiter Schritt bei einem Mitgliedskonto: Code einlösen. Das
+            // ist die gewöhnliche Anmeldung per Einmalcode – danach ist das
+            // Mitglied angemeldet, und die Seite lädt neu, weil ab da ein
+            // anderes Nonce und die Ansicht der Mitglieder gelten.
+            if (codeFor) {
+                var code = document.getElementById('vp-ident-code').value.replace(/\s+/g, '');
+                if (!/^\d{6}$/.test(code)) {
+                    identError.textContent = T.codeNeeded;
+                    identError.hidden = false;
+                    document.getElementById('vp-ident-code').focus();
+                    return;
+                }
+                fetch(API + '/auth/verify-otp', {
+                    method: 'POST',
+                    headers: H(true),
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ identifier: codeFor, code: code, device: 'Terminlink' })
+                })
+                .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+                .then(function(res){
+                    if (!res.ok) {
+                        identError.textContent = res.data.message || T.error;
+                        identError.hidden = false;
+                        return;
+                    }
+                    window.location.reload();
+                })
+                .catch(function(){
+                    identError.textContent = T.error;
+                    identError.hidden = false;
+                });
+                return;
+            }
 
             // Nur der Name ist nötig. Kontaktdaten sind freiwillig –
             // sie dienen der Benachrichtigung, nicht dem Zugang.
@@ -129,6 +186,12 @@
                 if (!res.ok) {
                     identError.textContent = res.data.message || T.error;
                     identError.hidden = false;
+                    return;
+                }
+
+                // Mitgliedskonto: nichts ist hinterlegt, erst der Code zählt.
+                if (res.data.code_required) {
+                    showCodeStep(email);
                     return;
                 }
 

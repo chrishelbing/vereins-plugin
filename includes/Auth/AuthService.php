@@ -46,6 +46,25 @@ class AuthService {
         };
     }
 
+    /**
+     * Bremse fürs Anfordern: höchstens 5 Codes je Adresse in 10 Minuten.
+     *
+     * Zählt den Versuch mit und sagt, ob er noch erlaubt ist. Steht hier
+     * und nicht im Controller, weil zwei Wege Codes verschicken – die
+     * Anmeldung und die Erkennung eines Mitglieds am Terminlink – und beide
+     * denselben Zähler brauchen. Sonst ließe sich über den zweiten Weg ein
+     * Postfach fluten, das der erste längst schützt.
+     */
+    public static function may_request( string $identifier ): bool {
+        $rate_key = 'vp_otp_rate_' . md5( strtolower( trim( $identifier ) ) );
+        $attempts = (int) get_transient( $rate_key );
+        if ( $attempts >= 5 ) {
+            return false;
+        }
+        set_transient( $rate_key, $attempts + 1, 10 * MINUTE_IN_SECONDS );
+        return true;
+    }
+
     public function request_otp( string $identifier, string $channel = 'email' ): bool {
         $ip   = $_SERVER['REMOTE_ADDR'] ?? '';
         $code = $this->otp_model->create( $identifier, $channel, $ip );
