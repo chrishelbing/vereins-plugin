@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.15.2
+> Stand: Version 1.15.5
 
 ---
 
@@ -117,6 +117,25 @@ deshalb über `Person::find()` – Mitglieder und Gäste gleichermaßen. Bis
 1.15.1 stand dort `get_userdata()`: Gäste mit ihrer negativen ID galten nie
 als erkannt, und jede Zusage über einen Terminlink endete bei „Bitte gib
 zuerst an, wer du bist“.
+
+**Name sichtbar und änderbar.** Im Dialog „Wer kommt mit?“ steht in der
+eigenen Zeile, unter welchem Namen der Gast erkannt wurde („Ich – Anna
+Berger“). Gäste können ihn dort ändern („Name ändern“, `POST /guest/name`,
+nur für Gäste – Mitglieder ändern ihren Namen im Profil). „Nicht du?“
+vergisst die Kennung auf diesem Gerät (`POST /guest/forget`, löscht nur das
+Cookie); danach fragt der Termin wieder nach dem Namen – wichtig für
+geteilte Geräte.
+
+**Erst „Bestätigen“ speichert.** Ein Klick auf „Zusagen“ oder „Absagen“ an
+der Kachel öffnet „Wer kommt mit?“ mit dieser Antwort vorgewählt; eigene
+Antwort, Begleitpersonen und neu getippte Namen werden im Dialog nur
+vorgemerkt. „Bestätigen“ speichert alles in einem Schritt (ein noch nicht
+hinzugefügter Name im Eingabefeld kommt mit) und schließt den Dialog; bei
+einem Fehler bleibt er mit der Meldung offen. Wer ihn schließt, ohne zu
+bestätigen, hat nichts geändert. Ausnahmen, weil sie nicht die Zusage
+betreffen: das × an einer gespeicherten Begleitperson entfernt sie sofort
+aus der eigenen Liste, und ein zweiter Klick auf die aktive Antwort an der
+Kachel zieht die Zusage weiterhin direkt zurück.
 
 **Aufbewahrungsfrist für offene Kontakte.** Ein Gast, der einmal über einen
 Terminlink zugesagt hat und nie wiederkommt, bliebe sonst unbegrenzt mit

@@ -79,7 +79,7 @@
         }
 
         // Sonst öffnet sich der Dialog "Wer kommt?" – die angeklickte
-        // Antwort gilt sofort, Begleitpersonen lassen sich dort ergänzen.
+        // Antwort ist dort vorgewählt und gilt erst mit „Bestätigen“.
         VP.people.open(item, btn.dataset.response);
     });
 

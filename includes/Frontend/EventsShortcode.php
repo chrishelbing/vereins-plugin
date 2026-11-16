@@ -813,7 +813,7 @@ class EventsShortcode {
                         </p>
                     </div>
 
-                    <div class="vp-ident__field">
+                    <div class="vp-ident__field" data-ident-email-field>
                         <strong class="vp-modal__label">
                             <?php esc_html_e( 'E-Mail-Adresse', 'vereins-plugin' ); ?>
                             <span class="vp-ident__optional"><?php esc_html_e( 'freiwillig', 'vereins-plugin' ); ?></span>
@@ -942,6 +942,14 @@ class EventsShortcode {
                         </div>
 
                         <p class="vp-bring__error" data-people-error hidden></p>
+
+                        <?php // Gespeichert wird schon bei jedem Klick – der Knopf schließt ab. ?>
+                        <div class="vp-ident__actions">
+                            <button type="button" class="vp-bring__addbtn" data-people-done>
+                                <?php echo Icons::svg( 'user-check' ); ?>
+                                <?php esc_html_e( 'Bestätigen', 'vereins-plugin' ); ?>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1102,6 +1110,11 @@ class EventsShortcode {
             'key'       => $link_key,
             // Ob der Gast schon eine Kennung hinterlegt hat.
             'known'     => ! $is_public || (bool) $user_id,
+            // Unter welchem Namen der Gast erkannt wurde – damit er ihn sieht,
+            // ändern kann (nur echte Gäste, Mitglieder über ihr Profil) oder
+            // mit „Nicht du?“ auf einem geteilten Gerät neu ansetzt.
+            'guestName'      => ( $is_public && $user_id ) ? \VereinsPlugin\Members\Person::name( (int) $user_id ) : '',
+            'guestRenamable' => $is_public && (int) $user_id < 0,
             'iconAlert' => Icons::svg( 'alert' ),
             'identify'  => [
                 'id'           => (int) ( $upcoming[0]['event_id'] ?? 0 ),
@@ -1245,6 +1258,8 @@ class EventsShortcode {
             'linkCopy'      => __( 'Link zum Teilen:', 'vereins-plugin' ),
             'unconfirmed'   => __( 'Kontakt noch nicht bestätigt', 'vereins-plugin' ),
             'nameNeeded'    => __( 'Bitte gib deinen Namen an.', 'vereins-plugin' ),
+            'guestRename'   => __( 'Name ändern', 'vereins-plugin' ),
+            'guestNotYou'   => __( 'Nicht du?', 'vereins-plugin' ),
             'dropReady'     => __( 'oder hierher ziehen', 'vereins-plugin' ),
             'dropLocked'    => __( 'Bitte zuerst der Nutzung zustimmen', 'vereins-plugin' ),
             'consentNeeded' => __( 'Bitte bestätige zuerst, dass das Foto auf der Website und in sozialen Medien verwendet werden kann.', 'vereins-plugin' ),

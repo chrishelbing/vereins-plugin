@@ -115,6 +115,28 @@ class EventController {
             ],
         ] );
 
+        // Eigenen Namen ändern – nur für Gäste, nur mit Terminschlüssel und
+        // erkannter Kennung (require_auth_or_link). Mitglieder ändern ihren
+        // Namen im Profil.
+        register_rest_route( $namespace, '/guest/name', [
+            'methods'             => 'POST',
+            'callback'            => [ $this, 'rename_guest' ],
+            'permission_callback' => [ $this->auth, 'require_auth_or_link' ],
+            'args'                => [
+                'id'            => [ 'required' => true, 'type' => 'integer' ],
+                'instance_date' => [ 'required' => true, 'type' => 'string' ],
+                'name'          => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+            ],
+        ] );
+
+        // „Nicht du?“ – Kennung auf diesem Gerät vergessen. Löscht nur das
+        // Cookie, keine Daten; danach fragt der Termin wieder nach dem Namen.
+        register_rest_route( $namespace, '/guest/forget', [
+            'methods'             => 'POST',
+            'callback'            => [ $this, 'forget_guest' ],
+            'permission_callback' => '__return_true',
+        ] );
+
         // Identifikation ohne Login – öffentlich, aber nur mit gültigem
         // Terminschlüssel und mit Rate-Limit.
         register_rest_route( $namespace, '/guest/identify', [
@@ -519,13 +541,41 @@ class EventController {
             return $result;
         }
 
-        $user = get_userdata( $result['user_id'] );
-
+        // GuestService liefert person_id (Gäste negativ, Mitglieder positiv);
+        // get_userdata() fände Gäste nicht.
         return new WP_REST_Response( [
-            'name'      => $user ? $user->display_name : '',
+            'name'      => \VereinsPlugin\Members\Person::name( (int) $result['person_id'] ),
             'created'   => $result['created'],
             'confirmed' => $result['confirmed'],
+            // Gast (vp_people) oder über die E-Mail als Mitglied erkannt –
+            // nur Gäste dürfen ihren Namen hier ändern.
+            'guest'     => \VereinsPlugin\Members\Person::is_guest( (int) $result['person_id'] ),
         ], 200 );
+    }
+
+    public function rename_guest( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $person_id = (int) $request->get_param( '_vp_person_id' );
+        $name      = trim( (string) $request->get_param( 'name' ) );
+
+        if ( ! \VereinsPlugin\Members\Person::is_guest( $person_id ) ) {
+            return new WP_Error( 'not_guest', __( 'Deinen Namen änderst du in deinem Profil.', 'vereins-plugin' ), [ 'status' => 403 ] );
+        }
+        if ( $name === '' ) {
+            return new WP_Error( 'name_needed', __( 'Bitte gib deinen Namen an.', 'vereins-plugin' ), [ 'status' => 400 ] );
+        }
+
+        ( new \VereinsPlugin\Members\PeopleModel() )->update(
+            \VereinsPlugin\Members\Person::guest_id( $person_id ),
+            [ 'display_name' => mb_substr( $name, 0, 100 ) ]
+        );
+        \VereinsPlugin\Members\Person::flush_cache();
+
+        return new WP_REST_Response( [ 'name' => \VereinsPlugin\Members\Person::name( $person_id ) ], 200 );
+    }
+
+    public function forget_guest(): WP_REST_Response {
+        PublicLink::forget_guest();
+        return new WP_REST_Response( [ 'forgotten' => true ], 200 );
     }
 
     public function index_companions( WP_REST_Request $request ): WP_REST_Response {

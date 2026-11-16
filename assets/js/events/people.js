@@ -24,7 +24,8 @@
     var peItem    = null;
     // saved  = eigene Personenliste, chosen = wer bei diesem Termin dabei ist,
     // self   = eigene Antwort ('yes' | 'no' | null)
-    var peState   = { saved: [], chosen: {}, self: null };
+    // pending = neu getippte Namen, die erst mit „Bestätigen“ angelegt werden
+    var peState   = { saved: [], chosen: {}, self: null, pending: [] };
 
     function closePeople() {
         peModal.hidden = true;
@@ -65,7 +66,8 @@
             forget.className = 'vp-person__forget';
             forget.title = T.forget;
             forget.textContent = '×';
-            forget.dataset.forgetId = dataset.companionId;
+            if (dataset.pendingIndex !== undefined) { forget.dataset.pendingIndex = dataset.pendingIndex; }
+            else                                    { forget.dataset.forgetId = dataset.companionId; }
             head.appendChild(forget);
         }
 
@@ -82,6 +84,7 @@
             b.textContent = pair[1];
             b.dataset.personAnswer = pair[0];
             if (dataset.companionId) { b.dataset.companionId = dataset.companionId; }
+            if (dataset.pendingIndex !== undefined) { b.dataset.pendingIndex = dataset.pendingIndex; }
             if (dataset.self)        { b.dataset.self = '1'; }
             actions.appendChild(b);
         });
@@ -94,14 +97,47 @@
         peList.innerHTML = '';
 
         // Eigene Teilnahme zuerst – ohne gesetzte Antwort gilt "nicht dabei".
-        peList.appendChild(
-            personRow(T.selfComing, peState.self === 'yes', { self: true }, false)
+        // Gäste sehen, unter welchem Namen sie erkannt wurden, und können ihn
+        // ändern bzw. auf einem geteilten Gerät neu ansetzen.
+        var cfg    = VP.cfg;
+        var selbst = personRow(
+            cfg.guestName ? T.selfComing + ' – ' + cfg.guestName : T.selfComing,
+            peState.self === 'yes', { self: true }, false
         );
+        if (cfg.guestName) {
+            var links = document.createElement('div');
+            links.className = 'vp-person__guest';
+            if (cfg.guestRenamable) {
+                var umbenennen = document.createElement('button');
+                umbenennen.type = 'button';
+                umbenennen.className = 'vp-person__link';
+                umbenennen.textContent = T.guestRename;
+                umbenennen.addEventListener('click', function(){
+                    var item = peItem;
+                    VP.identity.change(item.dataset.eventId, item.dataset.instanceDate, renderPeople);
+                });
+                links.appendChild(umbenennen);
+            }
+            var nichtIch = document.createElement('button');
+            nichtIch.type = 'button';
+            nichtIch.className = 'vp-person__link';
+            nichtIch.textContent = T.guestNotYou;
+            nichtIch.addEventListener('click', function(){ VP.identity.forget(); });
+            links.appendChild(nichtIch);
+            selbst.querySelector('.vp-bring__itemhead').appendChild(links);
+        }
+        peList.appendChild(selbst);
 
         peState.saved.forEach(function(p){
             peList.appendChild(
                 personRow(p.name, !!peState.chosen[p.id], { companionId: p.id }, true)
             );
+        });
+
+        // Neu getippt, noch nicht gespeichert – kommen mit, bis man sie
+        // wieder herausnimmt.
+        peState.pending.forEach(function(name, i){
+            peList.appendChild(personRow(name, true, { pendingIndex: i }, true));
         });
 
         renderTotal();
@@ -112,7 +148,8 @@
      * selbst nur bei eigener Zusage.
      */
     function renderTotal() {
-        var guests = peState.saved.filter(function(p){ return peState.chosen[p.id]; }).length;
+        var guests = peState.saved.filter(function(p){ return peState.chosen[p.id]; }).length
+                   + peState.pending.length;
         var self   = peState.self === 'yes' ? 1 : 0;
         var total  = guests + self;
 
@@ -133,6 +170,7 @@
         peState.chosen = {};
         (d.own_companions || []).forEach(function(c){ peState.chosen[c.companion_id] = true; });
         peState.self   = d.own_response;
+        peState.pending = [];
         renderPeople();
 
         // Termin-Zeile mitziehen
@@ -149,10 +187,17 @@
      * Speichert eigene Antwort und Begleitpersonen zusammen – der
      * Endpunkt erwartet immer den kompletten Stand.
      */
+    // Die zuletzt gestartete Speicherung – „Bestätigen“ wartet auf sie.
+    var peSaving = Promise.resolve();
+
     function savePeople(newNames) {
         if (!peItem) { return Promise.resolve(); }
         peopleError('');
+        peSaving = doSavePeople(newNames);
+        return peSaving;
+    }
 
+    function doSavePeople(newNames) {
         var ids = Object.keys(peState.chosen)
             .filter(function(k){ return peState.chosen[k]; })
             .map(Number);
@@ -196,38 +241,59 @@
                 peLoading.hidden = true;
                 peContent.hidden = false;
 
-                // Die angeklickte Antwort gilt sofort – der Dialog dient
-                // nur noch dazu, Begleitpersonen zu ergänzen.
+                // Die angeklickte Antwort ist vorgewählt, gilt aber erst mit
+                // „Bestätigen“. Wer den Dialog schließt, hat nichts geändert.
                 if (presetResponse && peState.self !== presetResponse) {
                     peState.self = presetResponse;
                     renderPeople();
-                    savePeople();
                 }
             })
             .catch(function(){ peLoading.textContent = T.loadError; });
     }
 
-    // Antwort je Person umschalten – wird sofort gespeichert.
+    // „Bestätigen“: Alles ist schon gespeichert. Ein noch nicht hinzugefügter
+    // Name im Eingabefeld wird mitgenommen, dann schließt der Dialog – außer
+    // beim Speichern ging etwas schief, dann bleibt er mit der Meldung offen.
+    var peDone = peModal.querySelector('[data-people-done]');
+    peDone.addEventListener('click', function(){
+        peDone.disabled = true;
+        addPerson();
+        savePeople(peState.pending.slice()).then(function(){
+            peDone.disabled = false;
+            if (peError.hidden) { closePeople(); }
+        });
+    });
+
+    // Antwort je Person umschalten – nur vorgemerkt bis „Bestätigen“.
     peModal.addEventListener('click', function(e){
         var btn = e.target.closest('[data-person-answer]');
         if (!btn) { return; }
 
         var yes = btn.dataset.personAnswer === 'yes';
 
+        // Nur vormerken – gespeichert wird mit „Bestätigen“.
         if (btn.dataset.self) {
             peState.self = yes ? 'yes' : 'no';
+        } else if (btn.dataset.pendingIndex !== undefined) {
+            if (!yes) { peState.pending.splice(Number(btn.dataset.pendingIndex), 1); }
         } else {
             peState.chosen[btn.dataset.companionId] = yes;
         }
 
         renderPeople();
-        savePeople();
     });
 
     // Person dauerhaft aus der eigenen Liste entfernen
     peModal.addEventListener('click', function(e){
         var btn = e.target.closest('.vp-person__forget');
         if (!btn) { return; }
+
+        // Noch nicht gespeichert: einfach aus der Vormerkung nehmen.
+        if (btn.dataset.pendingIndex !== undefined) {
+            peState.pending.splice(Number(btn.dataset.pendingIndex), 1);
+            renderPeople();
+            return;
+        }
 
         var id = btn.dataset.forgetId;
         fetch(API + '/companions/' + id, {
@@ -239,7 +305,6 @@
             peState.saved = d.saved || [];
             delete peState.chosen[id];
             renderPeople();
-            savePeople();
         })
         .catch(function(){ peopleError(T.error); });
     });
@@ -253,7 +318,13 @@
         var raw = peNew.value.trim();
         if (!raw) { return; }
         peNew.value = '';
-        savePeople([ raw ]).then(function(){ peNew.focus(); });
+        // Vormerken; „Mia, Tom“ wie der Server in zwei Personen teilen.
+        raw.split(',').forEach(function(n){
+            n = n.trim();
+            if (n) { peState.pending.push(n); }
+        });
+        renderPeople();
+        peNew.focus();
     }
 
     peModal.querySelector('[data-people-add]').addEventListener('click', addPerson);

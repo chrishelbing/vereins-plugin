@@ -20,6 +20,37 @@
 
     var identModal = document.getElementById('vp-ident-modal');
     var pendingAction = null;
+    // Gesetzt, solange der Dialog zum Umbenennen offen ist: {id, date, done}.
+    var renameFor = null;
+
+    /**
+     * Den eigenen Namen ändern (nur Gäste). Derselbe Dialog wie beim ersten
+     * Mal, vorbelegt und ohne E-Mail-Feld; gespeichert über /guest/name.
+     */
+    function change(eventId, instanceDate, done) {
+        if (!identModal) { return; }
+        renameFor = { id: eventId, date: instanceDate, done: done };
+        document.getElementById('vp-ident-name').value = CFG.guestName || '';
+        identModal.querySelector('[data-ident-email-field]').hidden = true;
+        identModal.querySelector('[data-ident-error]').hidden = true;
+        identModal.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+
+    /** „Nicht du?“: Kennung auf diesem Gerät vergessen, Seite neu laden. */
+    function forget() {
+        fetch(API + '/guest/forget', { method: 'POST', headers: H(true) })
+            .then(function(){ window.location.reload(); })
+            .catch(function(){ window.location.reload(); });
+    }
+
+    function closeIdent() {
+        identModal.hidden = true;
+        pendingAction = null;
+        renameFor = null;
+        identModal.querySelector('[data-ident-email-field]').hidden = false;
+        document.body.style.overflow = '';
+    }
 
     function needsIdentity(run) {
         if (KNOWN || !identModal) { return false; }
@@ -38,11 +69,7 @@
         var identError = identModal.querySelector('[data-ident-error]');
 
         identModal.addEventListener('click', function(e){
-            if (e.target.hasAttribute('data-close')) {
-                identModal.hidden = true;
-                pendingAction = null;
-                document.body.style.overflow = '';
-            }
+            if (e.target.hasAttribute('data-close')) { closeIdent(); }
         });
 
         identModal.querySelector('[data-ident-save]').addEventListener('click', function(){
@@ -57,6 +84,31 @@
                 identError.textContent = T.nameNeeded;
                 identError.hidden = false;
                 document.getElementById('vp-ident-name').focus();
+                return;
+            }
+
+            if (renameFor) {
+                var r = renameFor;
+                fetch(API + '/guest/name', {
+                    method: 'POST',
+                    headers: H(true),
+                    body: JSON.stringify({ id: r.id, instance_date: r.date, vp_key: KEY, name: name })
+                })
+                .then(function(res){ return res.json().then(function(d){ return { ok: res.ok, data: d }; }); })
+                .then(function(res){
+                    if (!res.ok) {
+                        identError.textContent = res.data.message || T.error;
+                        identError.hidden = false;
+                        return;
+                    }
+                    CFG.guestName = res.data.name || name;
+                    closeIdent();
+                    if (r.done) { r.done(); }
+                })
+                .catch(function(){
+                    identError.textContent = T.error;
+                    identError.hidden = false;
+                });
                 return;
             }
 
@@ -81,6 +133,8 @@
                 }
 
                 KNOWN = true;
+                CFG.guestName = res.data.name || name;
+                CFG.guestRenamable = !!res.data.guest;
                 identModal.hidden = true;
                 document.body.style.overflow = '';
 
@@ -96,5 +150,5 @@
     }
 
     // Über die Modulgrenze hinweg gebraucht:
-    VP.identity = { needsIdentity: needsIdentity };
+    VP.identity = { needsIdentity: needsIdentity, change: change, forget: forget };
 })();
