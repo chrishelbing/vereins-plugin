@@ -300,9 +300,11 @@ function stub_user( string $name, array $rollen = [], string $email = '' ): int 
 /** Die Standardrollen einer WordPress-Installation. */
 function stub_default_roles(): void {
     $GLOBALS['stub_roles']->roles = [
-        'administrator' => [ 'name' => 'Administrator', 'capabilities' => [ 'manage_options' => true, 'edit_posts' => true ] ],
-        'editor'        => [ 'name' => 'Redakteur',     'capabilities' => [ 'edit_posts' => true, 'read' => true ] ],
-        'author'        => [ 'name' => 'Autor',         'capabilities' => [ 'edit_posts' => true, 'read' => true ] ],
+        // upload_files wie in WordPress: Administratoren, Redakteure und
+        // Autoren dürfen Medien hochladen (und sehen damit die Mediathek).
+        'administrator' => [ 'name' => 'Administrator', 'capabilities' => [ 'manage_options' => true, 'edit_posts' => true, 'upload_files' => true ] ],
+        'editor'        => [ 'name' => 'Redakteur',     'capabilities' => [ 'edit_posts' => true, 'read' => true, 'upload_files' => true ] ],
+        'author'        => [ 'name' => 'Autor',         'capabilities' => [ 'edit_posts' => true, 'read' => true, 'upload_files' => true ] ],
         'subscriber'    => [ 'name' => 'Abonnent',      'capabilities' => [ 'read' => true ] ],
     ];
 }

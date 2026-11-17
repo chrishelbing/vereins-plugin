@@ -117,7 +117,9 @@ class LoginShortcode {
                   .then(function(res){
                       reqBtn.disabled = false;
                       if (res.ok) {
-                          setMsg('<?php echo esc_js( __( 'Code gesendet. Bitte E-Mail prüfen – es gilt nur der zuletzt gesendete Code.', 'vereins-plugin' ) ); ?>', true);
+                          // Die Meldung kommt vom Server und lautet gleich, ob es
+                          // ein Konto gibt oder nicht (AuthController::code_maybe_sent).
+                          setMsg(res.data.message || '<?php echo esc_js( __( 'Code gesendet. Bitte E-Mail prüfen.', 'vereins-plugin' ) ); ?>', true);
                           step1.hidden = true;
                           step2.hidden = false;
                       } else {

@@ -621,6 +621,32 @@ Fotos sind **Mitgliedern vorbehalten**: Gäste über einen Terminlink kommen
 nicht heran, weil dort Personen abgebildet sind und das Kontingent an einer
 Identität hängt.
 
+**Auch die Dateien selbst sind geschützt** (seit 1.15.7, `Photos\ProtectedPhotos`).
+Bis 1.15.6 zeigte nur die Oberfläche die Fotos ausschließlich Mitgliedern; die
+Dateien lagen als gewöhnliche Medien in `uploads/`, waren mit der Adresse für
+jeden abrufbar, und `/wp/v2/media` listete sie öffentlich samt „Quelle: <Name>“.
+Jetzt gilt:
+
+- Neue Fotos landen in `uploads/vereins-fotos/JJJJ/MM/`. Der Ordner bekommt
+  eine `.htaccess` mit `Require all denied` (angelegt beim Update und vor jedem
+  Upload; schlägt das fehl, wird der Upload abgelehnt). Gilt für Apache – unter
+  nginx muss der Server den Ordner selbst sperren.
+- Ausgeliefert wird über `admin-post.php?action=vp_photo&id=…&size=full|thumb`
+  mit Prüfung auf ein freigeschaltetes Mitglied; ohne Anmeldung 403. Die
+  Terminliste bekommt nur noch diese Adressen.
+- Mediathek-Schnittstelle (Liste und Einzelabruf), Mediathek im Backend und
+  Anhangseiten zeigen die Fotos nur Konten mit `upload_files` (Redakteure,
+  Autoren, Administratoren) – für die Weiterverwendung mit Quellenangabe.
+- **Weiterverwenden auf der Website:** Ein Foto aus dem geschützten Ordner
+  lässt sich nicht öffentlich einbinden – Besucher bekämen 403. Dafür das Foto
+  herunterladen (ZIP oder einzeln) und als normales Medium neu hochladen.
+- **App mit Bearer-Token:** Die Auslieferung prüft die Anmeldung per Cookie.
+  Eine App bräuchte dafür einen eigenen Weg; bisher gibt es keine.
+- Fotos aus Versionen vor 1.15.7 bleiben, wo sie sind (werden aber über die
+  neue Adresse ausgeliefert und aus der Mediathek-Schnittstelle gehalten);
+  auf der JVL-Website gab es zu dem Zeitpunkt keine.
+- Das **Titelbild** eines Termins (Banner, Flyer) bleibt bewusst öffentlich.
+
 **Auflösung**: Fotos werden nach dem Upload auf eine konfigurierbare längste
 Kante herunterskaliert (`photo_max_edge`, Standard 2000 px) und mit Qualität
 82 % neu komprimiert – für Website und soziale Medien reichlich, da beide
@@ -716,9 +742,15 @@ steht dafür ein unauffälliger Link „Mit Passwort anmelden (WordPress-Login)�
 Auch dort gilt: Nicht freigeschaltete Mitglieder kommen nicht hinein
 (`MemberService::block_unapproved_login()`).
 
-Einen Code gibt es nur für Adressen mit Mitgliedskonto: Für jede andere
-antwortet `request-otp` mit `unknown_account` (404) und dem Hinweis, die
-Adresse aus dem Vereinskonto zu nehmen. Vorher kam der Code an, beim
+Einen Code gibt es nur für Adressen mit Mitgliedskonto. **Die Antwort
+verrät aber nicht, ob es eines gibt** (seit 1.15.7): `request-otp` antwortet
+für jede Adresse gleich mit 200 und „Wenn zu dieser Adresse ein
+freigeschaltetes Mitgliedskonto gehört, ist ein Code unterwegs … Kommt nichts
+an, nimm die Adresse, mit der du beim Verein angemeldet bist.“ Bis 1.15.6
+gab es `unknown_account` (404) und `not_approved` (403) – hilfreich bei einer
+falschen Adresse, aber damit ließ sich für jede beliebige Adresse erfragen, ob
+sie Mitglied ist. Den Hinweis auf die richtige Adresse trägt jetzt die
+Erfolgsmeldung. Noch früher kam bei fehlendem Konto ein Code an, beim
 Bestätigen fand sich kein Konto, und die Meldung lautete „Ungültiger
 Code“ – obwohl er stimmte. `verify_otp()` sucht deshalb auch zuerst das
 Konto und prüft dann den Code, damit kein richtiger Code verbraucht wird.

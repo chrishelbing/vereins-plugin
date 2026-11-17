@@ -5,7 +5,6 @@ namespace VereinsPlugin\Auth;
 use VereinsPlugin\Events\EventModel;
 use VereinsPlugin\Events\ItemModel;
 use VereinsPlugin\Members\MemberService;
-use VereinsPlugin\Members\PeopleModel;
 use VereinsPlugin\Support\PublicLink;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -119,26 +118,14 @@ class AuthController {
             return new WP_Error( 'too_many_requests', __( 'Zu viele Anfragen. Bitte warte 10 Minuten.', 'vereins-plugin' ), [ 'status' => 429 ] );
         }
 
-        // Noch nicht aufgenommene Personen haben keinen Zugang – ein Code
-        // brächte sie nicht weiter. Lieber sagen, woran es liegt.
-        if ( $channel === 'email' && ( new PeopleModel() )->find_by_email( $identifier ) && ! get_user_by( 'email', $identifier ) ) {
-            return new WP_Error(
-                'not_approved',
-                __( 'Deine Anmeldung liegt vor, ist aber noch nicht freigeschaltet.', 'vereins-plugin' ),
-                [ 'status' => 403 ]
-            );
-        }
-
-        // Ohne Mitgliedskonto kein Code. Sonst käme er an, beim Bestätigen
-        // fände sich aber kein Konto – und die Meldung lautete „Ungültiger
-        // Code“, obwohl der Code stimmt. Typischer Fall: eine zweite
-        // Adresse, die nicht im Profil steht.
+        // Ohne Mitgliedskonto kein Code – sonst käme er an, beim Bestätigen
+        // fände sich aber kein Konto. Die Antwort ist trotzdem dieselbe wie
+        // bei Erfolg (seit 1.15.7): Bis dahin sagte sie „kein Konto“ bzw.
+        // „noch nicht freigeschaltet“, und damit ließ sich für jede Adresse
+        // erfragen, ob sie Mitglied ist. Der Hinweis auf die richtige
+        // Adresse steht jetzt in der Erfolgsmeldung selbst.
         if ( $channel === 'email' && ! get_user_by( 'email', $identifier ) ) {
-            return new WP_Error(
-                'unknown_account',
-                __( 'Zu dieser E-Mail-Adresse gibt es kein Mitgliedskonto. Bitte nimm die Adresse, mit der du beim Verein angemeldet bist.', 'vereins-plugin' ),
-                [ 'status' => 404 ]
-            );
+            return self::code_maybe_sent();
         }
 
         $sent = $this->service->request_otp( $identifier, $channel );
@@ -147,7 +134,17 @@ class AuthController {
             return new WP_Error( 'send_failed', __( 'Code konnte nicht gesendet werden.', 'vereins-plugin' ), [ 'status' => 500 ] );
         }
 
-        return new WP_REST_Response( [ 'message' => __( 'Code gesendet.', 'vereins-plugin' ) ], 200 );
+        return self::code_maybe_sent();
+    }
+
+    /**
+     * Einheitliche Antwort auf eine Code-Anforderung – gleich, ob es zur
+     * Adresse ein Konto gibt.
+     */
+    private static function code_maybe_sent(): WP_REST_Response {
+        return new WP_REST_Response( [
+            'message' => __( 'Wenn zu dieser Adresse ein freigeschaltetes Mitgliedskonto gehört, ist ein Code unterwegs. Es gilt nur der zuletzt gesendete Code. Kommt nichts an, nimm die Adresse, mit der du beim Verein angemeldet bist.', 'vereins-plugin' ),
+        ], 200 );
     }
 
     public function verify_otp( WP_REST_Request $request ): WP_REST_Response|WP_Error {

@@ -25,6 +25,7 @@ $pruefungen = [
     'tagtest.php'        => 'Infotermine ohne Zusage, Tags, ganztägige Termine',
     'updatertest.php'    => 'Updates: Auswertung der GitHub-Releases',
     'texttest.php'       => 'Beschreibung: Links erkennen, nichts Gefährliches durchlassen',
+    'fototest.php'       => 'Fotos nur für Mitglieder, Code-Anforderung ohne Kontoauskunft',
 ];
 
 $exec_frei = function_exists( 'exec' )

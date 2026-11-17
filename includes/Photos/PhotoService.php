@@ -78,6 +78,13 @@ class PhotoService {
             );
         }
 
+        // In den gesperrten Ordner (ProtectedPhotos). Schlägt die Sperre fehl,
+        // lieber kein Upload als ein Foto, das jeder abrufen kann.
+        if ( ! ProtectedPhotos::ensure_guard() ) {
+            return new WP_Error( 'upload_failed', __( 'Der geschützte Foto-Ordner konnte nicht angelegt werden.', 'vereins-plugin' ), [ 'status' => 500 ] );
+        }
+
+        add_filter( 'upload_dir', [ ProtectedPhotos::class, 'upload_dir' ] );
         $upload = wp_handle_upload( $file, [
             'test_form' => false,
             'mimes'     => [
@@ -88,6 +95,8 @@ class PhotoService {
                 'heif'         => 'image/heif',
             ],
         ] );
+
+        remove_filter( 'upload_dir', [ ProtectedPhotos::class, 'upload_dir' ] );
 
         if ( isset( $upload['error'] ) ) {
             return new WP_Error( 'upload_failed', $upload['error'], [ 'status' => 400 ] );
@@ -137,7 +146,7 @@ class PhotoService {
 
         // Als Plugin-Foto markieren, damit es sich von anderen Medien
         // unterscheiden lässt.
-        update_post_meta( $attachment_id, '_vp_event_photo', $event_id );
+        update_post_meta( $attachment_id, ProtectedPhotos::META, $event_id );
 
         $photo_id = $this->model->create( [
             'event_id'      => $event_id,

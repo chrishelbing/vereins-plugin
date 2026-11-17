@@ -63,7 +63,11 @@ class PhotoModel {
                 continue;
             }
 
-            $thumb  = wp_get_attachment_image_url( $attachment_id, 'medium' ) ?: $full;
+            // Ausgeliefert wird über ProtectedPhotos mit Anmeldeprüfung – die
+            // Datei-Adresse in uploads/ ist gesperrt (seit 1.15.7) und taugt
+            // für den Browser nicht mehr.
+            $full   = ProtectedPhotos::url( (int) $row['id'], 'full' );
+            $thumb  = ProtectedPhotos::url( (int) $row['id'], 'thumb' );
             $owner  = (int) $row['wp_user_id'];
             $author = get_userdata( $owner );
 

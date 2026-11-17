@@ -18,9 +18,9 @@ ihr noch glaubt.
 php tools/pruefen.php
 ```
 
-Das ist verbindlich, nicht optional. Der Befehl startet zehn Prüfungen und
+Das ist verbindlich, nicht optional. Der Befehl startet elf Prüfungen und
 liefert Rückgabewert 1, sobald eine anschlägt. Läuft `exec()` in der
-Umgebung nicht, sind die zehn Dateien einzeln aufzurufen.
+Umgebung nicht, sind die elf Dateien einzeln aufzurufen.
 
 | Datei | prüft |
 |---|---|
@@ -34,6 +34,7 @@ Umgebung nicht, sind die zehn Dateien einzeln aufzurufen.
 | `tools/tagtest.php` | Infotermine (Termintyp ohne Zusagen) und Tags: Vorgabe am Typ, Auswahl am Termin, Speichern und Leeren |
 | `tools/updatertest.php` | Updates aus GitHub-Releases: Version aus dem Tag, Paket am Release, Vorabversionen und Entwürfe ausgenommen |
 | `tools/texttest.php` | Beschreibung: Links, fett/kursiv, Listen, Maskierung, nur http(s), Gendersternchen bleibt, Textfassung für Banner und Flyer, jedes Beispiel der Hilfe wirkt |
+| `tools/fototest.php` | Termin-Fotos: Ablage im gesperrten Ordner, Adressen über die Auslieferung statt `uploads/`, Heraushalten aus der Mediathek; Code-Anforderung mit gleicher Antwort für jede Adresse |
 
 Neue Fachlogik gehört mit einem Fall in die passende Testdatei. Die Tests
 laufen gegen `tools/lib/wp-stub.php`, einen kleinen WordPress-Ersatz im

@@ -13,6 +13,7 @@ use VereinsPlugin\Members\PeopleCleanup;
 use VereinsPlugin\Members\PeopleMigration;
 use VereinsPlugin\Photos\PhotoCleanup;
 use VereinsPlugin\Photos\PhotoDownload;
+use VereinsPlugin\Photos\ProtectedPhotos;
 use VereinsPlugin\Privacy\PersonalData;
 use VereinsPlugin\Support\BackendGuard;
 use VereinsPlugin\Support\Capabilities;
@@ -50,6 +51,7 @@ class Plugin {
 
         // Fotos: Sammel-Download und täglicher Aufräumjob.
         ( new PhotoDownload() )->register();
+        ( new ProtectedPhotos() )->register();
         ( new PhotoCleanup()  )->register();
 
         // Abgelaufene Einmalcode-Anfragen (samt IP-Adresse) täglich entfernen.
@@ -94,6 +96,9 @@ class Plugin {
             // Seeder rührt eine Installation mit vorhandenen Termintypen
             // nicht an, deshalb ist der Aufruf hier gefahrlos.
             Seeder::maybe_seed();
+
+            // Gesperrten Foto-Ordner schon vor dem ersten Upload anlegen.
+            ProtectedPhotos::ensure_guard();
         }
     }
 
