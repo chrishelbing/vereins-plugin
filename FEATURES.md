@@ -177,6 +177,18 @@ Konto ist die E-Mail hier gesperrt – sie wird im WordPress-Profil geändert
 (`user_login`) bleibt immer unverändert. Offene Personen (Gäste, wartende
 Registrierungen) lassen sich nicht bearbeiten, nur aufnehmen oder ablehnen.
 
+**Termine und Beiträge je Person** (seit 1.15.8, `Members\PersonActivity`).
+In der Mitgliederliste und bei den offenen Personen steht unter jedem Namen
+eine Kurzzeile – „3 Zusagen · 1 Absage · 2 Posten · zuletzt 17.11.2026“ bzw.
+„noch keine Zusagen“. Der Bearbeiten-Dialog zeigt darunter die ganze
+Aufstellung, neueste Instanz zuerst: Datum, Termin (mit Anzahl Fotos),
+zugesagt/abgesagt, was die Person mitbringt (mit Menge, Notiz und ggf. für
+welche Begleitperson), wobei sie hilft (übernommene Helferaufgaben oder
+„packt mit an“ samt Aufgabe) und wer sie begleitet. Gelöschte Termine
+bleiben als „(Termin gelöscht)“ stehen. Anlass: ein Mitglied, das dreimal
+als Gast ohne E-Mail zugesagt hatte und dreimal aufgenommen wurde – welches
+Konto „das richtige“ ist, zeigt erst, woran jedes hängt.
+
 **Recht auf Löschung.** Ein aufgenommenes Mitglied lässt sich in der
 Mitgliederverwaltung vollständig löschen (`MemberService::erase_member()`):
 Zusagen, übernommene Aufgaben, Begleitpersonen und Fotos werden immer

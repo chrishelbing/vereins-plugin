@@ -35,6 +35,7 @@ stub_load( [
     'Events/ItemModel.php',
     'Photos/PhotoModel.php',
     'Photos/PhotoService.php',
+    'Members/PersonActivity.php',
     'Auth/OtpModel.php',
     'Privacy/PersonalData.php',
 ] );
@@ -258,6 +259,30 @@ $item_id = (int) end( $wpdb->t['wp_vp_event_items'] )['id'];
 $wpdb->insert( 'wp_vp_event_item_claims', [ 'item_id' => $item_id, 'person_id' => $petra_id, 'companion_id' => 0, 'quantity' => 1 ] );
 $wpdb->insert( 'wp_vp_member_companions', [ 'person_id' => $petra_id, 'name' => 'Tom Privacy' ] );
 $wpdb->insert( 'wp_vp_event_photos', [ 'event_id' => $event_id, 'instance_date' => '2026-10-10', 'wp_user_id' => $petra_id, 'attachment_id' => 501, 'file_size' => 1024 ] );
+
+// Übersicht je Person im Backend: Was hängt an diesem Konto? Anlass war ein
+// Mitglied mit drei Konten – welches „das richtige“ ist, zeigt erst das.
+echo "\nÜbersicht: Termine und Beiträge einer Person\n";
+$wpdb->insert( 'wp_vp_event_items', [ 'event_id' => $event_id, 'instance_date' => '2026-10-10', 'kind' => 'help', 'label' => 'Aufbau', 'created_by' => $petra_id ] );
+$hilfe_id = (int) end( $wpdb->t['wp_vp_event_items'] )['id'];
+$wpdb->insert( 'wp_vp_event_item_claims', [ 'item_id' => $hilfe_id, 'person_id' => $petra_id, 'companion_id' => 0, 'quantity' => 2, 'note' => 'ab 16 Uhr' ] );
+$wpdb->insert( 'wp_vp_event_attendance', [ 'event_id' => $event_id, 'instance_date' => '2026-11-05', 'person_id' => $petra_id, 'response' => 'no', 'responded_at' => '2026-11-01 10:00:00' ] );
+
+$aktiv = ( new \VereinsPlugin\Members\PersonActivity() )->for_person( $petra_id );
+Pruefung::gleich( 'zwei Termininstanzen', count( $aktiv ), 2 );
+Pruefung::gleich( 'neueste zuerst', $aktiv[0]['date'] ?? '', '2026-11-05' );
+Pruefung::gleich( 'Absage erkannt', $aktiv[0]['response'] ?? '', 'no' );
+$okt = $aktiv[1] ?? [];
+Pruefung::gleich( 'Zusage erkannt', $okt['response'] ?? '', 'yes' );
+Pruefung::gleich( 'Mitgebrachtes', $okt['bring'] ?? [], [ 'Kuchen' ] );
+Pruefung::gleich( 'Helferaufgabe mit Menge und Notiz', $okt['help'] ?? [], [ '2× Aufbau („ab 16 Uhr“)' ] );
+Pruefung::gleich( 'Foto gezählt', $okt['photos'] ?? 0, 1 );
+
+$kurz = ( new \VereinsPlugin\Members\PersonActivity() )->summaries( [ $petra_id, 99999 ] );
+Pruefung::gleich( 'Kurzfassung: Zusagen', $kurz[ $petra_id ]['yes'] ?? -1, 1 );
+Pruefung::gleich( 'Kurzfassung: Absagen', $kurz[ $petra_id ]['no'] ?? -1, 1 );
+Pruefung::gleich( 'Kurzfassung: Posten', $kurz[ $petra_id ]['items'] ?? -1, 2 );
+Pruefung::gleich( 'Kurzfassung: ohne Aktivität', $kurz[99999] ?? null, [ 'yes' => 0, 'no' => 0, 'items' => 0, 'last' => null ] );
 
 $export = $privacy->export( 'petra@example.test' );
 Pruefung::ok( 'Export liefert Gruppen', ! empty( $export['data'] ) );

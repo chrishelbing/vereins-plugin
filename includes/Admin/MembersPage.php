@@ -7,6 +7,7 @@ use VereinsPlugin\Members\MemberModel;
 use VereinsPlugin\Members\PeopleModel;
 use VereinsPlugin\Members\Person;
 use VereinsPlugin\Members\MemberService;
+use VereinsPlugin\Members\PersonActivity;
 use VereinsPlugin\Support\Capabilities;
 
 /**
@@ -169,6 +170,8 @@ class MembersPage {
             return;
         }
 
+        $aktivitaet = ( new PersonActivity() )->summaries( array_map( static fn( $p ) => Person::from_guest( (int) $p['id'] ), $people ) );
+
         $quelle = [
             'link'         => __( 'über Terminlink', 'vereins-plugin' ),
             'registration' => __( 'Selbstregistrierung', 'vereins-plugin' ),
@@ -200,6 +203,7 @@ class MembersPage {
                             <?php if ( empty( $person['confirmed_at'] ) ) : ?>
                                 <span class="vp-badge vp-badge--pending"><?php esc_html_e( 'unbestätigt', 'vereins-plugin' ); ?></span>
                             <?php endif; ?>
+                            <?php $this->render_activity_line( $aktivitaet[ Person::from_guest( (int) $person['id'] ) ] ?? null ); ?>
                         </td>
                         <td>
                             <?php if ( $person['email'] ) : ?>
@@ -230,6 +234,7 @@ class MembersPage {
      * Eine Mitgliedertabelle mit Überschrift.
      */
     private function render_member_table( array $members, string $titel, string $hinweis ): void {
+        $aktivitaet = ( new PersonActivity() )->summaries( array_map( static fn( $m ) => (int) $m['wp_user_id'], $members ) );
         ?>
         <h2 style="margin-top:26px;"><?php echo esc_html( $titel ); ?> <span class="description">(<?php echo count( $members ); ?>)</span></h2>
         <?php if ( $hinweis ) : ?>
@@ -253,7 +258,10 @@ class MembersPage {
             <?php endif; ?>
             <?php foreach ( $members as $m ) : ?>
                 <tr<?php echo (int) ( $_GET['edit'] ?? 0 ) === (int) $m['id'] ? ' class="is-editing"' : ''; ?>>
-                    <td><?php echo esc_html( $m['display_name'] ?: $m['user_login'] ); ?></td>
+                    <td>
+                        <?php echo esc_html( $m['display_name'] ?: $m['user_login'] ); ?>
+                        <?php $this->render_activity_line( $aktivitaet[ (int) $m['wp_user_id'] ] ?? null ); ?>
+                    </td>
                     <td><?php echo esc_html( $m['user_email'] ); ?></td>
                     <td><?php echo esc_html( $m['phone'] ?: '—' ); ?></td>
                     <td><?php $this->render_roles_cell( $m ); ?></td>
@@ -326,7 +334,95 @@ class MembersPage {
             </form>
         </div>
         <?php
+        $this->render_activity( (int) $m['wp_user_id'] );
         AdminModal::close();
+    }
+
+    /**
+     * Kurzzeile unter dem Namen: „3 Zusagen · 1 Absage · 2 Posten · zuletzt 17.11.2026“.
+     * Hilft, doppelte Konten auseinanderzuhalten, ohne jedes zu öffnen.
+     */
+    private function render_activity_line( ?array $s ): void {
+        if ( ! $s ) {
+            return;
+        }
+        if ( ! $s['yes'] && ! $s['no'] && ! $s['items'] ) {
+            echo '<br><span class="description">' . esc_html__( 'noch keine Zusagen', 'vereins-plugin' ) . '</span>';
+            return;
+        }
+        $teile = [];
+        if ( $s['yes'] ) {
+            $teile[] = sprintf( _n( '%d Zusage', '%d Zusagen', $s['yes'], 'vereins-plugin' ), $s['yes'] );
+        }
+        if ( $s['no'] ) {
+            $teile[] = sprintf( _n( '%d Absage', '%d Absagen', $s['no'], 'vereins-plugin' ), $s['no'] );
+        }
+        if ( $s['items'] ) {
+            $teile[] = sprintf( _n( '%d Posten', '%d Posten', $s['items'], 'vereins-plugin' ), $s['items'] );
+        }
+        if ( $s['last'] ) {
+            $teile[] = sprintf( __( 'zuletzt %s', 'vereins-plugin' ), mysql2date( 'd.m.Y', $s['last'] ) );
+        }
+        echo '<br><span class="description">' . esc_html( implode( ' · ', $teile ) ) . '</span>';
+    }
+
+    /**
+     * Im Bearbeiten-Dialog: alle Termine, zu denen die Person geantwortet,
+     * etwas mitgebracht oder geholfen hat – neueste zuerst.
+     */
+    private function render_activity( int $person_id ): void {
+        $zeilen = ( new PersonActivity() )->for_person( $person_id );
+        ?>
+        <div class="vp-form-card" style="margin-top:16px;">
+            <h3 style="margin-top:0;"><?php esc_html_e( 'Termine und Beiträge', 'vereins-plugin' ); ?></h3>
+            <?php if ( ! $zeilen ) : ?>
+                <p class="description"><?php esc_html_e( 'Noch keine Zusage, kein Mitbringen, keine Hilfe und keine Fotos.', 'vereins-plugin' ); ?></p>
+            <?php else : ?>
+                <table class="vp-table">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e( 'Datum', 'vereins-plugin' ); ?></th>
+                            <th><?php esc_html_e( 'Termin', 'vereins-plugin' ); ?></th>
+                            <th><?php esc_html_e( 'Antwort', 'vereins-plugin' ); ?></th>
+                            <th><?php esc_html_e( 'Bringt mit', 'vereins-plugin' ); ?></th>
+                            <th><?php esc_html_e( 'Hilft bei', 'vereins-plugin' ); ?></th>
+                            <th><?php esc_html_e( 'Begleitung', 'vereins-plugin' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ( $zeilen as $z ) :
+                        $hilfe = $z['help'];
+                        if ( $z['helping'] && ! $hilfe ) {
+                            $hilfe[] = $z['help_task'] ?: __( 'packt mit an', 'vereins-plugin' );
+                        }
+                        ?>
+                        <tr>
+                            <td><?php echo esc_html( mysql2date( 'd.m.Y', $z['date'] ) ); ?></td>
+                            <td>
+                                <?php echo esc_html( $z['title'] ); ?>
+                                <?php if ( $z['photos'] ) : ?>
+                                    <br><span class="description"><?php echo esc_html( sprintf( _n( '%d Foto', '%d Fotos', $z['photos'], 'vereins-plugin' ), $z['photos'] ) ); ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ( $z['response'] === 'yes' ) : ?>
+                                    <span class="vp-badge vp-badge--active"><?php esc_html_e( 'zugesagt', 'vereins-plugin' ); ?></span>
+                                <?php elseif ( $z['response'] === 'no' ) : ?>
+                                    <span class="vp-badge vp-badge--inactive"><?php esc_html_e( 'abgesagt', 'vereins-plugin' ); ?></span>
+                                <?php else : ?>
+                                    <span class="description">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo $z['bring'] ? esc_html( implode( ', ', $z['bring'] ) ) : '<span class="description">—</span>'; ?></td>
+                            <td><?php echo $hilfe ? esc_html( implode( ', ', $hilfe ) ) : '<span class="description">—</span>'; ?></td>
+                            <td><?php echo $z['companions'] ? esc_html( implode( ', ', $z['companions'] ) ) : '<span class="description">—</span>'; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+        <?php
     }
 
     public function handle_update(): void {
