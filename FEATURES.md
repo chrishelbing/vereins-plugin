@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.17.0
+> Stand: Version 1.18.0
 
 ---
 
@@ -733,8 +733,8 @@ sie hat ein Administrator angelegt oder aufgenommen (`Person::unconfirmed_map()`
 
 ## Umfragen (Modul, seit 1.16.0)
 
-Terminumfragen wie bei Doodle, Abstimmungen, Nominierungen und (seit 1.17.0)
-Wettkampfmeldungen mit Alters- und Gewichtsklassen. Angelegt und
+Terminumfragen wie bei Doodle, Abstimmungen, Nominierungen, Ideensammlungen
+(seit 1.18.0) und Wettkampfmeldungen mit Alters- und Gewichtsklassen (seit 1.17.0). Angelegt und
 ausgewertet im Backend unter **„Umfragen“**, auf der Website über
 `[vp_umfragen]` (alle offenen und beendeten, Entwürfe nie) bzw.
 `[vp_umfragen id="…"]`. Anker `#umfrage-<id>` springt zu einer Umfrage. Die Umfragen-Liste im Backend zeigt den fertigen Shortcode je Umfrage zum Kopieren.
@@ -746,6 +746,18 @@ ausgewertet im Backend unter **„Umfragen“**, auf der Website über
   Auswertung im Backend als Tabelle Person × Vorschlag, Gäste gekennzeichnet.
 - **Abstimmung / Nominierung** (`kind = choice`): eine oder (einstellbar)
   mehrere Antworten; bei einer Nominierung je Zeile eine Person.
+- **Ideensammlung** (`kind = text`, seit 1.18.0): Vorschläge als Freitext,
+  etwa Slogans, Namen oder Wünsche. Je Person bis zu *n* Vorschläge
+  (`max_texts`, 1–10, Vorgabe 3), je Vorschlag bis 300 Zeichen; doppelte
+  (ohne Rücksicht auf Groß-/Kleinschreibung) zählen einmal. Ändern ersetzt die
+  eigenen Vorschläge, unveränderte behalten ihren Platz. Wann die anderen
+  Vorschläge sichtbar sind, regelt „Ergebnis sichtbar“ (bei neuen
+  Ideensammlungen vorbelegt: sofort); „geheim“ blendet die Namen aus. Im
+  Backend: Liste mit **Löschen je Vorschlag** (Moderation) und **„Als
+  Abstimmung übernehmen“** – legt eine Abstimmung als Entwurf an, jeder
+  verschiedene Vorschlag eine Antwort (Ergebnis nach dem Ende, „nur
+  Mitglieder“ wie die Sammlung). Tabelle `vp_poll_texts`; Schnittstelle wie
+  bei Stimmen (`POST /polls/{id}/vote` mit `texts: [...]`).
 - **Wettkampfmeldung** (`kind = entry`, seit 1.17.0): siehe unten.
 
 **Einstellungen je Umfrage:** Status (Entwurf / offen / beendet), optionales
@@ -837,7 +849,7 @@ Geburtsjahr, Geschlecht und Gewicht stehen nur an der Meldung
 (`vp_poll_entries`), nie am Profil.
 
 **Personen löschen/übernehmen.** Stimmen und Meldungen hängen über den Filter
-`vp_person_tables` an der Tabellenliste der Basis (`MemberService::person_tables()`):
+`vp_person_tables` (Stimmen, Vorschläge, Meldungen) an der Tabellenliste der Basis (`MemberService::person_tables()`):
 Wird eine Person gelöscht, gehen sie mit; wird ein Gast aufgenommen, wandern
 sie zum Mitglied.
 

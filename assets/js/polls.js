@@ -59,6 +59,7 @@
 
     function renderPoll(p, box) {
         if (p.kind === 'entry') { renderEntry(p, box); return; }
+        if (p.kind === 'text') { renderTexts(p, box); return; }
         box.textContent = '';
         box.className = 'vp-poll' + (p.open ? '' : ' is-closed');
         box.id = 'umfrage-' + p.id;
@@ -151,15 +152,15 @@
         return form;
     }
 
-    function actions(form, p, box, collect, hasVoted) {
+    function actions(form, p, box, collect, hasVoted, emptyText, saveText, undoText) {
         var err = el('p', 'vp-poll__error');
         err.hidden = true;
         var bar = el('div', 'vp-poll__actions');
-        var save = el('button', 'vp-poll__save', T.save);
+        var save = el('button', 'vp-poll__save', saveText || T.save);
         save.type = 'submit';
         bar.appendChild(save);
         if (hasVoted) {
-            var undo = el('button', 'vp-poll__undo', T.withdraw);
+            var undo = el('button', 'vp-poll__undo', undoText || T.withdraw);
             undo.type = 'button';
             undo.addEventListener('click', function () {
                 api('/polls/' + p.id + '/vote', 'DELETE').then(function (res) {
@@ -175,7 +176,7 @@
             e.preventDefault();
             err.hidden = true;
             var body = collect();
-            if (!body) { err.textContent = T.chooseOne; err.hidden = false; return; }
+            if (!body) { err.textContent = emptyText || T.chooseOne; err.hidden = false; return; }
             var send = function () {
                 save.disabled = true;
                 api('/polls/' + p.id + '/vote', 'POST', body).then(function (res) {
@@ -223,6 +224,82 @@
         return wrap;
     }
 
+
+
+    // ------------------------------------------------------------------
+    // Ideensammlung
+    // ------------------------------------------------------------------
+
+    function renderTexts(p, box) {
+        box.textContent = '';
+        box.className = 'vp-poll vp-poll--text' + (p.open ? '' : ' is-closed');
+        box.id = 'umfrage-' + p.id;
+
+        box.appendChild(el('h3', 'vp-poll__title', p.title));
+        box.appendChild(el('p', 'vp-poll__meta', closeText(p) + ' · ' + (p.voters === 1 ? T.ideaPerson : fmt(T.ideaPersons, p.voters))));
+        if (p.description) { box.appendChild(el('p', 'vp-poll__desc', p.description)); }
+
+        var hinweise = [p.max_texts === 1 ? T.ideaOne : fmt(T.ideaMax, p.max_texts)];
+        if (p.anonymous) { hinweise.push(T.anonymous); }
+        if (p.login_required) { hinweise.push(T.loginOnly); }
+        box.appendChild(el('p', 'vp-poll__note', hinweise.join(' ')));
+
+        var mine = p.mine || [];
+        if (p.open) {
+            box.appendChild(textForm(p, mine, box));
+        }
+
+        if (p.results) {
+            var wrap = el('div', 'vp-poll__results');
+            wrap.appendChild(el('h4', '', fmt(T.ideasAll, p.results.length)));
+            if (!p.results.length) { wrap.appendChild(el('p', 'vp-poll__note', T.ideasNone)); }
+            var ul = el('ul', 'vp-ideas');
+            p.results.forEach(function (r) {
+                var li = el('li', 'vp-ideas__item' + (r.mine ? ' is-mine' : ''));
+                li.appendChild(el('span', 'vp-ideas__text', r.text));
+                if (r.name) { li.appendChild(el('span', 'vp-ideas__name', r.name)); }
+                ul.appendChild(li);
+            });
+            wrap.appendChild(ul);
+            box.appendChild(wrap);
+        } else if (mine.length || !p.open) {
+            box.appendChild(el('p', 'vp-poll__note', T.ideasLater));
+        }
+    }
+
+    function textForm(p, mine, box) {
+        var form = el('form', 'vp-poll__form vp-ideas__form');
+        var felder = [];
+        var anzahl = Math.max(1, Math.min(p.max_texts, mine.length + 1));
+
+        function feld(wert) {
+            var l = el('label', 'vp-entry__field');
+            l.appendChild(document.createTextNode(fmt(T.ideaNo, felder.length + 1)));
+            var t = document.createElement('textarea');
+            t.rows = 2; t.maxLength = p.text_max; t.value = wert || '';
+            l.appendChild(t);
+            felder.push(t);
+            liste.appendChild(l);
+            mehr.hidden = felder.length >= p.max_texts;
+        }
+
+        var liste = el('div', 'vp-entry__rows');
+        form.appendChild(liste);
+        var mehr = el('button', 'vp-entry__add', T.ideaAdd);
+        mehr.type = 'button';
+        mehr.addEventListener('click', function () { if (felder.length < p.max_texts) { feld(''); felder[felder.length - 1].focus(); } });
+        for (var i = 0; i < anzahl; i++) { feld(mine[i] || ''); }
+        form.appendChild(mehr);
+
+        actions(form, p, box, function () {
+            var texts = felder.map(function (t) { return t.value.trim(); }).filter(function (t) { return t !== ''; });
+            if (!texts.length) { return null; }
+            return { texts: texts };
+        }, mine.length > 0, T.ideaWrite, T.ideaSave, T.ideaWithdraw);
+        if (mine.length) { form.appendChild(el('p', 'vp-poll__ok', T.ideaSaved)); }
+        if (person) { form.appendChild(el('p', 'vp-poll__who', fmt(T.ideaYouAre, person.name))); }
+        return form;
+    }
 
     // ------------------------------------------------------------------
     // Wettkampfmeldung

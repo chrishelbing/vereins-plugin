@@ -19,6 +19,7 @@ class PollsModule {
         add_filter( 'vp_person_tables', static function ( $tabellen ) {
             $tabellen['vp_poll_votes']   = 'person_id';
             $tabellen['vp_poll_entries'] = 'person_id';
+            $tabellen['vp_poll_texts']   = 'person_id';
             return $tabellen;
         } );
     }

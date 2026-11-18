@@ -181,6 +181,7 @@ class PollController {
         $result = $this->service->vote( $poll, $person, [
             'answers' => (array) $request->get_param( 'answers' ),
             'choices' => (array) $request->get_param( 'choices' ),
+            'texts'   => (array) $request->get_param( 'texts' ),
         ] );
         if ( is_wp_error( $result ) ) {
             return $result;
@@ -199,6 +200,7 @@ class PollController {
             return new WP_Error( 'poll_closed', __( 'Diese Umfrage ist beendet.', 'vereins-plugin' ), [ 'status' => 409 ] );
         }
         $this->model->delete_votes( (int) $poll['id'], $person );
+        $this->model->delete_texts( (int) $poll['id'], $person );
         return new WP_REST_Response( $this->service->payload( $poll, $person, Capabilities::is_orga() ), 200 );
     }
 }

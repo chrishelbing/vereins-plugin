@@ -58,6 +58,10 @@ class PollService {
             return new WP_Error( 'login_required', __( 'Bei dieser Umfrage stimmen nur angemeldete Mitglieder ab.', 'vereins-plugin' ), [ 'status' => 403 ] );
         }
 
+        if ( $poll['kind'] === 'text' ) {
+            return $this->submit_texts( $poll, $person_id, (array) ( $input['texts'] ?? [] ) );
+        }
+
         $gueltig = array_map( 'intval', array_column( $this->model->options( (int) $poll['id'] ), 'id' ) );
         $werte   = [];
 
@@ -96,6 +100,57 @@ class PollService {
 
         $this->model->replace_votes( (int) $poll['id'], $person_id, $werte );
         return true;
+    }
+
+    /** Längste Länge eines Vorschlags (Zeichen). */
+    public const TEXT_MAX = 300;
+
+    /**
+     * Ideensammlung: die Vorschläge einer Person speichern. Leere Felder
+     * fallen weg, doppelte auch; eine leere Liste ist ein Fehler – zum
+     * Zurückziehen gibt es „Vorschläge zurückziehen“.
+     */
+    private function submit_texts( array $poll, int $person_id, array $texte ): true|WP_Error {
+        $sauber = [];
+        foreach ( $texte as $t ) {
+            $t = trim( preg_replace( '/\s+/u', ' ', sanitize_text_field( (string) $t ) ) );
+            if ( $t === '' ) {
+                continue;
+            }
+            if ( mb_strlen( $t ) > self::TEXT_MAX ) {
+                return new WP_Error( 'too_long', sprintf( __( 'Ein Vorschlag darf höchstens %d Zeichen lang sein.', 'vereins-plugin' ), self::TEXT_MAX ), [ 'status' => 400 ] );
+            }
+            if ( ! in_array( mb_strtolower( $t ), array_map( 'mb_strtolower', $sauber ), true ) ) {
+                $sauber[] = $t;
+            }
+        }
+        if ( ! $sauber ) {
+            return new WP_Error( 'nothing_written', __( 'Bitte schreib mindestens einen Vorschlag.', 'vereins-plugin' ), [ 'status' => 400 ] );
+        }
+        $max = max( 1, (int) ( $poll['max_texts'] ?? 3 ) );
+        if ( count( $sauber ) > $max ) {
+            return new WP_Error( 'too_many', sprintf( _n( 'Höchstens %d Vorschlag je Person.', 'Höchstens %d Vorschläge je Person.', $max, 'vereins-plugin' ), $max ), [ 'status' => 400 ] );
+        }
+        $this->model->replace_texts( (int) $poll['id'], $person_id, $sauber );
+        return true;
+    }
+
+    /**
+     * Ideensammlung: alle Vorschläge mit Namen (außer bei geheimen Umfragen).
+     *
+     * @return array<int, array{id:int, text:string, name:?string, mine:bool}>
+     */
+    public function text_results( array $poll, int $person_id = 0 ): array {
+        $zeilen = $this->model->texts( (int) $poll['id'] );
+        $namen  = empty( $poll['anonymous'] )
+            ? Person::names( array_values( array_unique( array_map( static fn( $t ) => (int) $t['person_id'], $zeilen ) ) ) )
+            : [];
+        return array_map( static fn( $t ) => [
+            'id'   => (int) $t['id'],
+            'text' => $t['text'],
+            'name' => $namen ? ( $namen[ (int) $t['person_id'] ] ?? __( 'Unbekannt', 'vereins-plugin' ) ) : null,
+            'mine' => $person_id !== 0 && (int) $t['person_id'] === $person_id,
+        ], $zeilen );
     }
 
     /**
@@ -153,6 +208,9 @@ class PollService {
         if ( $poll['kind'] === 'entry' ) {
             return $this->entry_payload( $poll, $person_id );
         }
+        if ( $poll['kind'] === 'text' ) {
+            return $this->text_payload( $poll, $person_id, $is_orga );
+        }
         $optionen = $this->model->options( (int) $poll['id'] );
         $meine    = [];
         if ( $person_id ) {
@@ -186,6 +244,28 @@ class PollService {
             ], $optionen ),
             'mine'           => $meine ?: (object) [],
             'results'        => $sichtbar ? $this->results( $poll ) : null,
+        ];
+    }
+
+    /** Ideensammlung für die Oberfläche: eigene Vorschläge und – wenn erlaubt – alle. */
+    private function text_payload( array $poll, int $person_id, bool $is_orga ): array {
+        $meine = $person_id ? array_column( $this->model->texts( (int) $poll['id'], $person_id ), 'text' ) : [];
+        $sicht = $this->may_see_results( $poll, $person_id, (bool) $meine, $is_orga );
+        return [
+            'id'             => (int) $poll['id'],
+            'kind'           => 'text',
+            'title'          => $poll['title'],
+            'description'    => (string) $poll['description'],
+            'open'           => $this->is_open( $poll ),
+            'closes_at'      => $poll['closes_at'] ?: null,
+            'anonymous'      => ! empty( $poll['anonymous'] ),
+            'login_required' => ! empty( $poll['login_required'] ),
+            'results_rule'   => $poll['results'],
+            'voters'         => $this->model->voter_count( (int) $poll['id'] ),
+            'max_texts'      => max( 1, (int) ( $poll['max_texts'] ?? 3 ) ),
+            'text_max'       => self::TEXT_MAX,
+            'mine'           => $meine,
+            'results'        => $sicht ? $this->text_results( $poll, $person_id ) : null,
         ];
     }
 

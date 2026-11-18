@@ -103,3 +103,11 @@
 .vp-entry__saved { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .9rem; }
 .vp-entry__chip { border-color: var(--vp-poll-accent); color: var(--vp-poll-accent); }
 .vp-entry__mine { margin: 0; padding-left: 1.2rem; }
+
+/* Ideensammlung --------------------------------------------------------- */
+.vp-ideas__form textarea { font: inherit; padding: .5rem; border: 1px solid var(--vp-poll-border); border-radius: 6px; resize: vertical; color: inherit; }
+.vp-ideas { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.vp-ideas__item { border-left: 3px solid var(--vp-poll-border); padding: .35rem .75rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem 1rem; }
+.vp-ideas__item.is-mine { border-left-color: var(--vp-poll-accent); }
+.vp-ideas__text { font-weight: 500; }
+.vp-ideas__name { color: var(--vp-poll-muted); font-size: .85rem; }

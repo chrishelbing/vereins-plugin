@@ -246,4 +246,47 @@ Pruefung::ok( 'als gelöscht vermerkt', ! empty( $model->find( $alt )['purged_at
 $model->delete( $wid );
 Pruefung::gleich( 'Löschen der Umfrage räumt Meldungen ab', count( $model->entries( $wid ) ), 0 );
 
+// =====================================================================
+echo "\nIdeensammlung\n";
+
+$iid = $model->save( [ 'kind' => 'text', 'title' => 'Slogan fürs Vereinsshirt', 'status' => 'open', 'max_texts' => 2, 'results' => 'after_vote' ] );
+$i   = $model->find( $iid );
+Pruefung::ok( 'Gast schreibt zwei Vorschläge', $service->vote( $i, $gabi, [ 'texts' => [ 'Fallen, aufstehen, weitermachen', '  ', 'Ippon im Herzen' ] ] ) === true );
+Pruefung::ok( 'drei Vorschläge bei Höchstzahl 2 abgelehnt', is_wp_error( $service->vote( $i, $anna, [ 'texts' => [ 'A', 'B', 'C' ] ] ) ) );
+Pruefung::ok( 'leere Vorschläge abgelehnt', is_wp_error( $service->vote( $i, $anna, [ 'texts' => [ '', ' ' ] ] ) ) );
+Pruefung::ok( 'zu lange Vorschläge abgelehnt', is_wp_error( $service->vote( $i, $anna, [ 'texts' => [ str_repeat( 'x', PollService::TEXT_MAX + 1 ) ] ] ) ) );
+Pruefung::ok( 'Mitglied schreibt, doppelt zählt einmal', $service->vote( $i, $anna, [ 'texts' => [ 'Ippon im Herzen', 'ippon im herzen' ] ] ) === true );
+Pruefung::gleich( 'Vorschläge der Mitglieder', array_column( $model->texts( $iid, $anna ), 'text' ), [ 'Ippon im Herzen' ] );
+
+$alt_id = (int) $model->texts( $iid, $gabi )[0]['id'];
+$service->vote( $i, $gabi, [ 'texts' => [ 'Fallen, aufstehen, weitermachen', 'Judo verbindet' ] ] );
+$g = $model->texts( $iid, $gabi );
+Pruefung::ok( 'Ändern: unveränderter Vorschlag behält seine Zeile', (int) $g[0]['id'] === $alt_id );
+Pruefung::gleich( 'Ändern: ersetzter Vorschlag ist weg', array_column( $g, 'text' ), [ 'Fallen, aufstehen, weitermachen', 'Judo verbindet' ] );
+Pruefung::gleich( 'zwei Personen', $model->voter_count( $iid ), 2 );
+
+$pay = $service->payload( $i, $orga, false );
+Pruefung::ok( 'vor eigenem Vorschlag keine fremden sichtbar', $pay['results'] === null && $pay['mine'] === [] );
+$pay = $service->payload( $i, $anna, false );
+Pruefung::gleich( 'nach eigenem Vorschlag alle sichtbar, mit Namen, älteste zuerst', array_column( $pay['results'], 'name' ), [ 'Gabi Gast', 'Anna Aktiv', 'Gabi Gast' ] );
+Pruefung::ok( 'eigener Vorschlag markiert', $pay['results'][1]['mine'] === true && $pay['results'][0]['mine'] === false );
+
+$geheim = $model->find( $model->save( [ 'kind' => 'text', 'title' => 'geheim', 'status' => 'open', 'anonymous' => 1, 'results' => 'always' ] ) );
+$service->vote( $geheim, $anna, [ 'texts' => [ 'Idee' ] ] );
+Pruefung::ok( 'geheim: ohne Namen', $service->payload( $geheim, $gabi, false )['results'][0]['name'] === null );
+
+$model->delete_text( (int) $g[1]['id'] );
+Pruefung::gleich( 'Orgateam löscht einen Vorschlag', count( $model->texts( $iid ) ), 2 );
+
+$abst = PollsAdmin::choice_from_texts( $model, $service, $model->find( $iid ) );
+$ab   = $model->find( $abst );
+Pruefung::ok( 'als Abstimmung übernommen: Entwurf, Auswahl', $ab['kind'] === 'choice' && $ab['status'] === 'draft' );
+Pruefung::gleich( 'Antworten = verschiedene Vorschläge', array_column( $model->options( $abst ), 'label' ), [ 'Fallen, aufstehen, weitermachen', 'Ippon im Herzen' ] );
+
+$model->delete_votes( $iid, $anna );
+$model->delete_texts( $iid, $anna );
+Pruefung::gleich( 'Zurückziehen entfernt die eigenen Vorschläge', count( $model->texts( $iid, $anna ) ), 0 );
+$model->delete( $iid );
+Pruefung::gleich( 'Löschen der Umfrage räumt Vorschläge ab', count( $model->texts( $iid ) ), 0 );
+
 Pruefung::abschluss( 'Umfragen' );

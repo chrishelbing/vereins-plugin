@@ -31,6 +31,8 @@ class PollsAdmin {
         add_action( 'admin_post_vp_poll_status', [ $this, 'handle_status' ] );
         add_action( 'admin_post_vp_delete_poll', [ $this, 'handle_delete' ] );
         add_action( 'admin_post_vp_poll_entries_csv', [ $this, 'handle_csv' ] );
+        add_action( 'admin_post_vp_delete_poll_text', [ $this, 'handle_delete_text' ] );
+        add_action( 'admin_post_vp_poll_to_choice',   [ $this, 'handle_to_choice' ] );
     }
 
     public function add_menu(): void {
@@ -85,6 +87,7 @@ class PollsAdmin {
         <?php $this->render_notices(); ?>
         <p>
             <a class="button button-primary" href="<?php echo esc_url( $this->url( [ 'neu' => 1 ] ) ); ?>"><?php esc_html_e( 'Neue Umfrage', 'vereins-plugin' ); ?></a>
+            <a class="button" href="<?php echo esc_url( $this->url( [ 'neu' => 1, 'art' => 'ideen' ] ) ); ?>"><?php esc_html_e( 'Neue Ideensammlung', 'vereins-plugin' ); ?></a>
             <a class="button" href="<?php echo esc_url( $this->url( [ 'neu' => 1, 'art' => 'meldung' ] ) ); ?>"><?php esc_html_e( 'Neue Wettkampfmeldung', 'vereins-plugin' ); ?></a>
         </p>
 
@@ -113,7 +116,7 @@ class PollsAdmin {
                     <td><?php echo $p['closes_at'] ? esc_html( mysql2date( 'd.m.Y H:i', $p['closes_at'] ) ) : '<span class="description">—</span>'; ?></td>
                     <td><code style="user-select:all;">[vp_umfragen id="<?php echo (int) $p['id']; ?>"]</code></td>
                     <td class="vp-actions">
-                        <a class="button button-small" href="<?php echo esc_url( $this->url( [ 'ergebnis' => $p['id'] ] ) ); ?>"><?php echo $p['kind'] === 'entry' ? esc_html__( 'Meldeliste', 'vereins-plugin' ) : esc_html__( 'Ergebnis', 'vereins-plugin' ); ?></a>
+                        <a class="button button-small" href="<?php echo esc_url( $this->url( [ 'ergebnis' => $p['id'] ] ) ); ?>"><?php echo $p['kind'] === 'entry' ? esc_html__( 'Meldeliste', 'vereins-plugin' ) : ( $p['kind'] === 'text' ? esc_html__( 'Vorschläge', 'vereins-plugin' ) : esc_html__( 'Ergebnis', 'vereins-plugin' ) ); ?></a>
                         <a class="button button-small" href="<?php echo esc_url( $this->url( [ 'edit' => $p['id'] ] ) ); ?>"><?php esc_html_e( 'Bearbeiten', 'vereins-plugin' ); ?></a>
                         <?php
                         if ( $p['status'] !== 'open' ) {
@@ -167,6 +170,7 @@ class PollsAdmin {
         return match ( $kind ) {
             'date'  => __( 'Terminumfrage', 'vereins-plugin' ),
             'entry' => __( 'Wettkampfmeldung', 'vereins-plugin' ),
+            'text'  => __( 'Ideensammlung', 'vereins-plugin' ),
             default => __( 'Abstimmung', 'vereins-plugin' ),
         };
     }
@@ -180,10 +184,14 @@ class PollsAdmin {
             'id' => 0, 'kind' => 'choice', 'title' => '', 'description' => '', 'status' => 'draft',
             'closes_at' => '', 'multiple' => 0, 'allow_maybe' => 1, 'anonymous' => 0,
             'results' => 'after_vote', 'login_required' => 0,
-            'event_date' => '', 'classes' => null, 'purge_days' => 30,
+            'event_date' => '', 'classes' => null, 'purge_days' => 30, 'max_texts' => 3,
         ];
         if ( ! $poll && ( $_GET['art'] ?? '' ) === 'meldung' ) {
             $p['kind'] = 'entry';
+        }
+        if ( ! $poll && ( $_GET['art'] ?? '' ) === 'ideen' ) {
+            $p['kind']    = 'text';
+            $p['results'] = 'always';
         }
         $vorlagen = ClassTemplates::all();
         $klassen  = $poll ? PollModel::classes( $poll ) : ( reset( $vorlagen )['classes'] ?? [] );
@@ -193,6 +201,7 @@ class PollsAdmin {
         ?>
         <h1><?php echo $poll ? esc_html__( 'Umfrage bearbeiten', 'vereins-plugin' ) : esc_html__( 'Neue Umfrage', 'vereins-plugin' ); ?></h1>
         <p><a href="<?php echo esc_url( $this->url() ); ?>">&larr; <?php esc_html_e( 'Zur Übersicht', 'vereins-plugin' ); ?></a></p>
+        <?php $this->render_notices(); ?>
 
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="vp-form-card vp-form-card--wide" id="vp-poll-form">
             <input type="hidden" name="action" value="vp_save_poll">
@@ -213,6 +222,7 @@ class PollsAdmin {
                     <td>
                         <label><input type="radio" name="kind" value="date" <?php checked( $p['kind'], 'date' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Terminumfrage – passt / vielleicht / passt nicht je Vorschlag', 'vereins-plugin' ); ?></label><br>
                         <label><input type="radio" name="kind" value="choice" <?php checked( $p['kind'], 'choice' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Abstimmung oder Nominierung – Auswahl aus Antworten', 'vereins-plugin' ); ?></label><br>
+                        <label><input type="radio" name="kind" value="text" <?php checked( $p['kind'], 'text' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Ideensammlung – Vorschläge als Freitext (z. B. Slogans, Namen, Wünsche)', 'vereins-plugin' ); ?></label><br>
                         <label><input type="radio" name="kind" value="entry" <?php checked( $p['kind'], 'entry' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Wettkampfmeldung – Starter mit Alters- und Gewichtsklasse', 'vereins-plugin' ); ?></label>
                         <?php if ( $hat_stimmen ) : ?>
                             <input type="hidden" name="kind" value="<?php echo esc_attr( $p['kind'] ); ?>">
@@ -252,7 +262,14 @@ class PollsAdmin {
                         <p class="description"><?php esc_html_e( 'Danach werden Namen, Jahrgänge und Gewichtsklassen der Starter gelöscht; die Umfrage selbst bleibt stehen. 0 = nicht automatisch löschen.', 'vereins-plugin' ); ?></p>
                     </td>
                 </tr>
-                <tr class="vp-not-entry">
+                <tr class="vp-only-text">
+                    <th><label for="vp-poll-max-texts"><?php esc_html_e( 'Vorschläge je Person', 'vereins-plugin' ); ?></label></th>
+                    <td>
+                        <input type="number" id="vp-poll-max-texts" name="max_texts" min="1" max="10" style="width:5em" value="<?php echo (int) $p['max_texts']; ?>">
+                        <p class="description"><?php printf( esc_html__( 'Jeder Vorschlag bis %d Zeichen. Unpassende Vorschläge kannst du in der Auswertung löschen; dort lassen sich die Vorschläge auch als Abstimmung übernehmen.', 'vereins-plugin' ), PollService::TEXT_MAX ); ?></p>
+                    </td>
+                </tr>
+                <tr class="vp-not-entry vp-not-text">
                     <th><?php esc_html_e( 'Antwortmöglichkeiten', 'vereins-plugin' ); ?></th>
                     <td>
                         <p class="description vp-only-date"><?php esc_html_e( 'Je Zeile ein Terminvorschlag: Beginn, optional Ende und ein Zusatz.', 'vereins-plugin' ); ?></p>
@@ -326,12 +343,17 @@ class PollsAdmin {
         (function(){
             var form = document.getElementById('vp-poll-form');
             function art(){ var r = form.querySelector('input[name="kind"]:checked'); return r ? r.value : 'choice'; }
+            // vp-only-<art>: nur bei dieser Art; vp-not-<art>: nicht bei dieser Art
             function zeigen(){
                 var a = art();
-                form.querySelectorAll('.vp-only-date').forEach(function(e){ e.style.display = a === 'date' ? '' : 'none'; });
-                form.querySelectorAll('.vp-only-choice').forEach(function(e){ e.style.display = a === 'choice' ? '' : 'none'; });
-                form.querySelectorAll('.vp-only-entry').forEach(function(e){ e.style.display = a === 'entry' ? '' : 'none'; });
-                form.querySelectorAll('.vp-not-entry').forEach(function(e){ e.style.display = a === 'entry' ? 'none' : ''; });
+                form.querySelectorAll('[class*="vp-only-"],[class*="vp-not-"]').forEach(function(e){
+                    var zeigen = true;
+                    e.classList.forEach(function(c){
+                        var m = c.match(/^vp-(only|not)-(date|choice|entry|text)$/);
+                        if (m && ((m[1] === 'only' && m[2] !== a) || (m[1] === 'not' && m[2] === a))) { zeigen = false; }
+                    });
+                    e.style.display = zeigen ? '' : 'none';
+                });
             }
             var laden = document.getElementById('vp-poll-template-load');
             if (laden) {
@@ -364,7 +386,7 @@ class PollsAdmin {
         $this->require_admin();
 
         $id   = (int) ( $_POST['id'] ?? 0 );
-        $kind = in_array( $_POST['kind'] ?? '', [ 'date', 'entry' ], true ) ? $_POST['kind'] : 'choice';
+        $kind = in_array( $_POST['kind'] ?? '', [ 'date', 'entry', 'text' ], true ) ? $_POST['kind'] : 'choice';
         $tag  = sanitize_text_field( wp_unslash( (string) ( $_POST['event_date'] ?? '' ) ) );
         $tag  = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $tag ) ? $tag : '';
         $dt   = static function ( $v ): ?string {
@@ -384,6 +406,7 @@ class PollsAdmin {
             'anonymous'      => ! empty( $_POST['anonymous'] ),
             'results'        => sanitize_key( $_POST['results'] ?? 'after_vote' ),
             'login_required' => ! empty( $_POST['login_required'] ),
+            'max_texts'      => (int) ( $_POST['max_texts'] ?? 3 ),
             'created_by'     => get_current_user_id(),
         ], $kind === 'entry' ? [
             'anonymous'  => false,
@@ -393,7 +416,7 @@ class PollsAdmin {
             'purge_days' => (int) ( $_POST['purge_days'] ?? 30 ),
         ] : [] ) );
 
-        if ( $kind !== 'entry' ) {
+        if ( in_array( $kind, [ 'date', 'choice' ], true ) ) {
             $this->model->save_options( $poll_id, self::parse_options( (array) ( $_POST['options'] ?? [] ), $kind ) );
         }
 
@@ -465,6 +488,7 @@ class PollsAdmin {
             'saved'   => __( 'Umfrage gespeichert.', 'vereins-plugin' ),
             'status'  => __( 'Status geändert.', 'vereins-plugin' ),
             'deleted' => __( 'Umfrage gelöscht.', 'vereins-plugin' ),
+            'copied'  => __( 'Abstimmung als Entwurf angelegt – prüfen, dann auf „Offen“ stellen.', 'vereins-plugin' ),
         ];
         $msg = sanitize_key( $_GET['msg'] ?? '' );
         if ( $msg === 'entry_incomplete' ) {
@@ -493,6 +517,10 @@ class PollsAdmin {
     private function render_results( array $poll ): void {
         if ( $poll['kind'] === 'entry' ) {
             $this->render_entries( $poll );
+            return;
+        }
+        if ( $poll['kind'] === 'text' ) {
+            $this->render_texts( $poll );
             return;
         }
         $optionen = $this->model->options( (int) $poll['id'] );
@@ -692,6 +720,113 @@ class PollsAdmin {
         header( 'Content-Type: text/csv; charset=utf-8' );
         header( 'Content-Disposition: attachment; filename="' . $name . '"' );
         echo ( new EntryService( $this->model ) )->csv( $poll, ( (string) Settings::get( 'club_name', '' ) ?: get_bloginfo( 'name' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput
+        exit;
+    }
+
+    // ------------------------------------------------------------------
+    // Ideensammlung: Vorschläge
+    // ------------------------------------------------------------------
+
+    private function render_texts( array $poll ): void {
+        $liste  = $this->service->text_results( $poll );
+        $anzahl = $this->model->voter_count( (int) $poll['id'] );
+        $geheim = ! empty( $poll['anonymous'] );
+        $msg    = sanitize_key( $_GET['msg'] ?? '' );
+        ?>
+        <h1><?php echo esc_html( $poll['title'] ); ?></h1>
+        <p><a href="<?php echo esc_url( $this->url() ); ?>">&larr; <?php esc_html_e( 'Zur Übersicht', 'vereins-plugin' ); ?></a></p>
+        <?php if ( $msg === 'text_deleted' ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Vorschlag gelöscht.', 'vereins-plugin' ); ?></p></div>
+        <?php endif; ?>
+        <p>
+            <?php esc_html_e( 'Ideensammlung', 'vereins-plugin' ); ?> ·
+            <?php $this->status_badge( $poll ); ?> ·
+            <?php echo esc_html( sprintf( _n( '%d Vorschlag', '%d Vorschläge', count( $liste ), 'vereins-plugin' ), count( $liste ) ) ); ?> ·
+            <?php echo esc_html( sprintf( _n( '%d Person', '%d Personen', $anzahl, 'vereins-plugin' ), $anzahl ) ); ?>
+            <?php if ( $geheim ) : ?> · <?php esc_html_e( 'geheim – ohne Namen', 'vereins-plugin' ); ?><?php endif; ?>
+        </p>
+        <?php if ( ! $liste ) : ?>
+            <p><?php esc_html_e( 'Noch keine Vorschläge.', 'vereins-plugin' ); ?></p>
+            <?php return; ?>
+        <?php endif; ?>
+
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-bottom:16px;">
+            <input type="hidden" name="action" value="vp_poll_to_choice">
+            <input type="hidden" name="id" value="<?php echo (int) $poll['id']; ?>">
+            <?php wp_nonce_field( 'vp_poll_to_choice_' . (int) $poll['id'] ); ?>
+            <button class="button button-primary"><?php esc_html_e( 'Als Abstimmung übernehmen', 'vereins-plugin' ); ?></button>
+            <span class="description"><?php esc_html_e( 'Legt eine neue Abstimmung als Entwurf an – mit allen Vorschlägen als Antworten. Dort kannst du kürzen und zusammenfassen, bevor sie startet.', 'vereins-plugin' ); ?></span>
+        </form>
+
+        <table class="vp-table">
+            <thead><tr>
+                <th><?php esc_html_e( 'Vorschlag', 'vereins-plugin' ); ?></th>
+                <?php if ( ! $geheim ) : ?><th><?php esc_html_e( 'Von', 'vereins-plugin' ); ?></th><?php endif; ?>
+                <th></th>
+            </tr></thead>
+            <tbody>
+            <?php foreach ( $liste as $t ) : ?>
+                <tr>
+                    <td><?php echo esc_html( $t['text'] ); ?></td>
+                    <?php if ( ! $geheim ) : ?><td><?php echo esc_html( (string) $t['name'] ); ?></td><?php endif; ?>
+                    <td style="width:1%;white-space:nowrap;">
+                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Diesen Vorschlag löschen?', 'vereins-plugin' ) ); ?>');">
+                            <input type="hidden" name="action" value="vp_delete_poll_text">
+                            <input type="hidden" name="id" value="<?php echo (int) $poll['id']; ?>">
+                            <input type="hidden" name="text_id" value="<?php echo (int) $t['id']; ?>">
+                            <?php wp_nonce_field( 'vp_delete_poll_text_' . (int) $t['id'] ); ?>
+                            <button class="button button-small"><?php esc_html_e( 'Löschen', 'vereins-plugin' ); ?></button>
+                        </form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php
+    }
+
+    public function handle_delete_text(): void {
+        $text_id = (int) ( $_POST['text_id'] ?? 0 );
+        $poll_id = (int) ( $_POST['id'] ?? 0 );
+        check_admin_referer( 'vp_delete_poll_text_' . $text_id );
+        $this->require_admin();
+        $this->model->delete_text( $text_id );
+        wp_safe_redirect( $this->url( [ 'ergebnis' => $poll_id, 'msg' => 'text_deleted' ] ) );
+        exit;
+    }
+
+    /**
+     * Aus einer Ideensammlung eine Abstimmung machen: neue Umfrage als
+     * Entwurf, jeder (verschiedene) Vorschlag eine Antwort.
+     */
+    public static function choice_from_texts( PollModel $model, PollService $service, array $poll ): int {
+        $antworten = [];
+        foreach ( $service->text_results( $poll ) as $t ) {
+            $antworten[ mb_strtolower( $t['text'] ) ] ??= [ 'label' => $t['text'] ];
+        }
+        $neu = $model->save( [
+            'kind'           => 'choice',
+            'title'          => sprintf( __( 'Abstimmung: %s', 'vereins-plugin' ), $poll['title'] ),
+            'description'    => (string) $poll['description'],
+            'status'         => 'draft',
+            'results'        => 'after_close',
+            'login_required' => ! empty( $poll['login_required'] ),
+            'created_by'     => get_current_user_id(),
+        ] );
+        $model->save_options( $neu, array_values( $antworten ) );
+        return $neu;
+    }
+
+    public function handle_to_choice(): void {
+        $id = (int) ( $_POST['id'] ?? 0 );
+        check_admin_referer( 'vp_poll_to_choice_' . $id );
+        $this->require_admin();
+        $poll = $this->model->find( $id );
+        if ( ! $poll || $poll['kind'] !== 'text' ) {
+            wp_die( esc_html__( 'Umfrage nicht gefunden.', 'vereins-plugin' ), 404 );
+        }
+        $neu = self::choice_from_texts( $this->model, $this->service, $poll );
+        wp_safe_redirect( $this->url( [ 'edit' => $neu, 'msg' => 'copied' ] ) );
         exit;
     }
 }

@@ -10,7 +10,7 @@ namespace VereinsPlugin\Polls;
  */
 class PollModel {
 
-    public const KINDS   = [ 'date', 'choice', 'entry' ];
+    public const KINDS   = [ 'date', 'choice', 'entry', 'text' ];
     public const STATES  = [ 'draft', 'open', 'closed' ];
     public const RESULTS = [ 'always', 'after_vote', 'after_close', 'orga' ];
 
@@ -57,6 +57,7 @@ class PollModel {
             'event_date'     => ! empty( $data['event_date'] ) ? (string) $data['event_date'] : null,
             'classes'        => isset( $data['classes'] ) ? wp_json_encode( array_values( (array) $data['classes'] ) ) : null,
             'purge_days'     => max( 0, min( 365, (int) ( $data['purge_days'] ?? 30 ) ) ),
+            'max_texts'      => max( 1, min( 10, (int) ( $data['max_texts'] ?? 3 ) ) ),
         ];
 
         if ( ! empty( $data['id'] ) ) {
@@ -81,6 +82,7 @@ class PollModel {
         global $wpdb;
         $wpdb->delete( $this->t( 'vp_poll_votes' ),   [ 'poll_id' => $id ] );
         $wpdb->delete( $this->t( 'vp_poll_entries' ), [ 'poll_id' => $id ] );
+        $wpdb->delete( $this->t( 'vp_poll_texts' ),   [ 'poll_id' => $id ] );
         $wpdb->delete( $this->t( 'vp_poll_options' ), [ 'poll_id' => $id ] );
         $wpdb->delete( $this->t( 'vp_polls' ),        [ 'id' => $id ] );
     }
@@ -176,7 +178,7 @@ class PollModel {
 
     /** Wie viele Personen haben abgestimmt bzw. gemeldet? */
     public function voter_count( int $poll_id ): int {
-        $zeilen = array_merge( $this->votes( $poll_id ), $this->entries( $poll_id ) );
+        $zeilen = array_merge( $this->votes( $poll_id ), $this->entries( $poll_id ), $this->texts( $poll_id ) );
         return count( array_unique( array_map( static fn( $v ) => (int) $v['person_id'], $zeilen ) ) );
     }
 
@@ -232,6 +234,57 @@ class PollModel {
             $wo['person_id'] = $person_id;
         }
         $wpdb->delete( $this->t( 'vp_poll_entries' ), $wo );
+    }
+
+    // ------------------------------------------------------------------
+    // Vorschläge (Ideensammlung)
+    // ------------------------------------------------------------------
+
+    /** @return array<int, array> in Eingabereihenfolge */
+    public function texts( int $poll_id, ?int $person_id = null ): array {
+        global $wpdb;
+        $rows = $person_id === null
+            ? $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$this->t('vp_poll_texts')} WHERE poll_id = %d ORDER BY id ASC", $poll_id ), ARRAY_A )
+            : $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$this->t('vp_poll_texts')} WHERE poll_id = %d AND person_id = %d ORDER BY id ASC", $poll_id, $person_id ), ARRAY_A );
+        $rows = $rows ?: [];
+        usort( $rows, static fn( $a, $b ) => (int) $a['id'] <=> (int) $b['id'] );
+        return $rows;
+    }
+
+    /**
+     * Vorschläge einer Person abgleichen. Unveränderte behalten ihre Zeile
+     * (und damit ihren Zeitpunkt), entfallene werden gelöscht, neue angelegt.
+     *
+     * @param string[] $texte
+     */
+    public function replace_texts( int $poll_id, int $person_id, array $texte ): void {
+        global $wpdb;
+        $offen = $texte;
+        foreach ( $this->texts( $poll_id, $person_id ) as $row ) {
+            $i = array_search( $row['text'], $offen, true );
+            if ( $i === false ) {
+                $wpdb->delete( $this->t( 'vp_poll_texts' ), [ 'id' => (int) $row['id'] ] );
+            } else {
+                unset( $offen[ $i ] );
+            }
+        }
+        $jetzt = current_time( 'mysql' );
+        foreach ( $offen as $text ) {
+            $wpdb->insert( $this->t( 'vp_poll_texts' ), [
+                'poll_id' => $poll_id, 'person_id' => $person_id, 'text' => $text, 'created_at' => $jetzt,
+            ] );
+        }
+    }
+
+    public function delete_texts( int $poll_id, int $person_id ): void {
+        global $wpdb;
+        $wpdb->delete( $this->t( 'vp_poll_texts' ), [ 'poll_id' => $poll_id, 'person_id' => $person_id ] );
+    }
+
+    /** Einen Vorschlag entfernen (Moderation durch das Orgateam). */
+    public function delete_text( int $text_id ): void {
+        global $wpdb;
+        $wpdb->delete( $this->t( 'vp_poll_texts' ), [ 'id' => $text_id ] );
     }
 
     public function mark_purged( int $poll_id ): void {

@@ -21,7 +21,7 @@ class PollsShortcode {
         return [
             'tag'         => self::TAG,
             'title'       => __( 'Umfragen', 'vereins-plugin' ),
-            'description' => __( 'Offene und beendete Umfragen (Terminumfragen, Abstimmungen, Nominierungen, Wettkampfmeldungen). Teilnahme auch ohne Anmeldung – Gäste nennen einmal ihren Namen. Entwürfe erscheinen nicht.', 'vereins-plugin' ),
+            'description' => __( 'Offene und beendete Umfragen (Terminumfragen, Abstimmungen, Nominierungen, Ideensammlungen, Wettkampfmeldungen). Teilnahme auch ohne Anmeldung – Gäste nennen einmal ihren Namen. Entwürfe erscheinen nicht.', 'vereins-plugin' ),
             'atts'        => [
                 [ 'id', __( 'alle', 'vereins-plugin' ), __( 'Nur diese eine Umfrage zeigen – die Nummer steht in der Umfragen-Liste im Backend.', 'vereins-plugin' ) ],
             ],
@@ -83,6 +83,22 @@ class PollsShortcode {
             'codeTitle'    => __( 'Zugangscode', 'vereins-plugin' ),
             'codeText'     => __( 'Diese Adresse gehört zu einem Mitgliedskonto. Wir haben dir einen Zugangscode geschickt – nach der Eingabe bist du angemeldet. Kein Mitglied? Dann lass das E-Mail-Feld leer.', 'vereins-plugin' ),
             'codeNeeded'   => __( 'Bitte gib den sechsstelligen Code aus der E-Mail ein.', 'vereins-plugin' ),
+
+            // Ideensammlung
+            'ideaPerson'   => __( '1 Person hat Vorschläge gemacht', 'vereins-plugin' ),
+            'ideaPersons'  => __( '%d Personen haben Vorschläge gemacht', 'vereins-plugin' ),
+            'ideaOne'      => __( 'Ein Vorschlag je Person.', 'vereins-plugin' ),
+            'ideaMax'      => __( 'Bis zu %d Vorschläge je Person.', 'vereins-plugin' ),
+            'ideaNo'       => __( 'Vorschlag %d', 'vereins-plugin' ),
+            'ideaAdd'      => __( '+ Weiteren Vorschlag', 'vereins-plugin' ),
+            'ideaWrite'    => __( 'Bitte schreib mindestens einen Vorschlag.', 'vereins-plugin' ),
+            'ideaSave'     => __( 'Vorschläge speichern', 'vereins-plugin' ),
+            'ideaWithdraw' => __( 'Vorschläge zurückziehen', 'vereins-plugin' ),
+            'ideaSaved'    => __( 'Deine Vorschläge sind gespeichert. Du kannst sie ändern, solange die Sammlung läuft.', 'vereins-plugin' ),
+            'ideaYouAre'   => __( 'Du schreibst als %s.', 'vereins-plugin' ),
+            'ideasAll'     => __( 'Alle Vorschläge (%d)', 'vereins-plugin' ),
+            'ideasNone'    => __( 'Noch keine Vorschläge.', 'vereins-plugin' ),
+            'ideasLater'   => __( 'Die Vorschläge der anderen werden später sichtbar.', 'vereins-plugin' ),
 
             // Wettkampfmeldung
             'eventOn'          => __( 'Wettkampf am %s', 'vereins-plugin' ),
