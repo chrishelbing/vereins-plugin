@@ -204,6 +204,31 @@ foreach ( $dateien as $datei ) {
 $fehler += melde( 'Modultrennung', $trennung, 'Termine und Umfragen greifen nicht ineinander' );
 
 // ---------------------------------------------------------------------
+// 4c. Texte der Umfrage-Skripte: jeder T.<schlüssel> muss in PHP stehen.
+//     T[variable] (z. B. T[s] für passt/vielleicht) prüft das nicht.
+// ---------------------------------------------------------------------
+$umfrage_texte = [];
+$umfrage_anzahl = 0;
+foreach ( [
+    'assets/js/polls.js'         => 'includes/Polls/PollsShortcode.php',
+    'assets/js/poll-classes.js'  => 'includes/Polls/ClassesAdmin.php',
+] as $js => $php ) {
+    $code  = file_get_contents( $root . '/' . $php );
+    $skr   = file_get_contents( $root . '/' . $js );
+    if ( ! preg_match( '/function texts\(\): array \{.*?return \[(.*?)\n        \];/s', $code, $m ) ) {
+        $umfrage_texte[] = "$php: texts() nicht gefunden";
+        continue;
+    }
+    preg_match_all( "/^\s*'(\w+)'\s*=>/m", $m[1], $d );
+    preg_match_all( '/\bT\.(\w+)\b/', $skr, $v );
+    foreach ( array_diff( array_unique( $v[1] ), $d[1] ) as $key ) {
+        $umfrage_texte[] = "$js verwendet T.$key, in $php fehlt der Text";
+    }
+    $umfrage_anzahl += count( $d[1] );
+}
+$fehler += melde( 'Umfrage-Skripte', $umfrage_texte, $umfrage_anzahl . ' Texte stimmig' );
+
+// ---------------------------------------------------------------------
 // 5. Das Frontend-Skript der Terminliste
 //
 // Es liegt in assets/js/events/ und ist auf mehrere Dateien verteilt, die

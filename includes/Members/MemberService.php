@@ -31,6 +31,19 @@ class MemberService {
         'vp_event_items'       => 'created_by',
     ];
 
+    /**
+     * Alle Tabellen mit Personen-IDs – die eigenen der Basis und des Moduls
+     * Termine plus das, was andere Module über den Filter vp_person_tables
+     * anmelden (Modul Umfragen: Stimmen und Meldungen). So kennt die Basis
+     * die Module nicht und vergisst trotzdem keine Tabelle.
+     *
+     * @return array<string, string> Tabelle (ohne Präfix) => Spalte
+     */
+    public static function person_tables(): array {
+        $tabellen = apply_filters( 'vp_person_tables', self::PERSON_TABLES );
+        return is_array( $tabellen ) ? $tabellen : self::PERSON_TABLES;
+    }
+
     private MemberModel $model;
 
     public function __construct() {
@@ -215,7 +228,7 @@ class MemberService {
 
         global $wpdb;
 
-        foreach ( self::PERSON_TABLES as $suffix => $spalte ) {
+        foreach ( self::person_tables() as $suffix => $spalte ) {
             $wpdb->delete( $wpdb->prefix . $suffix, [ $spalte => $person_id ], [ '%d' ] );
         }
 
@@ -254,7 +267,7 @@ class MemberService {
 
         global $wpdb;
 
-        foreach ( self::PERSON_TABLES as $suffix => $spalte ) {
+        foreach ( self::person_tables() as $suffix => $spalte ) {
             $wpdb->delete( $wpdb->prefix . $suffix, [ $spalte => $wp_user_id ], [ '%d' ] );
         }
 
@@ -323,7 +336,7 @@ class MemberService {
     private function repoint_person( int $von, int $nach ): void {
         global $wpdb;
 
-        foreach ( self::PERSON_TABLES as $suffix => $spalte ) {
+        foreach ( self::person_tables() as $suffix => $spalte ) {
             $wpdb->update(
                 $wpdb->prefix . $suffix,
                 [ $spalte => $nach ],

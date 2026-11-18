@@ -16,12 +16,19 @@ class PollSchema {
         // --- vp_polls --------------------------------------------------------
         // kind:    'date'   – Terminumfrage (passt / vielleicht / passt nicht)
         //          'choice' – Abstimmung oder Nominierung (Auswahl)
+        //          'entry'  – Wettkampfmeldung (Starter mit Alters-/Gewichtsklasse)
         // results: wann andere das Ergebnis sehen –
         //          'always' sofort, 'after_vote' nach eigener Abstimmung,
         //          'after_close' erst nach Ende, 'orga' nur Orgateam.
+        // Nur Wettkampfmeldung:
+        //   event_date  Wettkampftag – sein Jahr bestimmt die Jahrgänge
+        //   classes     startende Klassen als JSON (Kopie der Vorlage, je
+        //               Turnier angepasst; siehe ClassTemplates)
+        //   purge_days  Meldungen so viele Tage nach dem Wettkampf löschen
+        //   purged_at   wann das geschehen ist
         $polls = "CREATE TABLE {$prefix}vp_polls (
             id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            kind            ENUM('date','choice') NOT NULL DEFAULT 'choice',
+            kind            ENUM('date','choice','entry') NOT NULL DEFAULT 'choice',
             title           VARCHAR(255)    NOT NULL,
             description     TEXT            DEFAULT NULL,
             status          ENUM('draft','open','closed') NOT NULL DEFAULT 'draft',
@@ -31,6 +38,10 @@ class PollSchema {
             anonymous       TINYINT(1)      NOT NULL DEFAULT 0,
             results         ENUM('always','after_vote','after_close','orga') NOT NULL DEFAULT 'after_vote',
             login_required  TINYINT(1)      NOT NULL DEFAULT 0,
+            event_date      DATE            DEFAULT NULL,
+            classes         LONGTEXT        DEFAULT NULL,
+            purge_days      SMALLINT UNSIGNED NOT NULL DEFAULT 30,
+            purged_at       DATETIME        DEFAULT NULL,
             created_by      BIGINT          NOT NULL DEFAULT 0,
             created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
@@ -68,6 +79,28 @@ class PollSchema {
             KEY          poll_person (poll_id, person_id)
         ) $charset;";
 
-        return [ $polls, $options, $votes ];
+        // --- vp_poll_entries -------------------------------------------------
+        // Wettkampfmeldung: eine Zeile je Starter. person_id ist der Melder –
+        // so sieht das Orgateam, welche Kinder zu wem gehören. Geburtsjahr,
+        // Geschlecht und Gewichtsklasse stehen nur hier, nie am Profil, und
+        // werden nach dem Wettkampf gelöscht (EntryCleanup).
+        // weight leer = gewichtsnahe Gruppe, Einteilung beim Wiegen.
+        $entries = "CREATE TABLE {$prefix}vp_poll_entries (
+            id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            poll_id     BIGINT UNSIGNED NOT NULL,
+            person_id   BIGINT          NOT NULL,
+            first_name  VARCHAR(60)     NOT NULL,
+            last_name   VARCHAR(60)     NOT NULL,
+            birth_year  SMALLINT UNSIGNED NOT NULL,
+            sex         ENUM('m','w')   NOT NULL,
+            class_key   VARCHAR(20)     NOT NULL,
+            weight      VARCHAR(10)     NOT NULL DEFAULT '',
+            note        VARCHAR(255)    NOT NULL DEFAULT '',
+            created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            KEY          poll_person (poll_id, person_id)
+        ) $charset;";
+
+        return [ $polls, $options, $votes, $entries ];
     }
 }

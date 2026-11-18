@@ -58,6 +58,7 @@
     // ------------------------------------------------------------------
 
     function renderPoll(p, box) {
+        if (p.kind === 'entry') { renderEntry(p, box); return; }
         box.textContent = '';
         box.className = 'vp-poll' + (p.open ? '' : ' is-closed');
         box.id = 'umfrage-' + p.id;
@@ -222,16 +223,276 @@
         return wrap;
     }
 
+
+    // ------------------------------------------------------------------
+    // Wettkampfmeldung
+    // ------------------------------------------------------------------
+
+    function dayText(d) {
+        return new Date(d.substr(0, 10) + 'T12:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function weightText(w) {
+        return w ? w.replace('.', ',') + ' kg' : T.near;
+    }
+
+    function eligible(p, year, sex) {
+        return p.classes.filter(function (c) {
+            return year >= c.from && year <= c.to && c.sex.indexOf(sex) !== -1;
+        });
+    }
+
+    function renderEntry(p, box) {
+        box.textContent = '';
+        box.className = 'vp-poll vp-poll--entry' + (p.open ? '' : ' is-closed');
+        box.id = 'umfrage-' + p.id;
+
+        box.appendChild(el('h3', 'vp-poll__title', p.title));
+        var meta = [];
+        if (p.event_date) { meta.push(fmt(T.eventOn, dayText(p.event_date))); }
+        if (!p.open) { meta.push(T.entryClosed); }
+        else if (p.closes_at) { meta.push(fmt(T.entryUntil, dayText(p.closes_at) + ' ' + p.closes_at.substr(11, 5))); }
+        meta.push(p.starters === 1 ? T.starter : fmt(T.starters, p.starters));
+        box.appendChild(el('p', 'vp-poll__meta', meta.join(' · ')));
+        if (p.description) { box.appendChild(el('p', 'vp-poll__desc', p.description)); }
+
+        if (p.classes.length) {
+            var liste = el('ul', 'vp-entry__classes');
+            p.classes.forEach(function (c) {
+                var li = el('li', '');
+                li.appendChild(el('strong', '', c.key));
+                var zusatz = ' ' + fmt(T.yearsOf, c.years);
+                if (c.sex !== 'mw') { zusatz += ' · ' + (c.sex === 'm' ? T.onlyM : T.onlyW); }
+                if (c.near) { zusatz += ' · ' + T.near; }
+                li.appendChild(document.createTextNode(zusatz));
+                liste.appendChild(li);
+            });
+            box.appendChild(liste);
+        }
+
+        var hinweise = [T.entryPrivacy];
+        if (p.login_required) { hinweise.push(T.loginOnly); }
+        box.appendChild(el('p', 'vp-poll__note', hinweise.join(' ')));
+
+        if (!p.open) {
+            if (p.entries.length) {
+                box.appendChild(el('h4', '', T.yourEntry));
+                var ul = el('ul', 'vp-entry__mine');
+                p.entries.forEach(function (e) {
+                    ul.appendChild(el('li', '', e.first_name + ' ' + e.last_name + ' (' + e.birth_year + ') – ' + e.class_key + ' ' + e.sex + ', ' + weightText(e.weight)));
+                });
+                box.appendChild(ul);
+            }
+            return;
+        }
+        if (!p.classes.length) {
+            box.appendChild(el('p', 'vp-poll__note', T.noClasses));
+            return;
+        }
+        box.appendChild(entryForm(p, box));
+    }
+
+    function entryForm(p, box) {
+        var form = el('form', 'vp-poll__form vp-entry');
+        var rows = el('div', 'vp-entry__rows');
+        var jahre = [];
+        var min = 9999, max = 0;
+        p.classes.forEach(function (c) { min = Math.min(min, c.from); max = Math.max(max, c.to); });
+        min = Math.max(min, max - 80);
+        for (var y = max; y >= min; y--) { jahre.push(y); }
+
+        function sel(cls, label, options, value) {
+            var l = el('label', 'vp-entry__field ' + cls, label);
+            var s = document.createElement('select');
+            options.forEach(function (o) {
+                var opt = el('option', '', o[1]);
+                opt.value = o[0];
+                if (String(o[0]) === String(value)) { opt.selected = true; }
+                s.appendChild(opt);
+            });
+            l.appendChild(s);
+            return { label: l, input: s };
+        }
+
+        function text(cls, label, value, max) {
+            var l = el('label', 'vp-entry__field ' + cls, label);
+            var i = document.createElement('input');
+            i.type = 'text'; i.maxLength = max; i.value = value || '';
+            l.appendChild(i);
+            return { label: l, input: i };
+        }
+
+        function addRow(e) {
+            e = e || {};
+            var row = el('fieldset', 'vp-entry__row');
+            var legend = el('legend', '', '');
+            row.appendChild(legend);
+            var vor = text('is-first', T.firstName, e.first_name, 60);
+            var nach = text('is-last', T.lastName, e.last_name, 60);
+            var jg = sel('is-year', T.birthYear, [['', '–']].concat(jahre.map(function (y) { return [y, String(y)]; })), e.birth_year || '');
+            var sex = sel('is-sex', T.sex, [['', '–'], ['w', T.female], ['m', T.male]], e.sex || '');
+            var klasse = sel('is-class', T.ageClass, [], '');
+            var gewicht = sel('is-weight', T.weightClass, [], '');
+            var naehe = el('p', 'vp-entry__near', T.nearText);
+            var notiz = text('is-note', T.note, e.note, 255);
+            var weg = el('button', 'vp-entry__remove', T.removeStarter);
+            weg.type = 'button';
+            weg.addEventListener('click', function () {
+                rows.removeChild(row);
+                if (!rows.children.length) { addRow(); }
+                nummern();
+            });
+
+            function update(keepKey, keepWeight) {
+                var y = parseInt(jg.input.value, 10);
+                var s = sex.input.value;
+                var passend = y && s ? eligible(p, y, s) : [];
+                var alt = keepKey !== undefined ? keepKey : klasse.input.value;
+                klasse.input.textContent = '';
+                if (!passend.length) {
+                    var o = el('option', '', y && s ? T.noClass : T.chooseYearSex); o.value = '';
+                    klasse.input.appendChild(o);
+                } else {
+                    if (passend.length > 1) { var o0 = el('option', '', T.pick); o0.value = ''; klasse.input.appendChild(o0); }
+                    passend.forEach(function (c) {
+                        var o2 = el('option', '', c.key); o2.value = c.key;
+                        if (c.key === alt || passend.length === 1) { o2.selected = true; }
+                        klasse.input.appendChild(o2);
+                    });
+                }
+                klasse.input.disabled = passend.length < 2;
+                var c = passend.filter(function (x) { return x.key === klasse.input.value; })[0];
+                var w = keepWeight !== undefined ? keepWeight : gewicht.input.value;
+                gewicht.input.textContent = '';
+                naehe.hidden = !(c && c.near);
+                gewicht.label.hidden = !!(c && c.near);
+                var liste = c && !c.near ? c[s] || [] : [];
+                var o3 = el('option', '', c ? T.pick : '–'); o3.value = ''; gewicht.input.appendChild(o3);
+                liste.forEach(function (g) {
+                    var o4 = el('option', '', weightText(g)); o4.value = g;
+                    if (g === w) { o4.selected = true; }
+                    gewicht.input.appendChild(o4);
+                });
+                gewicht.input.disabled = !liste.length;
+            }
+            jg.input.addEventListener('change', function () { update(); });
+            sex.input.addEventListener('change', function () { update(); });
+            klasse.input.addEventListener('change', function () { update(klasse.input.value); });
+
+            [vor, nach, jg, sex, klasse, gewicht].forEach(function (f) { row.appendChild(f.label); });
+            row.appendChild(naehe);
+            row.appendChild(notiz.label);
+            row.appendChild(weg);
+            rows.appendChild(row);
+            update(e.class_key || '', e.weight || '');
+            row._get = function () {
+                return {
+                    first_name: vor.input.value.trim(), last_name: nach.input.value.trim(),
+                    birth_year: parseInt(jg.input.value, 10) || 0, sex: sex.input.value,
+                    class_key: klasse.input.value, weight: gewicht.input.value, note: notiz.input.value.trim()
+                };
+            };
+            row._empty = function () { return !vor.input.value.trim() && !nach.input.value.trim(); };
+            row._fill = function (name) {
+                var i = name.lastIndexOf(' ');
+                vor.input.value = i > 0 ? name.substr(0, i) : name;
+                nach.input.value = i > 0 ? name.substr(i + 1) : '';
+                jg.input.focus();
+            };
+            nummern();
+            return row;
+        }
+
+        function nummern() {
+            Array.prototype.forEach.call(rows.children, function (r, i) {
+                r.querySelector('legend').textContent = fmt(T.starterNo, i + 1);
+            });
+        }
+
+        (p.entries.length ? p.entries : [null]).forEach(function (e) { addRow(e); });
+
+        if (p.saved_names && p.saved_names.length) {
+            var chips = el('p', 'vp-entry__saved');
+            chips.appendChild(el('span', '', T.savedNames + ' '));
+            p.saved_names.forEach(function (n) {
+                var b = el('button', 'vp-entry__chip', n);
+                b.type = 'button';
+                b.addEventListener('click', function () {
+                    var leer = Array.prototype.filter.call(rows.children, function (r) { return r._empty(); })[0];
+                    if (!leer) {
+                        if (rows.children.length >= p.max_rows) { return; }
+                        leer = addRow();
+                    }
+                    leer._fill(n);
+                });
+                chips.appendChild(b);
+            });
+            form.appendChild(chips);
+        }
+
+        form.appendChild(rows);
+        var mehr = el('button', 'vp-entry__add', T.addStarter);
+        mehr.type = 'button';
+        mehr.addEventListener('click', function () {
+            if (rows.children.length < p.max_rows) { addRow(); }
+        });
+        form.appendChild(mehr);
+
+        var err = el('p', 'vp-poll__error'); err.hidden = true;
+        var bar = el('div', 'vp-poll__actions');
+        var save = el('button', 'vp-poll__save', p.entries.length ? T.entryUpdate : T.entrySave);
+        save.type = 'submit';
+        bar.appendChild(save);
+        if (p.entries.length) {
+            var undo = el('button', 'vp-poll__undo', T.entryWithdraw);
+            undo.type = 'button';
+            undo.addEventListener('click', function () {
+                if (!window.confirm(T.entryWithdrawAsk)) { return; }
+                api('/polls/' + p.id + '/entries', 'DELETE').then(function (res) {
+                    if (res.ok) { renderEntry(res.data, box); } else { showError(err, res.data); }
+                });
+            });
+            bar.appendChild(undo);
+        }
+        form.appendChild(err);
+        form.appendChild(bar);
+        if (p.entries.length) {
+            form.appendChild(el('p', 'vp-poll__ok', fmt(p.entries.length === 1 ? T.entrySavedOne : T.entrySaved, p.entries.length)));
+        }
+        if (person) { form.appendChild(el('p', 'vp-poll__who', fmt(T.youReport, person.name))); }
+
+        form.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            err.hidden = true;
+            var starter = [];
+            Array.prototype.forEach.call(rows.children, function (r) { if (!r._empty()) { starter.push(r._get()); } });
+            if (!starter.length) { err.textContent = T.noStarter; err.hidden = false; return; }
+            var send = function () {
+                save.disabled = true;
+                api('/polls/' + p.id + '/entries', 'POST', { starters: starter }).then(function (res) {
+                    save.disabled = false;
+                    if (res.ok) { renderEntry(res.data, box); box.scrollIntoView({ block: 'start' }); return; }
+                    var code = res.data && res.data.code;
+                    if (code === 'identify_first') { person = null; askWho(send, true); return; }
+                    if (code === 'contact_required') { askWho(send, true); return; }
+                    showError(err, res.data);
+                }).catch(function () { save.disabled = false; err.textContent = T.error; err.hidden = false; });
+            };
+            if (!person || (person.guest && !person.contact)) { askWho(send, true); } else { send(); }
+        });
+        return form;
+    }
+
     // ------------------------------------------------------------------
     // Wer bist du? – Name, E-Mail freiwillig, ggf. Zugangscode
     // ------------------------------------------------------------------
 
     var dialog = null;
 
-    function askWho(then) {
+    function askWho(then, needContact) {
         pending = then;
         if (!dialog) { dialog = buildDialog(); document.body.appendChild(dialog.root); }
-        dialog.reset();
+        dialog.reset(!!needContact);
         dialog.root.hidden = false;
         dialog.name.focus();
     }
@@ -254,6 +515,10 @@
         var mail = document.createElement('input');
         mail.type = 'email'; mail.autocomplete = 'email';
         lMail.appendChild(mail);
+        var lPhone = el('label', '', T.phone);
+        var phone = document.createElement('input');
+        phone.type = 'tel'; phone.autocomplete = 'tel'; phone.maxLength = 30;
+        lPhone.appendChild(phone);
         var lCode = el('label', '', T.codeTitle);
         var code = document.createElement('input');
         code.type = 'text'; code.inputMode = 'numeric'; code.maxLength = 6; code.autocomplete = 'one-time-code';
@@ -261,7 +526,7 @@
         var codeText = el('p', 'vp-poll__note', T.codeText);
         var err = el('p', 'vp-poll__error');
 
-        [lName, lMail, codeText, lCode, err].forEach(function (x) { card.appendChild(x); });
+        [lName, lMail, lPhone, codeText, lCode, err].forEach(function (x) { card.appendChild(x); });
 
         var bar = el('div', 'vp-poll__actions');
         var ok = el('button', 'vp-poll__save', T.continue); ok.type = 'submit';
@@ -271,11 +536,17 @@
         root.appendChild(card);
 
         var codeFor = null;
-        function reset() {
+        var contact = false;
+        function reset(needContact) {
             codeFor = null;
+            contact = needContact;
+            intro.textContent = needContact ? T.whoTextContact : T.whoText;
+            lMail.firstChild.textContent = needContact ? T.emailPlain : T.email;
             [lName, lMail].forEach(function (x) { x.hidden = false; });
+            lPhone.hidden = !needContact;
             [lCode, codeText].forEach(function (x) { x.hidden = true; });
             err.hidden = true; code.value = '';
+            if (person && person.guest && person.name) { name.value = person.name; }
         }
         cancel.addEventListener('click', function () { root.hidden = true; pending = null; });
 
@@ -293,13 +564,14 @@
             }
             var n = name.value.trim();
             if (!n) { err.textContent = T.nameNeeded; err.hidden = false; return; }
+            if (contact && !mail.value.trim() && !phone.value.trim()) { err.textContent = T.contactNeeded; err.hidden = false; return; }
             ok.disabled = true;
-            api('/polls/identify', 'POST', { name: n, email: mail.value.trim(), return_url: C.here }).then(function (res) {
+            api('/polls/identify', 'POST', { name: n, email: mail.value.trim(), phone: contact ? phone.value.trim() : '', return_url: C.here }).then(function (res) {
                 ok.disabled = false;
                 if (!res.ok) { showError(err, res.data); return; }
                 if (res.data.code_required) {
                     codeFor = mail.value.trim();
-                    [lName, lMail].forEach(function (x) { x.hidden = true; });
+                    [lName, lMail, lPhone].forEach(function (x) { x.hidden = true; });
                     [lCode, codeText].forEach(function (x) { x.hidden = false; });
                     code.focus();
                     return;

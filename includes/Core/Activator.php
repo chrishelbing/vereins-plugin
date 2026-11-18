@@ -42,6 +42,7 @@ class Activator {
         \VereinsPlugin\Photos\PhotoCleanup::unschedule();
         \VereinsPlugin\Auth\OtpCleanup::unschedule();
         \VereinsPlugin\Members\PeopleCleanup::unschedule();
+        \VereinsPlugin\Polls\EntryCleanup::unschedule();
         flush_rewrite_rules();
     }
 

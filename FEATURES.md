@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.16.1
+> Stand: Version 1.17.0
 
 ---
 
@@ -40,7 +40,7 @@ Das Plugin besteht aus einer **gemeinsamen Basis** und **Modulen**
   unter **„Verein“** (Mitglieder, Einstellungen).
 - **Modul Termine.** Alles ab „Termine“ in dieser Datei. Backend: **„Termine“**
   (Termine, Termintypen, Vorlagen).
-- **Modul Umfragen.** Siehe „Umfragen“. Backend: **„Umfragen“**.
+- **Modul Umfragen.** Siehe „Umfragen“. Backend: **„Umfragen“** (Alle Umfragen, Klassen-Vorlagen).
 
 Module teilen nur die Basis und greifen nicht ineinander; `tools/check.php`
 wacht darüber. Bis 1.15.8 hing alles unter einem Menüpunkt „Verein“; die
@@ -733,7 +733,8 @@ sie hat ein Administrator angelegt oder aufgenommen (`Person::unconfirmed_map()`
 
 ## Umfragen (Modul, seit 1.16.0)
 
-Terminumfragen wie bei Doodle, Abstimmungen und Nominierungen. Angelegt und
+Terminumfragen wie bei Doodle, Abstimmungen, Nominierungen und (seit 1.17.0)
+Wettkampfmeldungen mit Alters- und Gewichtsklassen. Angelegt und
 ausgewertet im Backend unter **„Umfragen“**, auf der Website über
 `[vp_umfragen]` (alle offenen und beendeten, Entwürfe nie) bzw.
 `[vp_umfragen id="…"]`. Anker `#umfrage-<id>` springt zu einer Umfrage. Die Umfragen-Liste im Backend zeigt den fertigen Shortcode je Umfrage zum Kopieren.
@@ -745,6 +746,7 @@ ausgewertet im Backend unter **„Umfragen“**, auf der Website über
   Auswertung im Backend als Tabelle Person × Vorschlag, Gäste gekennzeichnet.
 - **Abstimmung / Nominierung** (`kind = choice`): eine oder (einstellbar)
   mehrere Antworten; bei einer Nominierung je Zeile eine Person.
+- **Wettkampfmeldung** (`kind = entry`, seit 1.17.0): siehe unten.
 
 **Einstellungen je Umfrage:** Status (Entwurf / offen / beendet), optionales
 Ende (danach keine Abstimmung mehr), **geheim** (Namen werden niemandem
@@ -772,13 +774,79 @@ lässt sich nach der ersten Antwort nicht mehr ändern.
 
 **Technik.** Tabellen `vp_polls`, `vp_poll_options`, `vp_poll_votes`
 (`Polls\PollSchema`). Schnittstelle `GET /polls` (`?id=`), `POST /polls/identify`,
-`POST|DELETE /polls/{id}/vote`. Oberfläche `assets/js/polls.js` +
+`POST|DELETE /polls/{id}/vote`, `POST|DELETE /polls/{id}/entries`. Oberfläche `assets/js/polls.js` +
 `assets/css/polls.css`, Texte aus `PollsShortcode::texts()`; Farben über
 CSS-Variablen (`--vp-poll-accent` usw.) anpassbar.
 
-**Noch nicht enthalten (geplant):** Wettkampfmeldung mit Vorlagen für Alters-
-und Gewichtsklassen (ein Melder meldet mehrere Kinder, Namen am Konto ohne
-Alter und Gewicht); aus einer Terminumfrage direkt einen Termin anlegen.
+### Wettkampfmeldung (seit 1.17.0)
+
+Abfrage, wer bei einem Turnier startet – mit Alters- und Gewichtsklasse, so
+wie der Ausrichter die Meldung haben will.
+
+**Klassen-Vorlagen** (Backend „Umfragen → Klassen-Vorlagen“, `Polls\ClassTemplates`,
+Option `vp_poll_class_templates`). Eine Klasse hat Kennung, Alter von–bis,
+Geschlecht (m + w / nur m / nur w), Gewichtsklassen je Geschlecht oder
+**gewichtsnah** (Einteilung beim Wiegen, keine Auswahl). Mitgeliefert:
+- **BJV Brandenburg** – Wettkampfordnung Stand Januar 2024: U11 9–10, U13
+  11–12, U15 12–14, U18 15–17, U21 17–20, Erwachsene ab 17, jeweils mit den
+  Gewichtsklassen der WKO; dazu U9 7–8 gewichtsnah (keine BJV-Klasse, aber auf
+  vielen Turnieren).
+- **DJB** – Wettkampfordnung Stand Dezember 2025: U11 8–10 und U13 10–12
+  gewichtsnah, U15, U18, U21, Erwachsene, Ü30 (Gewichte der Erwachsenen).
+Vorlagen lassen sich bearbeiten, kopieren, entfernen; „Auslieferung
+wiederherstellen“ holt die mitgelieferte Fassung zurück. Mannschaftsklassen
+sind nicht enthalten.
+
+**Anlegen** („Neue Wettkampfmeldung“): Wettkampftag (sein Jahr bestimmt die
+Jahrgänge), Vorlage übernehmen, dann je Turnier anpassen – nicht
+ausgeschriebene Klassen abhaken, **Jahrgänge** und Gewichte so eintragen, wie
+sie in der Ausschreibung stehen (leerer ältester Jahrgang = „und älter“).
+Gespeichert wird eine Kopie an der Meldung (`vp_polls.classes`); spätere
+Änderungen an der Vorlage wirken nicht zurück. Ändert sich der Wettkampftag
+auf ein anderes Jahr, wandern die Jahrgänge im Formular mit. Meldeschluss =
+„Ende“ der Umfrage.
+
+**Altersklasse aus dem Jahrgang** (DJB-WKO 3.1.2): Alter = Wettkampfjahr −
+Geburtsjahr. Passen mehrere Klassen (z. B. Jahrgang mit 12 Jahren: U13 und
+U15 beim BJV), wählt der Melder; passt genau eine, wird sie gesetzt.
+
+**Melden** (Website): Ein Melder trägt einen oder mehrere Starter ein (bis 12,
+`EntryService::MAX_ROWS`) – je Starter Vorname, Nachname, Jahrgang,
+Geschlecht, Altersklasse, Gewichtsklasse (Auswahl passend zu Klasse und
+Geschlecht), Hinweis. Geschwister in verschiedenen Klassen gehen in einer
+Meldung. Die Meldung gilt als Ganzes, ändern und zurückziehen bis zum
+Meldeschluss. Jeder Melder sieht nur seine eigenen Starter.
+- **Gäste** brauchen für Rückfragen eine E-Mail-Adresse **oder** Telefonnummer
+  (Abfrage im Namensdialog; serverseitig `contact_required`).
+- **Mit Login** werden die Namen der Starter am Konto gemerkt
+  (`Members\SavedNames`, dieselbe Liste wie die Begleitpersonen bei Terminen) und
+  beim nächsten Mal als „Schnell eintragen“ angeboten – **nur der Name**, kein
+  Jahrgang, kein Gewicht.
+
+**Meldeliste fürs Orgateam** (Backend, „Meldeliste“): nach Klasse und
+Geschlecht gruppiert, nach Gewicht sortiert, je Starter „gemeldet von“ mit
+E-Mail/Telefon; umschaltbar „nach Melder ordnen“. **CSV-Download** (Semikolon,
+UTF-8 mit BOM für Excel): Nachname, Vorname, Jahrgang, Geschlecht,
+Altersklasse, Gewichtsklasse, Verein (aus Einstellungen → Vereinsname),
+Melder, Kontakt, Hinweis.
+
+**Löschen nach dem Wettkampf** (`Polls\EntryCleanup`, täglich 4:00): die
+Starter einer Meldung werden „Meldungen löschen … Tage nach dem Wettkampf“
+(Vorgabe 30, 0 = nie) entfernt, die Umfrage bleibt mit Vermerk stehen.
+Geburtsjahr, Geschlecht und Gewicht stehen nur an der Meldung
+(`vp_poll_entries`), nie am Profil.
+
+**Personen löschen/übernehmen.** Stimmen und Meldungen hängen über den Filter
+`vp_person_tables` an der Tabellenliste der Basis (`MemberService::person_tables()`):
+Wird eine Person gelöscht, gehen sie mit; wird ein Gast aufgenommen, wandern
+sie zum Mitglied.
+
+**Technik.** Tabelle `vp_poll_entries`; Spalten `event_date`, `classes`,
+`purge_days`, `purged_at` an `vp_polls`. Schnittstelle
+`POST|DELETE /polls/{id}/entries` (`starters: [...]`). Klassen-Editor im
+Backend `assets/js/poll-classes.js` (Texte aus `ClassesAdmin::texts()`).
+
+**Noch nicht enthalten (geplant):** aus einer Terminumfrage direkt einen Termin anlegen.
 Nominierungen mit Personenauswahl aus der Mitgliederliste – bisher werden die
 Namen als Antworten eingetragen.
 

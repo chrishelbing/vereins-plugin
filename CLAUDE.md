@@ -24,7 +24,7 @@ Umgebung nicht, sind die zwölf Dateien einzeln aufzurufen.
 
 | Datei | prüft |
 |---|---|
-| `tools/check.php` | Syntax, Autoloader-Pfade, Symbole, Shortcode-Registry, Modultrennung, Frontend-Skript, Einstellungen, Versionsnummer, „keine WordPress-Profile für Unbestätigte" |
+| `tools/check.php` | Syntax, Autoloader-Pfade, Symbole, Shortcode-Registry, Modultrennung, Texte der Umfrage-Skripte, Frontend-Skript, Einstellungen, Versionsnummer, „keine WordPress-Profile für Unbestätigte" |
 | `tools/zugriffstest.php` | Wer sich anmelden darf, wer in den Mitgliederbereich kommt, wer ins Backend – dazu Aussperrschutz und die Kopplung von Status und Vereinsrolle |
 | `tools/personentest.php` | Der Weg einer Person: Zusage über Terminlink, Wiedererkennung, Bestätigung, Aufnahme, Ablehnung, Übernahme von Altbeständen |
 | `tools/apitest.php` | Die Schnittstelle aus Sicht der App: Lebensdauer, Verlängerung und Widerruf von Sitzungen, die Form von `GET /me`, die Erkennung nicht angeschlossener Versandwege |
@@ -34,7 +34,7 @@ Umgebung nicht, sind die zwölf Dateien einzeln aufzurufen.
 | `tools/tagtest.php` | Infotermine (Termintyp ohne Zusagen) und Tags: Vorgabe am Typ, Auswahl am Termin, Speichern und Leeren |
 | `tools/updatertest.php` | Updates aus GitHub-Releases: Version aus dem Tag, Paket am Release, Vorabversionen und Entwürfe ausgenommen |
 | `tools/texttest.php` | Beschreibung: Links, fett/kursiv, Listen, Maskierung, nur http(s), Gendersternchen bleibt, Textfassung für Banner und Flyer, jedes Beispiel der Hilfe wirkt |
-| `tools/umfragetest.php` | Modul Umfragen: gültige und ungültige Stimmen, beendete Umfragen, „nur Mitglieder“, wer das Ergebnis sieht, geheime Abstimmung ohne Namen, Stimmen bleiben beim Bearbeiten |
+| `tools/umfragetest.php` | Modul Umfragen: gültige und ungültige Stimmen, beendete Umfragen, „nur Mitglieder“, wer das Ergebnis sieht, geheime Abstimmung ohne Namen, Stimmen bleiben beim Bearbeiten; Klassen-Vorlagen, Wettkampfmeldung (Klasse aus Jahrgang, Gewichte, Kontaktpflicht für Gäste, gemerkte Namen, Orga-Liste, CSV, Löschen nach dem Wettkampf) |
 | `tools/fototest.php` | Termin-Fotos: Ablage im gesperrten Ordner, Adressen über die Auslieferung statt `uploads/`, Heraushalten aus der Mediathek; Code-Anforderung mit gleicher Antwort für jede Adresse |
 
 Neue Fachlogik gehört mit einem Fall in die passende Testdatei. Die Tests
@@ -94,6 +94,9 @@ aufsetzen (`Core\Modules` ist die Quelle):
   (`Members\MemberCode`), Rollen (`Support\Capabilities`), Mail, Bremsen.
   Wer in einem Modul etwas braucht, das ein anderes Modul schon hat, zieht es
   in die Basis hoch – so ist `MemberCode` aus dem `EventController` entstanden.
+- **Personentabellen eines Moduls** meldet das Modul über den Filter
+  `vp_person_tables` an (siehe `Polls\PollsModule`) – die Basis löscht und
+  übernimmt Personen dann mit, ohne das Modul zu kennen.
 - **Neue Module** bekommen einen eigenen Ordner unter `includes/`, eigene
   Tabellen (eigene Schema-Klasse, aus `Database\Schema` aufgerufen) und einen
   Eintrag in `Core\Modules`.

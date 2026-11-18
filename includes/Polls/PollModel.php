@@ -10,7 +10,7 @@ namespace VereinsPlugin\Polls;
  */
 class PollModel {
 
-    public const KINDS   = [ 'date', 'choice' ];
+    public const KINDS   = [ 'date', 'choice', 'entry' ];
     public const STATES  = [ 'draft', 'open', 'closed' ];
     public const RESULTS = [ 'always', 'after_vote', 'after_close', 'orga' ];
 
@@ -54,6 +54,9 @@ class PollModel {
             'anonymous'      => ! empty( $data['anonymous'] ) ? 1 : 0,
             'results'        => in_array( $data['results'] ?? '', self::RESULTS, true ) ? $data['results'] : 'after_vote',
             'login_required' => ! empty( $data['login_required'] ) ? 1 : 0,
+            'event_date'     => ! empty( $data['event_date'] ) ? (string) $data['event_date'] : null,
+            'classes'        => isset( $data['classes'] ) ? wp_json_encode( array_values( (array) $data['classes'] ) ) : null,
+            'purge_days'     => max( 0, min( 365, (int) ( $data['purge_days'] ?? 30 ) ) ),
         ];
 
         if ( ! empty( $data['id'] ) ) {
@@ -77,6 +80,7 @@ class PollModel {
     public function delete( int $id ): void {
         global $wpdb;
         $wpdb->delete( $this->t( 'vp_poll_votes' ),   [ 'poll_id' => $id ] );
+        $wpdb->delete( $this->t( 'vp_poll_entries' ), [ 'poll_id' => $id ] );
         $wpdb->delete( $this->t( 'vp_poll_options' ), [ 'poll_id' => $id ] );
         $wpdb->delete( $this->t( 'vp_polls' ),        [ 'id' => $id ] );
     }
@@ -170,8 +174,68 @@ class PollModel {
         $wpdb->delete( $this->t( 'vp_poll_votes' ), [ 'poll_id' => $poll_id, 'person_id' => $person_id ] );
     }
 
-    /** Wie viele Personen haben abgestimmt? */
+    /** Wie viele Personen haben abgestimmt bzw. gemeldet? */
     public function voter_count( int $poll_id ): int {
-        return count( array_unique( array_map( static fn( $v ) => (int) $v['person_id'], $this->votes( $poll_id ) ) ) );
+        $zeilen = array_merge( $this->votes( $poll_id ), $this->entries( $poll_id ) );
+        return count( array_unique( array_map( static fn( $v ) => (int) $v['person_id'], $zeilen ) ) );
+    }
+
+    // ------------------------------------------------------------------
+    // Meldungen (Wettkampfmeldung)
+    // ------------------------------------------------------------------
+
+    /** Klassen einer Wettkampfmeldung. */
+    public static function classes( array $poll ): array {
+        $c = json_decode( (string) ( $poll['classes'] ?? '' ), true );
+        return is_array( $c ) ? $c : [];
+    }
+
+    /** @return array<int, array> alle Meldungen einer Umfrage, in Eingabereihenfolge */
+    public function entries( int $poll_id, ?int $person_id = null ): array {
+        global $wpdb;
+        $rows = $person_id === null
+            ? $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$this->t('vp_poll_entries')} WHERE poll_id = %d ORDER BY id ASC", $poll_id ), ARRAY_A )
+            : $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$this->t('vp_poll_entries')} WHERE poll_id = %d AND person_id = %d ORDER BY id ASC", $poll_id, $person_id ), ARRAY_A );
+        $rows = $rows ?: [];
+        usort( $rows, static fn( $a, $b ) => (int) $a['id'] <=> (int) $b['id'] );
+        return $rows;
+    }
+
+    /**
+     * Die Meldung eines Melders ersetzen – wie bei Stimmen gilt sie als
+     * Ganzes: wer ändert, schickt alle seine Starter.
+     */
+    public function replace_entries( int $poll_id, int $person_id, array $rows ): void {
+        global $wpdb;
+        $this->delete_entries( $poll_id, $person_id );
+        $jetzt = current_time( 'mysql' );
+        foreach ( $rows as $r ) {
+            $wpdb->insert( $this->t( 'vp_poll_entries' ), [
+                'poll_id'    => $poll_id,
+                'person_id'  => $person_id,
+                'first_name' => (string) $r['first_name'],
+                'last_name'  => (string) $r['last_name'],
+                'birth_year' => (int) $r['birth_year'],
+                'sex'        => (string) $r['sex'],
+                'class_key'  => (string) $r['class_key'],
+                'weight'     => (string) $r['weight'],
+                'note'       => (string) ( $r['note'] ?? '' ),
+                'created_at' => $jetzt,
+            ] );
+        }
+    }
+
+    public function delete_entries( int $poll_id, ?int $person_id = null ): void {
+        global $wpdb;
+        $wo = [ 'poll_id' => $poll_id ];
+        if ( $person_id !== null ) {
+            $wo['person_id'] = $person_id;
+        }
+        $wpdb->delete( $this->t( 'vp_poll_entries' ), $wo );
+    }
+
+    public function mark_purged( int $poll_id ): void {
+        global $wpdb;
+        $wpdb->update( $this->t( 'vp_polls' ), [ 'purged_at' => current_time( 'mysql' ) ], [ 'id' => $poll_id ] );
     }
 }

@@ -16,6 +16,7 @@ require_once __DIR__ . '/lib/wp-stub.php';
 
 if ( ! function_exists( 'wp_unslash' ) )              { function wp_unslash( $v ) { return $v; } }
 if ( ! function_exists( 'sanitize_textarea_field' ) ) { function sanitize_textarea_field( $v ) { return trim( (string) $v ); } }
+if ( ! function_exists( 'wp_json_encode' ) )          { function wp_json_encode( $v ) { return json_encode( $v ); } }
 
 stub_load( [
     'Core/Activator.php',
@@ -28,12 +29,22 @@ stub_load( [
     'Polls/PollModel.php',
     'Polls/PollService.php',
     'Polls/PollsAdmin.php',
+    'Members/SavedNames.php',
+    'Polls/ClassTemplates.php',
+    'Polls/ClassesAdmin.php',
+    'Polls/EntryService.php',
+    'Polls/EntryCleanup.php',
 ] );
 
 use VereinsPlugin\Core\Activator;
 use VereinsPlugin\Polls\PollModel;
 use VereinsPlugin\Polls\PollService;
 use VereinsPlugin\Polls\PollsAdmin;
+use VereinsPlugin\Polls\ClassTemplates;
+use VereinsPlugin\Polls\ClassesAdmin;
+use VereinsPlugin\Polls\EntryService;
+use VereinsPlugin\Polls\EntryCleanup;
+use VereinsPlugin\Members\SavedNames;
 
 stub_default_roles();
 Activator::register_roles();
@@ -131,5 +142,108 @@ Pruefung::gleich( 'Stimmen am entfernten Vorschlag sind weg', count( array_filte
 
 $model->delete( $tid );
 Pruefung::gleich( 'Löschen räumt Stimmen mit ab', count( $model->votes( $tid ) ), 0 );
+
+// =====================================================================
+echo "\nKlassen-Vorlagen\n";
+
+Pruefung::gleich( 'Gewichte aus Text', ClassTemplates::parse_weights( '28, 31 -34 +55 Ü60 28' ), [ '-28', '-31', '-34', '+55', '+60' ] );
+Pruefung::gleich( 'zwei Vorlagen ausgeliefert', array_keys( ClassTemplates::all() ), [ 'bjv', 'djb' ] );
+$bjv = ClassTemplates::find( 'bjv' );
+$u13 = array_values( array_filter( $bjv['classes'], fn( $c ) => $c['key'] === 'U13' ) )[0];
+Pruefung::gleich( 'BJV U13 männlich: -28 bis +55', [ $u13['m'][0], end( $u13['m'] ) ], [ '-28', '+55' ] );
+Pruefung::gleich( 'Jahrgänge U13 im Jahr 2027', ClassTemplates::years_label( $u13, 2027 ), '2015–2016' );
+Pruefung::gleich( 'Erwachsene: „und älter“', ClassTemplates::years_label( [ 'from' => 17, 'to' => 99 ], 2027 ), '2010 und älter' );
+
+$geaendert = $bjv;
+$geaendert['classes'][0]['key'] = 'U9 Turnier';
+ClassTemplates::save( 'bjv', $geaendert );
+Pruefung::ok( 'Anpassung gespeichert und als angepasst erkannt', ClassTemplates::find( 'bjv' )['classes'][0]['key'] === 'U9 Turnier' && ClassTemplates::is_changed( 'bjv' ) );
+ClassTemplates::reset( 'bjv' );
+Pruefung::gleich( 'Zurücksetzen holt die Auslieferung', ClassTemplates::find( 'bjv' )['classes'][0]['key'], 'U9' );
+ClassTemplates::remove( 'djb' );
+Pruefung::ok( 'ausgelieferte Vorlage entfernbar …', ClassTemplates::find( 'djb' ) === null && ClassTemplates::removed() === [ 'djb' ] );
+ClassTemplates::reset( 'djb' );
+Pruefung::ok( '… und zurückholbar', ClassTemplates::find( 'djb' ) !== null );
+
+$zeilen = ClassesAdmin::parse_rows( [
+    [ 'on' => '1', 'key' => 'U11', 'from' => '2017', 'to' => '2016', 'sex' => 'mw', 'm' => '23 25 +46', 'w' => '24 +48' ],
+    [ 'key' => 'U13', 'from' => '2015', 'to' => '2014', 'sex' => 'mw', 'm' => '28', 'w' => '27' ],
+    [ 'on' => '1', 'key' => 'Erw', 'from' => '', 'to' => '2010', 'sex' => 'w', 'm' => '', 'w' => '48 +78' ],
+    [ 'on' => '1', 'key' => 'U9', 'from' => '2019', 'to' => '2020', 'sex' => 'mw', 'near' => '1' ],
+], 'year', 2027 );
+Pruefung::gleich( 'Jahrgänge zurück in Alter (vertauscht eingegeben)', [ $zeilen[0]['from'], $zeilen[0]['to'] ], [ 10, 11 ] );
+Pruefung::gleich( 'nicht angehakte Klasse fällt weg', array_column( $zeilen, 'key' ), [ 'U11', 'Erw', 'U9' ] );
+Pruefung::gleich( 'leerer ältester Jahrgang = und älter', $zeilen[1]['to'], 99 );
+Pruefung::ok( 'ohne Gewichte wird gewichtsnah', $zeilen[2]['near'] === true );
+
+// =====================================================================
+echo "\nWettkampfmeldung\n";
+
+$wpdb->insert( 'wp_vp_people', [ 'display_name' => 'Gerd Gast', 'email' => 'gerd@example.test', 'source' => 'link' ] );
+$gerd = -(int) end( $wpdb->t['wp_vp_people'] )['id'];
+
+$wid = $model->save( [
+    'kind' => 'entry', 'title' => 'Bezirkseinzel', 'status' => 'open', 'event_date' => '2027-02-06',
+    'classes' => array_values( array_filter( $bjv['classes'], fn( $c ) => in_array( $c['key'], [ 'U9', 'U11', 'U13', 'U15' ], true ) ) ),
+    'purge_days' => 30,
+] );
+$w     = $model->find( $wid );
+$entry = new EntryService( $model );
+
+Pruefung::gleich( 'Wettkampfjahr aus dem Datum', EntryService::year( $w ), 2027 );
+Pruefung::gleich( 'Jahrgang 2016 (11 Jahre): nur U13', array_column( EntryService::eligible( $w, 2016, 'm' ), 'key' ), [ 'U13' ] );
+Pruefung::gleich( 'Jahrgang 2015 (12 Jahre): U13 und U15 zur Wahl', array_column( EntryService::eligible( $w, 2015, 'w' ), 'key' ), [ 'U13', 'U15' ] );
+Pruefung::gleich( 'Jahrgang 2014 (13 Jahre): nur U15', array_column( EntryService::eligible( $w, 2014, 'w' ), 'key' ), [ 'U15' ] );
+
+$mia = [ 'first_name' => 'Mia', 'last_name' => 'Muster', 'birth_year' => 2017, 'sex' => 'w', 'class_key' => '', 'weight' => '-28' ];
+$tom = [ 'first_name' => 'Tom', 'last_name' => 'Muster', 'birth_year' => 2019, 'sex' => 'm', 'class_key' => '', 'weight' => '-30' ];
+
+Pruefung::ok( 'Gast ohne Kontakt: abgelehnt', ( $r = $entry->submit( $w, $gabi, [ $mia ] ) ) instanceof WP_Error && $r->get_error_code() === 'contact_required' );
+Pruefung::ok( 'ohne Kennung abgelehnt', is_wp_error( $entry->submit( $w, 0, [ $mia ] ) ) );
+Pruefung::ok( 'Gast mit E-Mail meldet Geschwister in zwei Klassen', $entry->submit( $w, $gerd, [ $mia, $tom ] ) === true );
+$g = $model->entries( $wid, $gerd );
+Pruefung::gleich( 'Klasse aus dem Jahrgang ergänzt', array_column( $g, 'class_key' ), [ 'U11', 'U9' ] );
+Pruefung::gleich( 'gewichtsnah: Gewicht verworfen', $g[1]['weight'], '' );
+
+Pruefung::ok( 'falsche Gewichtsklasse abgelehnt', is_wp_error( $entry->submit( $w, $gerd, [ array_merge( $mia, [ 'weight' => '-29' ] ) ] ) ) );
+Pruefung::ok( 'Gewicht des anderen Geschlechts abgelehnt', is_wp_error( $entry->submit( $w, $gerd, [ array_merge( $mia, [ 'weight' => '-23' ] ) ] ) ) );
+Pruefung::ok( 'Jahrgang ohne Klasse abgelehnt', is_wp_error( $entry->submit( $w, $gerd, [ array_merge( $mia, [ 'birth_year' => 2005 ] ) ] ) ) );
+Pruefung::ok( 'zwei passende Klassen: Wahl verlangt', is_wp_error( $entry->submit( $w, $gerd, [ array_merge( $mia, [ 'birth_year' => 2015, 'weight' => '-27' ] ) ] ) ) );
+Pruefung::ok( 'fremde Klasse abgelehnt', is_wp_error( $entry->submit( $w, $gerd, [ array_merge( $mia, [ 'class_key' => 'U15' ] ) ] ) ) );
+Pruefung::ok( 'doppelter Starter abgelehnt', is_wp_error( $entry->submit( $w, $gerd, [ $mia, $mia ] ) ) );
+Pruefung::ok( 'Fehler nennt den Starter', ( $r = $entry->submit( $w, $gerd, [ $mia, array_merge( $tom, [ 'last_name' => '' ] ) ] ) ) instanceof WP_Error && str_starts_with( $r->get_error_message(), 'Starter 2' ) );
+Pruefung::gleich( 'abgelehnte Meldung lässt die alte stehen', count( $model->entries( $wid, $gerd ) ), 2 );
+
+$ben = [ 'first_name' => 'Ben', 'last_name' => 'Aktiv', 'birth_year' => 2014, 'sex' => 'm', 'class_key' => 'U15', 'weight' => '+66', 'note' => 'startet auch Mannschaft' ];
+Pruefung::ok( 'Mitglied meldet', $entry->submit( $w, $anna, [ $ben ] ) === true );
+Pruefung::gleich( 'Mitglied: Name gemerkt – nur der Name', SavedNames::for_person( $anna ), [ 'Ben Aktiv' ] );
+Pruefung::gleich( 'Gast: nichts gemerkt', SavedNames::for_person( $gerd ), [] );
+Pruefung::gleich( 'zwei Melder', $model->voter_count( $wid ), 2 );
+
+$liste = $entry->list_for_orga( $w );
+Pruefung::gleich( 'Orga-Liste nach Klassen (Reihenfolge der Ausschreibung)', array_column( $liste, 'class_key' ), [ 'U9', 'U11', 'U15' ] );
+Pruefung::gleich( 'Melder mit Kontakt an jedem Starter', [ $liste[0]['reporter'], $liste[0]['contact'] ], [ 'Gerd Gast', 'gerd@example.test' ] );
+$csv = $entry->csv( $w, 'JVL' );
+Pruefung::ok( 'CSV mit BOM, Semikolon und Kopfzeile', str_starts_with( $csv, "\xEF\xBB\xBF\"Nachname\";\"Vorname\";\"Jahrgang\"" ) );
+Pruefung::ok( 'CSV: gewichtsnah ausgeschrieben, Verein gesetzt', str_contains( $csv, '"Muster";"Tom";"2019";"m";"U9";"gewichtsnah";"JVL"' ) );
+
+$pay = $service->payload( $w, $gerd, false );
+Pruefung::gleich( 'Website: nur die eigenen Starter', array_column( $pay['entries'], 'first_name' ), [ 'Mia', 'Tom' ] );
+Pruefung::gleich( 'Website: Jahrgänge je Klasse', $pay['classes'][2]['years'], '2015–2016' );
+Pruefung::ok( 'Website: keine fremden Ergebnisse', $pay['results'] === null );
+Pruefung::ok( 'Stimmen an einer Meldung abgelehnt', is_wp_error( $service->vote( $w, $anna, [ 'choices' => [ 1 ] ] ) ) );
+
+$model->set_status( $wid, 'closed' );
+Pruefung::ok( 'nach Meldeschluss nichts mehr', is_wp_error( $entry->submit( $model->find( $wid ), $gerd, [ $mia ] ) ) );
+
+Pruefung::gleich( 'Löschtermin = Wettkampf + 30 Tage', EntryCleanup::due_date( $w ), '2027-03-08' );
+$alt = $model->save( [ 'kind' => 'entry', 'title' => 'vorbei', 'status' => 'closed', 'event_date' => '2026-06-01', 'classes' => $bjv['classes'], 'purge_days' => 30 ] );
+$model->replace_entries( $alt, $gerd, [ $mia + [ 'class_key' => 'U11' ] ] );
+Pruefung::gleich( 'Aufräumjob löscht fällige Meldungen', ( new EntryCleanup() )->run(), 1 );
+Pruefung::ok( 'vergangene Meldung leer, kommende unberührt', ! $model->entries( $alt ) && count( $model->entries( $wid ) ) === 3 );
+Pruefung::ok( 'als gelöscht vermerkt', ! empty( $model->find( $alt )['purged_at'] ) );
+
+$model->delete( $wid );
+Pruefung::gleich( 'Löschen der Umfrage räumt Meldungen ab', count( $model->entries( $wid ) ), 0 );
 
 Pruefung::abschluss( 'Umfragen' );

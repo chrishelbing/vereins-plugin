@@ -3,6 +3,7 @@
 namespace VereinsPlugin\Polls;
 
 use VereinsPlugin\Members\Person;
+use VereinsPlugin\Members\SavedNames;
 use VereinsPlugin\Support\Capabilities;
 use WP_Error;
 
@@ -44,6 +45,9 @@ class PollService {
      * @param array $input ['answers' => [option_id => value]] bzw. ['choices' => [option_id, …]]
      */
     public function vote( array $poll, int $person_id, array $input ): true|WP_Error {
+        if ( ( $poll['kind'] ?? '' ) === 'entry' ) {
+            return new WP_Error( 'bad_kind', __( 'Zu einer Wettkampfmeldung gehören Starter, keine Stimmen.', 'vereins-plugin' ), [ 'status' => 400 ] );
+        }
         if ( ! $this->is_open( $poll ) ) {
             return new WP_Error( 'poll_closed', __( 'Diese Umfrage ist beendet.', 'vereins-plugin' ), [ 'status' => 409 ] );
         }
@@ -146,6 +150,9 @@ class PollService {
      * Antworten und, wenn erlaubt, dem Ergebnis.
      */
     public function payload( array $poll, int $person_id, bool $is_orga ): array {
+        if ( $poll['kind'] === 'entry' ) {
+            return $this->entry_payload( $poll, $person_id );
+        }
         $optionen = $this->model->options( (int) $poll['id'] );
         $meine    = [];
         if ( $person_id ) {
@@ -179,6 +186,42 @@ class PollService {
             ], $optionen ),
             'mine'           => $meine ?: (object) [],
             'results'        => $sichtbar ? $this->results( $poll ) : null,
+        ];
+    }
+
+    /**
+     * Wettkampfmeldung für die Oberfläche: Klassen mit Jahrgängen und die
+     * eigenen Starter. Fremde Meldungen sieht auf der Website niemand – das
+     * Orgateam arbeitet mit der Liste im Backend.
+     */
+    private function entry_payload( array $poll, int $person_id ): array {
+        $meine = $person_id ? $this->model->entries( (int) $poll['id'], $person_id ) : [];
+
+        return [
+            'id'             => (int) $poll['id'],
+            'kind'           => 'entry',
+            'title'          => $poll['title'],
+            'description'    => (string) $poll['description'],
+            'open'           => $this->is_open( $poll ),
+            'closes_at'      => $poll['closes_at'] ?: null,
+            'event_date'     => $poll['event_date'] ?: null,
+            'year'           => EntryService::year( $poll ),
+            'login_required' => ! empty( $poll['login_required'] ),
+            'voters'         => $this->model->voter_count( (int) $poll['id'] ),
+            'starters'       => count( $this->model->entries( (int) $poll['id'] ) ),
+            'classes'        => EntryService::classes_payload( $poll ),
+            'entries'        => array_map( static fn( $e ) => [
+                'first_name' => $e['first_name'],
+                'last_name'  => $e['last_name'],
+                'birth_year' => (int) $e['birth_year'],
+                'sex'        => $e['sex'],
+                'class_key'  => $e['class_key'],
+                'weight'     => $e['weight'],
+                'note'       => $e['note'],
+            ], $meine ),
+            'saved_names'    => SavedNames::for_person( $person_id ),
+            'max_rows'       => EntryService::MAX_ROWS,
+            'results'        => null,
         ];
     }
 }

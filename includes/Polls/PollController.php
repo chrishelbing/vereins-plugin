@@ -41,6 +41,18 @@ class PollController {
             'callback'            => [ $this, 'identify' ],
             'permission_callback' => '__return_true',
         ] );
+        register_rest_route( $namespace, '/polls/(?P<id>\d+)/entries', [
+            [
+                'methods'             => 'POST',
+                'callback'            => [ $this, 'enter' ],
+                'permission_callback' => '__return_true',
+            ],
+            [
+                'methods'             => 'DELETE',
+                'callback'            => [ $this, 'withdraw_entries' ],
+                'permission_callback' => '__return_true',
+            ],
+        ] );
         register_rest_route( $namespace, '/polls/(?P<id>\d+)/vote', [
             [
                 'methods'             => 'POST',
@@ -84,7 +96,7 @@ class PollController {
         }
 
         return new WP_REST_Response( [
-            'person' => $person ? [ 'id' => $person, 'name' => Person::name( $person ), 'guest' => Person::is_guest( $person ) ] : null,
+            'person' => $person ? self::person_payload( $person ) : null,
             'polls'  => $liste,
         ], 200 );
     }
@@ -92,7 +104,7 @@ class PollController {
     public function identify( WP_REST_Request $request ): WP_REST_Response|WP_Error {
         if ( is_user_logged_in() ) {
             $id = get_current_user_id();
-            return new WP_REST_Response( [ 'person' => [ 'id' => $id, 'name' => Person::name( $id ), 'guest' => false ] ], 200 );
+            return new WP_REST_Response( [ 'person' => self::person_payload( $id ) ], 200 );
         }
 
         if ( ! MemberCode::may_identify() ) {
@@ -103,6 +115,7 @@ class PollController {
         $result     = ( new GuestService() )->identify( [
             'name'  => $request->get_param( 'name' ),
             'email' => $request->get_param( 'email' ),
+            'phone' => $request->get_param( 'phone' ),
         ], $return_url ? esc_url_raw( (string) $return_url ) : home_url( '/' ) );
 
         if ( is_wp_error( $result ) ) {
@@ -114,8 +127,48 @@ class PollController {
             return MemberCode::send( (int) $result['member_id'], sanitize_email( (string) $request->get_param( 'email' ) ) );
         }
 
-        $id = (int) $result['person_id'];
-        return new WP_REST_Response( [ 'person' => [ 'id' => $id, 'name' => Person::name( $id ), 'guest' => true ] ], 200 );
+        return new WP_REST_Response( [ 'person' => self::person_payload( (int) $result['person_id'] ) ], 200 );
+    }
+
+    /** Wer abstimmt – und ob für Rückfragen ein Kontakt hinterlegt ist. */
+    private static function person_payload( int $id ): array {
+        return [
+            'id'      => $id,
+            'name'    => Person::name( $id ),
+            'guest'   => Person::is_guest( $id ),
+            'contact' => EntryService::has_contact( $id ),
+        ];
+    }
+
+    /** Wettkampfmeldung abgeben oder ändern (alle Starter des Melders). */
+    public function enter( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $poll = $this->model->find( (int) $request['id'] );
+        if ( ! $poll || $poll['status'] === 'draft' ) {
+            return new WP_Error( 'not_found', __( 'Umfrage nicht gefunden.', 'vereins-plugin' ), [ 'status' => 404 ] );
+        }
+        $person = self::current_person();
+        $rows   = array_values( array_filter( (array) $request->get_param( 'starters' ), 'is_array' ) );
+        if ( ! $rows ) {
+            return new WP_Error( 'nothing_entered', __( 'Bitte trage mindestens einen Starter ein.', 'vereins-plugin' ), [ 'status' => 400 ] );
+        }
+        $result = ( new EntryService( $this->model ) )->submit( $poll, $person, $rows );
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+        return new WP_REST_Response( $this->service->payload( $poll, $person, Capabilities::is_orga() ), 200 );
+    }
+
+    public function withdraw_entries( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $poll   = $this->model->find( (int) $request['id'] );
+        $person = self::current_person();
+        if ( ! $poll || ! $person || $poll['kind'] !== 'entry' ) {
+            return new WP_Error( 'not_found', __( 'Umfrage nicht gefunden.', 'vereins-plugin' ), [ 'status' => 404 ] );
+        }
+        if ( ! $this->service->is_open( $poll ) ) {
+            return new WP_Error( 'poll_closed', __( 'Der Meldeschluss ist vorbei.', 'vereins-plugin' ), [ 'status' => 409 ] );
+        }
+        $this->model->delete_entries( (int) $poll['id'], $person );
+        return new WP_REST_Response( $this->service->payload( $poll, $person, Capabilities::is_orga() ), 200 );
     }
 
     public function vote( WP_REST_Request $request ): WP_REST_Response|WP_Error {

@@ -3,6 +3,7 @@
 namespace VereinsPlugin\Polls;
 
 use VereinsPlugin\Admin\AdminStyles;
+use VereinsPlugin\Admin\Settings;
 use VereinsPlugin\Members\Person;
 use VereinsPlugin\Support\Capabilities;
 
@@ -29,6 +30,7 @@ class PollsAdmin {
         add_action( 'admin_post_vp_save_poll',   [ $this, 'handle_save' ] );
         add_action( 'admin_post_vp_poll_status', [ $this, 'handle_status' ] );
         add_action( 'admin_post_vp_delete_poll', [ $this, 'handle_delete' ] );
+        add_action( 'admin_post_vp_poll_entries_csv', [ $this, 'handle_csv' ] );
     }
 
     public function add_menu(): void {
@@ -81,7 +83,10 @@ class PollsAdmin {
             <?php esc_html_e( 'Terminumfragen, Abstimmungen und Nominierungen. Teilnehmen kann jede Person auch ohne Anmeldung – Gäste nennen einmal ihren Namen. Auf der Website erscheinen die Umfragen über den Shortcode [vp_umfragen]. Mitglieder und Anmeldung teilt das Modul mit den Terminen (Verein → Mitglieder).', 'vereins-plugin' ); ?>
         </p>
         <?php $this->render_notices(); ?>
-        <p><a class="button button-primary" href="<?php echo esc_url( $this->url( [ 'neu' => 1 ] ) ); ?>"><?php esc_html_e( 'Neue Umfrage', 'vereins-plugin' ); ?></a></p>
+        <p>
+            <a class="button button-primary" href="<?php echo esc_url( $this->url( [ 'neu' => 1 ] ) ); ?>"><?php esc_html_e( 'Neue Umfrage', 'vereins-plugin' ); ?></a>
+            <a class="button" href="<?php echo esc_url( $this->url( [ 'neu' => 1, 'art' => 'meldung' ] ) ); ?>"><?php esc_html_e( 'Neue Wettkampfmeldung', 'vereins-plugin' ); ?></a>
+        </p>
 
         <table class="vp-table">
             <thead>
@@ -108,7 +113,7 @@ class PollsAdmin {
                     <td><?php echo $p['closes_at'] ? esc_html( mysql2date( 'd.m.Y H:i', $p['closes_at'] ) ) : '<span class="description">—</span>'; ?></td>
                     <td><code style="user-select:all;">[vp_umfragen id="<?php echo (int) $p['id']; ?>"]</code></td>
                     <td class="vp-actions">
-                        <a class="button button-small" href="<?php echo esc_url( $this->url( [ 'ergebnis' => $p['id'] ] ) ); ?>"><?php esc_html_e( 'Ergebnis', 'vereins-plugin' ); ?></a>
+                        <a class="button button-small" href="<?php echo esc_url( $this->url( [ 'ergebnis' => $p['id'] ] ) ); ?>"><?php echo $p['kind'] === 'entry' ? esc_html__( 'Meldeliste', 'vereins-plugin' ) : esc_html__( 'Ergebnis', 'vereins-plugin' ); ?></a>
                         <a class="button button-small" href="<?php echo esc_url( $this->url( [ 'edit' => $p['id'] ] ) ); ?>"><?php esc_html_e( 'Bearbeiten', 'vereins-plugin' ); ?></a>
                         <?php
                         if ( $p['status'] !== 'open' ) {
@@ -159,7 +164,11 @@ class PollsAdmin {
     }
 
     public static function kind_label( string $kind ): string {
-        return $kind === 'date' ? __( 'Terminumfrage', 'vereins-plugin' ) : __( 'Abstimmung', 'vereins-plugin' );
+        return match ( $kind ) {
+            'date'  => __( 'Terminumfrage', 'vereins-plugin' ),
+            'entry' => __( 'Wettkampfmeldung', 'vereins-plugin' ),
+            default => __( 'Abstimmung', 'vereins-plugin' ),
+        };
     }
 
     // ------------------------------------------------------------------
@@ -171,7 +180,13 @@ class PollsAdmin {
             'id' => 0, 'kind' => 'choice', 'title' => '', 'description' => '', 'status' => 'draft',
             'closes_at' => '', 'multiple' => 0, 'allow_maybe' => 1, 'anonymous' => 0,
             'results' => 'after_vote', 'login_required' => 0,
+            'event_date' => '', 'classes' => null, 'purge_days' => 30,
         ];
+        if ( ! $poll && ( $_GET['art'] ?? '' ) === 'meldung' ) {
+            $p['kind'] = 'entry';
+        }
+        $vorlagen = ClassTemplates::all();
+        $klassen  = $poll ? PollModel::classes( $poll ) : ( reset( $vorlagen )['classes'] ?? [] );
         $optionen = $poll ? $this->model->options( (int) $poll['id'] ) : [];
         $hat_stimmen = $poll && $this->model->voter_count( (int) $poll['id'] ) > 0;
         $dt = static fn( $v ) => $v ? str_replace( ' ', 'T', substr( (string) $v, 0, 16 ) ) : '';
@@ -197,14 +212,47 @@ class PollsAdmin {
                     <th><?php esc_html_e( 'Art', 'vereins-plugin' ); ?></th>
                     <td>
                         <label><input type="radio" name="kind" value="date" <?php checked( $p['kind'], 'date' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Terminumfrage – passt / vielleicht / passt nicht je Vorschlag', 'vereins-plugin' ); ?></label><br>
-                        <label><input type="radio" name="kind" value="choice" <?php checked( $p['kind'], 'choice' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Abstimmung oder Nominierung – Auswahl aus Antworten', 'vereins-plugin' ); ?></label>
+                        <label><input type="radio" name="kind" value="choice" <?php checked( $p['kind'], 'choice' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Abstimmung oder Nominierung – Auswahl aus Antworten', 'vereins-plugin' ); ?></label><br>
+                        <label><input type="radio" name="kind" value="entry" <?php checked( $p['kind'], 'entry' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Wettkampfmeldung – Starter mit Alters- und Gewichtsklasse', 'vereins-plugin' ); ?></label>
                         <?php if ( $hat_stimmen ) : ?>
                             <input type="hidden" name="kind" value="<?php echo esc_attr( $p['kind'] ); ?>">
                             <p class="description"><?php esc_html_e( 'Es gibt schon Antworten – die Art lässt sich nicht mehr ändern.', 'vereins-plugin' ); ?></p>
                         <?php endif; ?>
                     </td>
                 </tr>
-                <tr>
+                <tr class="vp-only-entry">
+                    <th><label for="vp-poll-event-date"><?php esc_html_e( 'Wettkampftag', 'vereins-plugin' ); ?></label></th>
+                    <td>
+                        <input type="date" id="vp-poll-event-date" name="event_date" value="<?php echo esc_attr( (string) $p['event_date'] ); ?>">
+                        <span class="description"><?php esc_html_e( 'Sein Jahr bestimmt die Jahrgänge (Alter = Wettkampfjahr − Geburtsjahr).', 'vereins-plugin' ); ?></span>
+                    </td>
+                </tr>
+                <tr class="vp-only-entry">
+                    <th><?php esc_html_e( 'Startende Klassen', 'vereins-plugin' ); ?></th>
+                    <td>
+                        <p>
+                            <label for="vp-poll-template"><?php esc_html_e( 'Vorlage', 'vereins-plugin' ); ?></label>
+                            <select id="vp-poll-template">
+                                <?php foreach ( $vorlagen as $slug => $t ) : ?>
+                                    <option value="<?php echo esc_attr( $slug ); ?>" data-classes="<?php echo esc_attr( wp_json_encode( $t['classes'] ) ); ?>"><?php echo esc_html( $t['name'] ); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="button" class="button" id="vp-poll-template-load"><?php esc_html_e( 'Klassen aus Vorlage übernehmen', 'vereins-plugin' ); ?></button>
+                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . ClassesAdmin::SLUG ) ); ?>"><?php esc_html_e( 'Vorlagen verwalten', 'vereins-plugin' ); ?></a>
+                        </p>
+                        <p class="description" style="max-width:60em;"><?php esc_html_e( 'Klassen, die nicht ausgeschrieben sind, abhaken. Jahrgänge und Gewichtsklassen so anpassen, wie sie in der Ausschreibung stehen – das gilt nur für diese Meldung.', 'vereins-plugin' ); ?></p>
+                        <?php ClassesAdmin::editor( 'classes', $klassen, 'year' ); ?>
+                    </td>
+                </tr>
+                <tr class="vp-only-entry">
+                    <th><label for="vp-poll-purge"><?php esc_html_e( 'Meldungen löschen', 'vereins-plugin' ); ?></label></th>
+                    <td>
+                        <input type="number" id="vp-poll-purge" name="purge_days" min="0" max="365" style="width:6em" value="<?php echo (int) $p['purge_days']; ?>">
+                        <?php esc_html_e( 'Tage nach dem Wettkampf', 'vereins-plugin' ); ?>
+                        <p class="description"><?php esc_html_e( 'Danach werden Namen, Jahrgänge und Gewichtsklassen der Starter gelöscht; die Umfrage selbst bleibt stehen. 0 = nicht automatisch löschen.', 'vereins-plugin' ); ?></p>
+                    </td>
+                </tr>
+                <tr class="vp-not-entry">
                     <th><?php esc_html_e( 'Antwortmöglichkeiten', 'vereins-plugin' ); ?></th>
                     <td>
                         <p class="description vp-only-date"><?php esc_html_e( 'Je Zeile ein Terminvorschlag: Beginn, optional Ende und ein Zusatz.', 'vereins-plugin' ); ?></p>
@@ -237,11 +285,12 @@ class PollsAdmin {
                     <td>
                         <label class="vp-only-choice"><input type="checkbox" name="multiple" value="1" <?php checked( ! empty( $p['multiple'] ) ); ?>> <?php esc_html_e( 'Mehrere Antworten erlaubt', 'vereins-plugin' ); ?><br></label>
                         <label class="vp-only-date"><input type="checkbox" name="allow_maybe" value="1" <?php checked( ! empty( $p['allow_maybe'] ) ); ?>> <?php esc_html_e( '„Vielleicht“ erlaubt', 'vereins-plugin' ); ?><br></label>
-                        <label><input type="checkbox" name="anonymous" value="1" <?php checked( ! empty( $p['anonymous'] ) ); ?>> <?php esc_html_e( 'Geheim – Namen werden niemandem angezeigt, auch nicht dem Orgateam', 'vereins-plugin' ); ?></label><br>
+                        <label class="vp-not-entry"><input type="checkbox" name="anonymous" value="1" <?php checked( ! empty( $p['anonymous'] ) ); ?>> <?php esc_html_e( 'Geheim – Namen werden niemandem angezeigt, auch nicht dem Orgateam', 'vereins-plugin' ); ?><br></label>
+                        <p class="description vp-only-entry" style="margin:0 0 6px;"><?php esc_html_e( 'Die Meldungen sieht nur das Orgateam (hier im Backend). Jeder Melder sieht auf der Website nur seine eigenen Starter. Gäste müssen für Rückfragen eine E-Mail-Adresse oder Telefonnummer angeben.', 'vereins-plugin' ); ?></p>
                         <label><input type="checkbox" name="login_required" value="1" <?php checked( ! empty( $p['login_required'] ) ); ?>> <?php esc_html_e( 'Nur angemeldete Mitglieder (empfohlen für Nominierungen – sonst kann jemand unter mehreren Namen abstimmen)', 'vereins-plugin' ); ?></label>
                     </td>
                 </tr>
-                <tr>
+                <tr class="vp-not-entry">
                     <th><label for="vp-poll-results"><?php esc_html_e( 'Ergebnis sichtbar', 'vereins-plugin' ); ?></label></th>
                     <td>
                         <select id="vp-poll-results" name="results">
@@ -257,7 +306,7 @@ class PollsAdmin {
                     </td>
                 </tr>
                 <tr>
-                    <th><label for="vp-poll-close"><?php esc_html_e( 'Ende', 'vereins-plugin' ); ?></label></th>
+                    <th><label for="vp-poll-close"><span class="vp-not-entry"><?php esc_html_e( 'Ende', 'vereins-plugin' ); ?></span><span class="vp-only-entry"><?php esc_html_e( 'Meldeschluss', 'vereins-plugin' ); ?></span></label></th>
                     <td><input type="datetime-local" id="vp-poll-close" name="closes_at" value="<?php echo esc_attr( $dt( $p['closes_at'] ) ); ?>"> <span class="description"><?php esc_html_e( 'optional – danach ist keine Abstimmung mehr möglich', 'vereins-plugin' ); ?></span></td>
                 </tr>
                 <tr>
@@ -278,9 +327,18 @@ class PollsAdmin {
             var form = document.getElementById('vp-poll-form');
             function art(){ var r = form.querySelector('input[name="kind"]:checked'); return r ? r.value : 'choice'; }
             function zeigen(){
-                var d = art() === 'date';
-                form.querySelectorAll('.vp-only-date').forEach(function(e){ e.style.display = d ? '' : 'none'; });
-                form.querySelectorAll('.vp-only-choice').forEach(function(e){ e.style.display = d ? 'none' : ''; });
+                var a = art();
+                form.querySelectorAll('.vp-only-date').forEach(function(e){ e.style.display = a === 'date' ? '' : 'none'; });
+                form.querySelectorAll('.vp-only-choice').forEach(function(e){ e.style.display = a === 'choice' ? '' : 'none'; });
+                form.querySelectorAll('.vp-only-entry').forEach(function(e){ e.style.display = a === 'entry' ? '' : 'none'; });
+                form.querySelectorAll('.vp-not-entry').forEach(function(e){ e.style.display = a === 'entry' ? 'none' : ''; });
+            }
+            var laden = document.getElementById('vp-poll-template-load');
+            if (laden) {
+                laden.addEventListener('click', function(){
+                    var o = document.getElementById('vp-poll-template').selectedOptions[0];
+                    if (o && window.vpPollClassesLoad) { window.vpPollClassesLoad(JSON.parse(o.getAttribute('data-classes'))); }
+                });
             }
             form.querySelectorAll('input[name="kind"]').forEach(function(r){ r.addEventListener('change', zeigen); });
             document.getElementById('vp-poll-add').addEventListener('click', function(){
@@ -306,13 +364,15 @@ class PollsAdmin {
         $this->require_admin();
 
         $id   = (int) ( $_POST['id'] ?? 0 );
-        $kind = ( $_POST['kind'] ?? '' ) === 'date' ? 'date' : 'choice';
+        $kind = in_array( $_POST['kind'] ?? '', [ 'date', 'entry' ], true ) ? $_POST['kind'] : 'choice';
+        $tag  = sanitize_text_field( wp_unslash( (string) ( $_POST['event_date'] ?? '' ) ) );
+        $tag  = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $tag ) ? $tag : '';
         $dt   = static function ( $v ): ?string {
             $v = sanitize_text_field( wp_unslash( (string) $v ) );
             return $v !== '' ? str_replace( 'T', ' ', substr( $v, 0, 16 ) ) . ':00' : null;
         };
 
-        $poll_id = $this->model->save( [
+        $poll_id = $this->model->save( array_merge( [
             'id'             => $id,
             'kind'           => $kind,
             'title'          => sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) ),
@@ -325,11 +385,23 @@ class PollsAdmin {
             'results'        => sanitize_key( $_POST['results'] ?? 'after_vote' ),
             'login_required' => ! empty( $_POST['login_required'] ),
             'created_by'     => get_current_user_id(),
-        ] );
+        ], $kind === 'entry' ? [
+            'anonymous'  => false,
+            'results'    => 'orga',
+            'event_date' => $tag ?: null,
+            'classes'    => ClassesAdmin::parse_rows( (array) ( $_POST['classes'] ?? [] ), 'year', $tag ? (int) substr( $tag, 0, 4 ) : (int) gmdate( 'Y' ) ),
+            'purge_days' => (int) ( $_POST['purge_days'] ?? 30 ),
+        ] : [] ) );
 
-        $this->model->save_options( $poll_id, self::parse_options( (array) ( $_POST['options'] ?? [] ), $kind ) );
+        if ( $kind !== 'entry' ) {
+            $this->model->save_options( $poll_id, self::parse_options( (array) ( $_POST['options'] ?? [] ), $kind ) );
+        }
 
-        wp_safe_redirect( $this->url( [ 'msg' => 'saved' ] ) );
+        $hinweis = 'saved';
+        if ( $kind === 'entry' && ( ! $tag || ! PollModel::classes( (array) $this->model->find( $poll_id ) ) ) ) {
+            $hinweis = 'entry_incomplete';
+        }
+        wp_safe_redirect( $this->url( [ 'msg' => $hinweis ] ) );
         exit;
     }
 
@@ -395,6 +467,9 @@ class PollsAdmin {
             'deleted' => __( 'Umfrage gelöscht.', 'vereins-plugin' ),
         ];
         $msg = sanitize_key( $_GET['msg'] ?? '' );
+        if ( $msg === 'entry_incomplete' ) {
+            echo '<div class="notice notice-warning"><p>' . esc_html__( 'Gespeichert – aber es fehlt noch der Wettkampftag oder eine startende Klasse. Ohne beides kann niemand melden.', 'vereins-plugin' ) . '</p></div>';
+        }
         if ( isset( $texte[ $msg ] ) ) {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $texte[ $msg ] ) . '</p></div>';
         }
@@ -416,6 +491,10 @@ class PollsAdmin {
     }
 
     private function render_results( array $poll ): void {
+        if ( $poll['kind'] === 'entry' ) {
+            $this->render_entries( $poll );
+            return;
+        }
         $optionen = $this->model->options( (int) $poll['id'] );
         $erg      = $this->service->results( $poll );
         $anzahl   = $this->model->voter_count( (int) $poll['id'] );
@@ -496,5 +575,123 @@ class PollsAdmin {
         </table>
         </div>
         <?php
+    }
+
+    // ------------------------------------------------------------------
+    // Wettkampfmeldung: Meldeliste
+    // ------------------------------------------------------------------
+
+    private function render_entries( array $poll ): void {
+        $service = new EntryService( $this->model );
+        $liste   = $service->list_for_orga( $poll );
+        $melder  = $this->model->voter_count( (int) $poll['id'] );
+        $jahr    = EntryService::year( $poll );
+        $klassen = array_column( PollModel::classes( $poll ), null, 'key' );
+        $faellig = EntryCleanup::due_date( $poll );
+        $sicht   = sanitize_key( $_GET['sicht'] ?? '' ) === 'melder' ? 'melder' : 'klasse';
+        $csv     = wp_nonce_url( admin_url( 'admin-post.php?action=vp_poll_entries_csv&id=' . (int) $poll['id'] ), 'vp_poll_entries_csv_' . (int) $poll['id'] );
+        ?>
+        <h1><?php echo esc_html( $poll['title'] ); ?></h1>
+        <p><a href="<?php echo esc_url( $this->url() ); ?>">&larr; <?php esc_html_e( 'Zur Übersicht', 'vereins-plugin' ); ?></a></p>
+        <p>
+            <?php esc_html_e( 'Wettkampfmeldung', 'vereins-plugin' ); ?> ·
+            <?php $this->status_badge( $poll ); ?> ·
+            <?php echo $poll['event_date'] ? esc_html( sprintf( __( 'Wettkampf am %s', 'vereins-plugin' ), mysql2date( 'd.m.Y', $poll['event_date'] ) ) ) . ' · ' : ''; ?>
+            <?php echo esc_html( sprintf( _n( '%d Starter', '%d Starter', count( $liste ), 'vereins-plugin' ), count( $liste ) ) ); ?> ·
+            <?php echo esc_html( sprintf( _n( '%d Melder', '%d Melder', $melder, 'vereins-plugin' ), $melder ) ); ?>
+        </p>
+        <?php if ( ! empty( $poll['purged_at'] ) ) : ?>
+            <div class="notice notice-info inline"><p><?php echo esc_html( sprintf( __( 'Die Meldungen wurden am %s gelöscht (Aufbewahrungsfrist abgelaufen).', 'vereins-plugin' ), mysql2date( 'd.m.Y', $poll['purged_at'] ) ) ); ?></p></div>
+        <?php elseif ( $faellig ) : ?>
+            <p class="description"><?php echo esc_html( sprintf( __( 'Die Meldungen werden am %s automatisch gelöscht.', 'vereins-plugin' ), mysql2date( 'd.m.Y', $faellig ) ) ); ?></p>
+        <?php endif; ?>
+
+        <?php if ( $liste ) : ?>
+            <p>
+                <a class="button button-primary" href="<?php echo esc_url( $csv ); ?>"><?php esc_html_e( 'Meldeliste herunterladen (CSV)', 'vereins-plugin' ); ?></a>
+                <?php if ( $sicht === 'klasse' ) : ?>
+                    <a class="button" href="<?php echo esc_url( $this->url( [ 'ergebnis' => $poll['id'], 'sicht' => 'melder' ] ) ); ?>"><?php esc_html_e( 'Nach Melder ordnen', 'vereins-plugin' ); ?></a>
+                <?php else : ?>
+                    <a class="button" href="<?php echo esc_url( $this->url( [ 'ergebnis' => $poll['id'] ] ) ); ?>"><?php esc_html_e( 'Nach Klassen ordnen', 'vereins-plugin' ); ?></a>
+                <?php endif; ?>
+            </p>
+        <?php else : ?>
+            <p><?php esc_html_e( 'Noch keine Meldungen.', 'vereins-plugin' ); ?></p>
+            <?php return; ?>
+        <?php endif; ?>
+
+        <?php
+        if ( $sicht === 'melder' ) {
+            $gruppen = [];
+            foreach ( $liste as $z ) {
+                $gruppen[ $z['person_id'] ][] = $z;
+            }
+            foreach ( $gruppen as $zeilen ) {
+                $erster = $zeilen[0];
+                echo '<h2 style="margin-bottom:4px;">' . esc_html( $erster['reporter'] )
+                    . ( $erster['reporter_guest'] ? ' <span class="description">(' . esc_html__( 'Gast', 'vereins-plugin' ) . ')</span>' : '' ) . '</h2>';
+                echo '<p style="margin-top:0;">' . ( $erster['contact'] !== '' ? esc_html( $erster['contact'] ) : '<span class="description">' . esc_html__( 'kein Kontakt hinterlegt', 'vereins-plugin' ) . '</span>' ) . '</p>';
+                $this->entry_table( $zeilen, false );
+            }
+            return;
+        }
+
+        $gruppen = [];
+        foreach ( $liste as $z ) {
+            $gruppen[ $z['class_key'] . ' ' . $z['sex'] ][] = $z;
+        }
+        foreach ( $gruppen as $zeilen ) {
+            $k = $klassen[ $zeilen[0]['class_key'] ] ?? null;
+            $titel = $zeilen[0]['class_key'] . ' ' . ( $zeilen[0]['sex'] === 'w' ? __( 'weiblich', 'vereins-plugin' ) : __( 'männlich', 'vereins-plugin' ) );
+            echo '<h2 style="margin-bottom:6px;">' . esc_html( $titel )
+                . ( $k ? ' <span class="description" style="font-weight:normal;">' . esc_html( sprintf( __( 'Jahrgänge %s', 'vereins-plugin' ), ClassTemplates::years_label( $k, $jahr ) ) ) . '</span>' : '' )
+                . ' <span class="description" style="font-weight:normal;">· ' . esc_html( sprintf( _n( '%d Starter', '%d Starter', count( $zeilen ), 'vereins-plugin' ), count( $zeilen ) ) ) . '</span></h2>';
+            $this->entry_table( $zeilen, true );
+        }
+    }
+
+    private function entry_table( array $zeilen, bool $mit_melder ): void {
+        ?>
+        <table class="vp-table">
+            <thead><tr>
+                <th><?php esc_html_e( 'Name', 'vereins-plugin' ); ?></th>
+                <th><?php esc_html_e( 'Jahrgang', 'vereins-plugin' ); ?></th>
+                <?php if ( ! $mit_melder ) : ?><th><?php esc_html_e( 'Klasse', 'vereins-plugin' ); ?></th><?php endif; ?>
+                <th><?php esc_html_e( 'Gewicht', 'vereins-plugin' ); ?></th>
+                <?php if ( $mit_melder ) : ?><th><?php esc_html_e( 'Gemeldet von', 'vereins-plugin' ); ?></th><?php endif; ?>
+                <th><?php esc_html_e( 'Hinweis', 'vereins-plugin' ); ?></th>
+            </tr></thead>
+            <tbody>
+            <?php foreach ( $zeilen as $z ) : ?>
+                <tr>
+                    <td><strong><?php echo esc_html( $z['last_name'] ); ?></strong>, <?php echo esc_html( $z['first_name'] ); ?></td>
+                    <td><?php echo (int) $z['birth_year']; ?></td>
+                    <?php if ( ! $mit_melder ) : ?><td><?php echo esc_html( $z['class_key'] . ' ' . $z['sex'] ); ?></td><?php endif; ?>
+                    <td><?php echo $z['weight'] !== '' ? esc_html( ClassTemplates::weight_label( $z['weight'] ) ) : '<span class="description">' . esc_html__( 'gewichtsnah', 'vereins-plugin' ) . '</span>'; ?></td>
+                    <?php if ( $mit_melder ) : ?>
+                        <td><?php echo esc_html( $z['reporter'] ); ?><?php if ( $z['contact'] !== '' ) : ?><br><span class="description"><?php echo esc_html( $z['contact'] ); ?></span><?php endif; ?></td>
+                    <?php endif; ?>
+                    <td><?php echo esc_html( $z['note'] ); ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php
+    }
+
+    public function handle_csv(): void {
+        $id = (int) ( $_GET['id'] ?? 0 );
+        check_admin_referer( 'vp_poll_entries_csv_' . $id );
+        $this->require_admin();
+        $poll = $this->model->find( $id );
+        if ( ! $poll || $poll['kind'] !== 'entry' ) {
+            wp_die( esc_html__( 'Umfrage nicht gefunden.', 'vereins-plugin' ), 404 );
+        }
+        $name = sanitize_file_name( 'meldeliste-' . remove_accents( $poll['title'] ) . '.csv' );
+        nocache_headers();
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename="' . $name . '"' );
+        echo ( new EntryService( $this->model ) )->csv( $poll, ( (string) Settings::get( 'club_name', '' ) ?: get_bloginfo( 'name' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput
+        exit;
     }
 }

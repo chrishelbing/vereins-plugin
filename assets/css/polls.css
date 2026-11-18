@@ -80,3 +80,26 @@
     border: 1px solid var(--vp-poll-border, #dde3ea); border-radius: 8px; font: inherit;
 }
 .vp-poll-who .vp-poll__save { background: #b3121b; }
+
+/* Wettkampfmeldung ------------------------------------------------------ */
+.vp-entry__classes { list-style: none; margin: 0 0 .75rem; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.vp-entry__classes li { border: 1px solid var(--vp-poll-border); border-radius: 999px; padding: .2rem .7rem; font-size: .85rem; }
+.vp-entry__rows { display: grid; gap: .75rem; }
+.vp-entry__row {
+    border: 1px solid var(--vp-poll-border); border-radius: 10px; padding: .75rem 1rem 1rem; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: .6rem .75rem; align-items: end;
+}
+.vp-entry__row legend { font-weight: 600; padding: 0 .3rem; }
+.vp-entry__field { display: flex; flex-direction: column; font-size: .85rem; color: var(--vp-poll-muted); gap: .2rem; }
+.vp-entry__field input, .vp-entry__field select { font-size: 1rem; padding: .4rem .5rem; border: 1px solid var(--vp-poll-border); border-radius: 6px; background: #fff; color: inherit; min-width: 0; }
+.vp-entry__field select:disabled { background: #f6f7f9; color: inherit; }
+.vp-entry__field.is-note { grid-column: 1 / -1; }
+.vp-entry__near { grid-column: 1 / -1; margin: 0; font-size: .85rem; color: var(--vp-poll-muted); }
+.vp-entry__remove, .vp-entry__add, .vp-entry__chip {
+    background: none; border: 1px solid var(--vp-poll-border); border-radius: 999px; padding: .3rem .8rem; cursor: pointer; font-size: .85rem; color: inherit;
+}
+.vp-entry__remove { justify-self: start; grid-column: 1 / -1; }
+.vp-entry__add { margin-top: .75rem; }
+.vp-entry__saved { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .9rem; }
+.vp-entry__chip { border-color: var(--vp-poll-accent); color: var(--vp-poll-accent); }
+.vp-entry__mine { margin: 0; padding-left: 1.2rem; }
