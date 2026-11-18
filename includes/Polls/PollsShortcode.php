@@ -23,9 +23,9 @@ class PollsShortcode {
             'title'       => __( 'Umfragen', 'vereins-plugin' ),
             'description' => __( 'Offene und beendete Umfragen (Terminumfragen, Abstimmungen, Nominierungen). Teilnahme auch ohne Anmeldung – Gäste nennen einmal ihren Namen. Entwürfe erscheinen nicht.', 'vereins-plugin' ),
             'atts'        => [
-                'id' => __( 'Nur diese eine Umfrage zeigen (ID aus Umfragen im Backend).', 'vereins-plugin' ),
+                [ 'id', __( 'alle', 'vereins-plugin' ), __( 'Nur diese eine Umfrage zeigen – die Nummer steht in der Umfragen-Liste im Backend.', 'vereins-plugin' ) ],
             ],
-            'example'     => '[vp_umfragen]',
+            'example'     => '[vp_umfragen id="3"]',
         ];
     }
 

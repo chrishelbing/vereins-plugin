@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.16.0
+> Stand: Version 1.16.1
 
 ---
 
@@ -736,7 +736,7 @@ sie hat ein Administrator angelegt oder aufgenommen (`Person::unconfirmed_map()`
 Terminumfragen wie bei Doodle, Abstimmungen und Nominierungen. Angelegt und
 ausgewertet im Backend unter **„Umfragen“**, auf der Website über
 `[vp_umfragen]` (alle offenen und beendeten, Entwürfe nie) bzw.
-`[vp_umfragen id="…"]`. Anker `#umfrage-<id>` springt zu einer Umfrage.
+`[vp_umfragen id="…"]`. Anker `#umfrage-<id>` springt zu einer Umfrage. Die Umfragen-Liste im Backend zeigt den fertigen Shortcode je Umfrage zum Kopieren.
 
 **Arten**
 - **Terminumfrage** (`kind = date`): je Vorschlag *passt / vielleicht / passt

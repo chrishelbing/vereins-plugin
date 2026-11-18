@@ -156,6 +156,11 @@ foreach ( array_unique( $m[1] ) as $klasse ) {
             $shortcodes[] = "$klasse hat keine Methode $methode()";
         }
     }
+    // Parameter werden in der Übersicht als [ name, standard, zweck ] gelesen –
+    // ein Eintrag 'name' => 'text' ergäbe dort Buchstabensalat.
+    if ( preg_match( "/'atts'\s*=>\s*\[\s*'[a-z_]+'\s*=>/", $inhalt ) ) {
+        $shortcodes[] = "$klasse: 'atts' muss eine Liste aus [ name, standard, zweck ] sein";
+    }
 }
 $fehler += melde( 'Shortcode-Registry', $shortcodes, count( array_unique( $m[1] ) ) . ' Shortcodes vollständig' );
 

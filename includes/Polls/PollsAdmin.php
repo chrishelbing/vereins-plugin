@@ -91,12 +91,13 @@ class PollsAdmin {
                     <th><?php esc_html_e( 'Status', 'vereins-plugin' ); ?></th>
                     <th><?php esc_html_e( 'Teilnahmen', 'vereins-plugin' ); ?></th>
                     <th><?php esc_html_e( 'Ende', 'vereins-plugin' ); ?></th>
+                    <th><?php esc_html_e( 'Shortcode', 'vereins-plugin' ); ?></th>
                     <th><?php esc_html_e( 'Aktionen', 'vereins-plugin' ); ?></th>
                 </tr>
             </thead>
             <tbody>
             <?php if ( ! $umfragen ) : ?>
-                <tr><td colspan="6"><?php esc_html_e( 'Noch keine Umfrage angelegt.', 'vereins-plugin' ); ?></td></tr>
+                <tr><td colspan="7"><?php esc_html_e( 'Noch keine Umfrage angelegt.', 'vereins-plugin' ); ?></td></tr>
             <?php endif; ?>
             <?php foreach ( $umfragen as $p ) : ?>
                 <tr>
@@ -105,6 +106,7 @@ class PollsAdmin {
                     <td><?php $this->status_badge( $p ); ?></td>
                     <td><?php echo (int) $this->model->voter_count( (int) $p['id'] ); ?></td>
                     <td><?php echo $p['closes_at'] ? esc_html( mysql2date( 'd.m.Y H:i', $p['closes_at'] ) ) : '<span class="description">—</span>'; ?></td>
+                    <td><code style="user-select:all;">[vp_umfragen id="<?php echo (int) $p['id']; ?>"]</code></td>
                     <td class="vp-actions">
                         <a class="button button-small" href="<?php echo esc_url( $this->url( [ 'ergebnis' => $p['id'] ] ) ); ?>"><?php esc_html_e( 'Ergebnis', 'vereins-plugin' ); ?></a>
                         <a class="button button-small" href="<?php echo esc_url( $this->url( [ 'edit' => $p['id'] ] ) ); ?>"><?php esc_html_e( 'Bearbeiten', 'vereins-plugin' ); ?></a>
