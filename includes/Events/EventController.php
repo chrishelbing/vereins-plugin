@@ -520,13 +520,10 @@ class EventController {
             return new WP_Error( 'no_access', __( 'Kein Zugriff auf diesen Termin.', 'vereins-plugin' ), [ 'status' => 401 ] );
         }
 
-        // Einfache Bremse gegen automatisiertes Anlegen von Zugängen.
-        $bucket   = 'vp_identify_' . md5( (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ) );
-        $attempts = (int) get_transient( $bucket );
-        if ( $attempts >= 10 ) {
+        // Einfache Bremse gegen automatisiertes Anlegen von Zugängen (Basis).
+        if ( ! \VereinsPlugin\Members\MemberCode::may_identify() ) {
             return new WP_Error( 'too_many_requests', __( 'Zu viele Versuche. Bitte warte einen Moment.', 'vereins-plugin' ), [ 'status' => 429 ] );
         }
-        set_transient( $bucket, $attempts + 1, HOUR_IN_SECONDS );
 
         $return_url = $request->get_param( 'return_url' );
         $return_url = $return_url ? esc_url_raw( $return_url ) : home_url( '/' );
@@ -544,7 +541,7 @@ class EventController {
         // Die Adresse gehört zu einem Mitgliedskonto: Erkannt wird es erst
         // mit dem Zugangscode, der jetzt an diese Adresse geht.
         if ( ! empty( $result['member_id'] ) ) {
-            return $this->send_member_code(
+            return \VereinsPlugin\Members\MemberCode::send(
                 (int) $result['member_id'],
                 sanitize_email( (string) $request->get_param( 'email' ) )
             );
@@ -561,42 +558,6 @@ class EventController {
             // daran ablesen, ob der Name hier änderbar ist.
             'guest'     => \VereinsPlugin\Members\Person::is_guest( (int) $result['person_id'] ),
         ], 200 );
-    }
-
-    /**
-     * Zugangscode an ein Mitglied schicken, das am Terminlink seine
-     * E-Mail-Adresse eingetragen hat.
-     *
-     * Die Antwort nennt weder Namen noch Rolle – wer nur die Adresse kennt,
-     * erfährt hier nichts über das Konto. Eingelöst wird der Code über
-     * /auth/verify-otp, also denselben Weg wie die gewöhnliche Anmeldung;
-     * danach ist das Mitglied angemeldet und braucht den Terminlink nicht
-     * mehr.
-     */
-    private function send_member_code( int $member_id, string $email ): WP_REST_Response|WP_Error {
-        // Ein Konto ohne freigeschalteten Zugang könnte den Code nicht
-        // einlösen. Dann lieber gleich sagen, wie es weitergeht.
-        if ( ! ( new \VereinsPlugin\Members\MemberService() )->is_approved( $member_id ) ) {
-            return new WP_Error(
-                'not_approved',
-                __( 'Zu dieser E-Mail-Adresse gibt es ein Konto, das für den Mitgliederbereich nicht freigeschaltet ist. Lass das Feld leer, um als Gast zuzusagen.', 'vereins-plugin' ),
-                [ 'status' => 403 ]
-            );
-        }
-
-        if ( \VereinsPlugin\Auth\OtpModel::is_locked( $email ) ) {
-            return AuthController::locked_error();
-        }
-
-        if ( ! \VereinsPlugin\Auth\AuthService::may_request( $email ) ) {
-            return new WP_Error( 'too_many_requests', __( 'Zu viele Anfragen. Bitte warte 10 Minuten.', 'vereins-plugin' ), [ 'status' => 429 ] );
-        }
-
-        if ( ! ( new \VereinsPlugin\Auth\AuthService() )->request_otp( $email, 'email' ) ) {
-            return new WP_Error( 'send_failed', __( 'Code konnte nicht gesendet werden.', 'vereins-plugin' ), [ 'status' => 500 ] );
-        }
-
-        return new WP_REST_Response( [ 'code_required' => true ], 200 );
     }
 
     public function rename_guest( WP_REST_Request $request ): WP_REST_Response|WP_Error {

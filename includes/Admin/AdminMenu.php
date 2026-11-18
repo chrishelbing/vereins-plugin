@@ -42,21 +42,35 @@ class AdminMenu {
     }
 
     public function add_menu(): void {
+        // Drei Bereiche, wie das Plugin aufgebaut ist (Core\Modules):
+        //   „Verein“   – die gemeinsame Basis: Mitglieder und Einstellungen.
+        //   „Termine“  – Modul Termine.
+        //   „Umfragen“ – Modul Umfragen (eigene Klasse Polls\PollsAdmin).
+        // Die Seiten-Slugs bleiben wie bisher; Links und Lesezeichen gelten weiter.
         add_menu_page(
             __( 'Verein', 'vereins-plugin' ),
             __( 'Verein', 'vereins-plugin' ),
             'manage_options',
-            'vp-events',
-            [ $this->events_page, 'render' ],
+            'vp-members',
+            [ $this->members_page, 'render' ],
             'dashicons-groups',
             26
         );
+        add_submenu_page( 'vp-members', __( 'Mitglieder', 'vereins-plugin' ),    __( 'Mitglieder', 'vereins-plugin' ),    'manage_options', 'vp-members',  [ $this->members_page, 'render' ] );
+        add_submenu_page( 'vp-members', __( 'Einstellungen', 'vereins-plugin' ), __( 'Einstellungen', 'vereins-plugin' ), 'manage_options', 'vp-settings', [ $this->settings_page, 'render' ] );
 
-        add_submenu_page( 'vp-events', __( 'Termine', 'vereins-plugin' ),       __( 'Termine', 'vereins-plugin' ),       'manage_options', 'vp-events',      [ $this->events_page, 'render' ] );
-        add_submenu_page( 'vp-events', __( 'Termintypen', 'vereins-plugin' ),   __( 'Termintypen', 'vereins-plugin' ),   'manage_options', 'vp-event-types', [ $this->event_types_page, 'render' ] );
-        add_submenu_page( 'vp-events', __( 'Vorlagen', 'vereins-plugin' ),      __( 'Vorlagen', 'vereins-plugin' ),      'manage_options', 'vp-templates',   [ $this->templates_page, 'render' ] );
-        add_submenu_page( 'vp-events', __( 'Mitglieder', 'vereins-plugin' ),    __( 'Mitglieder', 'vereins-plugin' ),    'manage_options', 'vp-members',     [ $this->members_page, 'render' ] );
-        add_submenu_page( 'vp-events', __( 'Einstellungen', 'vereins-plugin' ), __( 'Einstellungen', 'vereins-plugin' ), 'manage_options', 'vp-settings',    [ $this->settings_page, 'render' ] );
+        add_menu_page(
+            __( 'Termine', 'vereins-plugin' ),
+            __( 'Termine', 'vereins-plugin' ),
+            'manage_options',
+            'vp-events',
+            [ $this->events_page, 'render' ],
+            'dashicons-calendar-alt',
+            27
+        );
+        add_submenu_page( 'vp-events', __( 'Termine', 'vereins-plugin' ),     __( 'Termine', 'vereins-plugin' ),     'manage_options', 'vp-events',      [ $this->events_page, 'render' ] );
+        add_submenu_page( 'vp-events', __( 'Termintypen', 'vereins-plugin' ), __( 'Termintypen', 'vereins-plugin' ), 'manage_options', 'vp-event-types', [ $this->event_types_page, 'render' ] );
+        add_submenu_page( 'vp-events', __( 'Vorlagen', 'vereins-plugin' ),    __( 'Vorlagen', 'vereins-plugin' ),    'manage_options', 'vp-templates',   [ $this->templates_page, 'render' ] );
 
         // Die Listen-Ansicht bekommt bewusst KEINE eigene Seite: sie läuft
         // über die Terminübersicht mit ?view=lists. Versteckte Menüseiten

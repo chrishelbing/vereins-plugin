@@ -18,13 +18,13 @@ ihr noch glaubt.
 php tools/pruefen.php
 ```
 
-Das ist verbindlich, nicht optional. Der Befehl startet elf Prüfungen und
+Das ist verbindlich, nicht optional. Der Befehl startet zwölf Prüfungen und
 liefert Rückgabewert 1, sobald eine anschlägt. Läuft `exec()` in der
-Umgebung nicht, sind die elf Dateien einzeln aufzurufen.
+Umgebung nicht, sind die zwölf Dateien einzeln aufzurufen.
 
 | Datei | prüft |
 |---|---|
-| `tools/check.php` | Syntax, Autoloader-Pfade, Symbole, Shortcode-Registry, Frontend-Skript, Einstellungen, Versionsnummer, „keine WordPress-Profile für Unbestätigte" |
+| `tools/check.php` | Syntax, Autoloader-Pfade, Symbole, Shortcode-Registry, Modultrennung, Frontend-Skript, Einstellungen, Versionsnummer, „keine WordPress-Profile für Unbestätigte" |
 | `tools/zugriffstest.php` | Wer sich anmelden darf, wer in den Mitgliederbereich kommt, wer ins Backend – dazu Aussperrschutz und die Kopplung von Status und Vereinsrolle |
 | `tools/personentest.php` | Der Weg einer Person: Zusage über Terminlink, Wiedererkennung, Bestätigung, Aufnahme, Ablehnung, Übernahme von Altbeständen |
 | `tools/apitest.php` | Die Schnittstelle aus Sicht der App: Lebensdauer, Verlängerung und Widerruf von Sitzungen, die Form von `GET /me`, die Erkennung nicht angeschlossener Versandwege |
@@ -34,6 +34,7 @@ Umgebung nicht, sind die elf Dateien einzeln aufzurufen.
 | `tools/tagtest.php` | Infotermine (Termintyp ohne Zusagen) und Tags: Vorgabe am Typ, Auswahl am Termin, Speichern und Leeren |
 | `tools/updatertest.php` | Updates aus GitHub-Releases: Version aus dem Tag, Paket am Release, Vorabversionen und Entwürfe ausgenommen |
 | `tools/texttest.php` | Beschreibung: Links, fett/kursiv, Listen, Maskierung, nur http(s), Gendersternchen bleibt, Textfassung für Banner und Flyer, jedes Beispiel der Hilfe wirkt |
+| `tools/umfragetest.php` | Modul Umfragen: gültige und ungültige Stimmen, beendete Umfragen, „nur Mitglieder“, wer das Ergebnis sieht, geheime Abstimmung ohne Namen, Stimmen bleiben beim Bearbeiten |
 | `tools/fototest.php` | Termin-Fotos: Ablage im gesperrten Ordner, Adressen über die Auslieferung statt `uploads/`, Heraushalten aus der Mediathek; Code-Anforderung mit gleicher Antwort für jede Adresse |
 
 Neue Fachlogik gehört mit einem Fall in die passende Testdatei. Die Tests
@@ -72,6 +73,30 @@ Ehrlich benannt, damit niemand sich in Sicherheit wiegt:
   Spalten, Wechsel auf vorzeichenbehaftete Zahlen – laufen im Test nicht mit.
 - **Der QR-Nachweis selbst.** Der Test hält das Ergebnis fest, prüft aber
   nicht erneut gegen einen Decoder.
+
+## Aufbau: Basis und Module
+
+Das Plugin besteht aus einer **gemeinsamen Basis** und **Modulen**, die darauf
+aufsetzen (`Core\Modules` ist die Quelle):
+
+| Teil | Namensräume | Backend-Menü |
+|---|---|---|
+| **Basis** – Mitglieder & Anmeldung | `Core`, `Database`, `Members`, `Auth`, `Privacy`, `Support`, `Api` | „Verein“ (Mitglieder, Einstellungen) |
+| Modul **Termine** | `Events`, `Photos`, `Flyer` (+ Seiten in `Admin`, Shortcodes in `Frontend`) | „Termine“ |
+| Modul **Umfragen** | `Polls` (alles in einem Ordner: Schema, Model, Service, Controller, Admin, Shortcode) | „Umfragen“ |
+
+- **Module kennen einander nicht.** `tools/check.php` prüft, dass `Polls\`
+  nichts aus `Events\`/`Photos\`/`Flyer\` verwendet und umgekehrt. Verdrahtet
+  wird nur in `Core\Plugin`, `Api\RestApi`, `Frontend\ShortcodeRegistry` und
+  `Database\Schema`.
+- **Geteilt wird nur die Basis:** Personen (`Members\Person`, Gäste über
+  `GuestService` und das Gast-Cookie in `Support\PublicLink`), Zugangscode
+  (`Members\MemberCode`), Rollen (`Support\Capabilities`), Mail, Bremsen.
+  Wer in einem Modul etwas braucht, das ein anderes Modul schon hat, zieht es
+  in die Basis hoch – so ist `MemberCode` aus dem `EventController` entstanden.
+- **Neue Module** bekommen einen eigenen Ordner unter `includes/`, eigene
+  Tabellen (eigene Schema-Klasse, aus `Database\Schema` aufgerufen) und einen
+  Eintrag in `Core\Modules`.
 
 ## Verabredungen im Code
 

@@ -137,10 +137,15 @@ $fehler += melde( 'Symbole', $symbole, count( $definiert ) . ' Symbole, alle in 
 //    genannte Klasse muss existieren und sich beschreiben können.
 // ---------------------------------------------------------------------
 $registry = file_get_contents( $root . '/includes/Frontend/ShortcodeRegistry.php' );
-preg_match_all( '/([\w]+)::class/', $registry, $m );
+preg_match_all( '/([A-Za-z0-9_\\\\]+)::class/', $registry, $m );
 $shortcodes = [];
 foreach ( array_unique( $m[1] ) as $klasse ) {
-    $datei = $root . '/includes/Frontend/' . $klasse . '.php';
+    // Kurzname = Frontend\<Klasse>; voll qualifiziert = Pfad aus dem Namensraum
+    // (Shortcodes eines Moduls liegen bei ihrem Modul, z. B. Polls\PollsShortcode).
+    $relativ = str_contains( $klasse, '\\' )
+        ? str_replace( '\\', '/', preg_replace( '/^\\\\?VereinsPlugin\\\\/', '', $klasse ) )
+        : 'Frontend/' . $klasse;
+    $datei = $root . '/includes/' . $relativ . '.php';
     if ( ! file_exists( $datei ) ) {
         $shortcodes[] = "$klasse ist eingetragen, die Datei fehlt aber";
         continue;
@@ -153,6 +158,45 @@ foreach ( array_unique( $m[1] ) as $klasse ) {
     }
 }
 $fehler += melde( 'Shortcode-Registry', $shortcodes, count( array_unique( $m[1] ) ) . ' Shortcodes vollständig' );
+
+// ---------------------------------------------------------------------
+// 4b. Module greifen nicht ineinander (Core\Modules)
+//
+// Termine und Umfragen setzen beide auf der Basis auf, kennen einander aber
+// nicht. Eine Klasse aus Polls\ darf also nichts aus Events\, Photos\ oder
+// Flyer\ verwenden und umgekehrt. Verdrahtet werden sie nur in Core\, Api\
+// und Frontend\ShortcodeRegistry.
+// ---------------------------------------------------------------------
+$module = [
+    'termine'  => [ 'Events', 'Photos', 'Flyer' ],
+    'umfragen' => [ 'Polls' ],
+];
+$trennung = [];
+foreach ( $dateien as $datei ) {
+    $relativ = str_replace( $root . '/includes/', '', $datei );
+    $erste   = explode( '/', $relativ )[0];
+    $eigenes = null;
+    foreach ( $module as $key => $ns ) {
+        if ( in_array( $erste, $ns, true ) ) {
+            $eigenes = $key;
+        }
+    }
+    if ( ! $eigenes ) {
+        continue;
+    }
+    $inhalt = file_get_contents( $datei );
+    foreach ( $module as $key => $ns ) {
+        if ( $key === $eigenes ) {
+            continue;
+        }
+        foreach ( $ns as $fremd ) {
+            if ( preg_match( '/VereinsPlugin\\\\' . $fremd . '\\\\/', $inhalt ) ) {
+                $trennung[] = "$relativ (Modul $eigenes) verwendet $fremd\\ aus dem Modul $key";
+            }
+        }
+    }
+}
+$fehler += melde( 'Modultrennung', $trennung, 'Termine und Umfragen greifen nicht ineinander' );
 
 // ---------------------------------------------------------------------
 // 5. Das Frontend-Skript der Terminliste

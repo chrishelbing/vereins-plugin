@@ -14,6 +14,7 @@ use VereinsPlugin\Members\PeopleMigration;
 use VereinsPlugin\Photos\PhotoCleanup;
 use VereinsPlugin\Photos\PhotoDownload;
 use VereinsPlugin\Photos\ProtectedPhotos;
+use VereinsPlugin\Polls\PollsAdmin;
 use VereinsPlugin\Privacy\PersonalData;
 use VereinsPlugin\Support\BackendGuard;
 use VereinsPlugin\Support\Capabilities;
@@ -46,6 +47,7 @@ class Plugin {
         // Updates aus GitHub-Releases (Plugins → „Jetzt aktualisieren“).
         ( new Updater() )->register();
 
+        // ---- Modul Termine (siehe Core\Modules) -------------------------
         // Aushänge und Flyer zu einem Termin.
         ( new FlyerPage() )->register();
 
@@ -54,6 +56,12 @@ class Plugin {
         ( new ProtectedPhotos() )->register();
         ( new PhotoCleanup()  )->register();
 
+        // ---- Modul Umfragen ---------------------------------------------
+        // Eigener Menüpunkt „Umfragen“; Schnittstelle in Api\RestApi,
+        // Shortcode in Frontend\ShortcodeRegistry.
+        ( new PollsAdmin() )->register();
+
+        // ---- Basis --------------------------------------------------------
         // Abgelaufene Einmalcode-Anfragen (samt IP-Adresse) täglich entfernen.
         ( new OtpCleanup() )->register();
 

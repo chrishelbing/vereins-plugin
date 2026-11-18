@@ -213,7 +213,7 @@ class EventTypesPage {
                             <?php
                             printf(
                                 esc_html__( 'Vorlagen pflegst du unter %s.', 'vereins-plugin' ),
-                                '<a href="' . esc_url( admin_url( 'admin.php?page=vp-templates' ) ) . '">' . esc_html__( 'Verein → Vorlagen', 'vereins-plugin' ) . '</a>'
+                                '<a href="' . esc_url( admin_url( 'admin.php?page=vp-templates' ) ) . '">' . esc_html__( 'Termine → Vorlagen', 'vereins-plugin' ) . '</a>'
                             );
                             ?>
                         </p>

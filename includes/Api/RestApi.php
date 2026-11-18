@@ -6,6 +6,7 @@ use VereinsPlugin\Auth\AuthController;
 use VereinsPlugin\Events\EventTypeController;
 use VereinsPlugin\Events\EventController;
 use VereinsPlugin\Photos\PhotoController;
+use VereinsPlugin\Polls\PollController;
 
 /**
  * Zentraler REST-API-Registrar.
@@ -21,6 +22,9 @@ class RestApi {
         ( new EventTypeController() )->register_routes( self::NAMESPACE );
         ( new EventController()     )->register_routes( self::NAMESPACE );
         ( new PhotoController()     )->register_routes( self::NAMESPACE );
+
+        // Modul Umfragen
+        ( new PollController()      )->register_routes( self::NAMESPACE );
 
         // Weitere Controller:
         // ( new BringlistController()   )->register_routes( self::NAMESPACE );

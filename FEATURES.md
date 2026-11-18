@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.15.5
+> Stand: Version 1.16.0
 
 ---
 
@@ -26,6 +26,25 @@ gedacht, nicht für die Mitglieder.
 **Die Hürde bleibt niedrig.** Wer über einen geteilten Terminlink kommt, kann
 zusagen, ohne sich anzumelden oder zu registrieren. Erst danach wird nach
 einem Namen gefragt.
+
+---
+
+## Aufbau: Basis und Module (seit 1.16.0)
+
+Das Plugin besteht aus einer **gemeinsamen Basis** und **Modulen**
+(`Core\Modules`):
+
+- **Basis – Mitglieder & Anmeldung.** Mitglieder und Gäste (Personen),
+  Anmeldung mit Passwort oder Zugangscode, Wiedererkennung von Gästen per
+  Cookie, Rollen, Mailversand, Datenschutz-Anbindung, Updates. Im Backend
+  unter **„Verein“** (Mitglieder, Einstellungen).
+- **Modul Termine.** Alles ab „Termine“ in dieser Datei. Backend: **„Termine“**
+  (Termine, Termintypen, Vorlagen).
+- **Modul Umfragen.** Siehe „Umfragen“. Backend: **„Umfragen“**.
+
+Module teilen nur die Basis und greifen nicht ineinander; `tools/check.php`
+wacht darüber. Bis 1.15.8 hing alles unter einem Menüpunkt „Verein“; die
+Seiten-Adressen (`?page=vp-events` usw.) sind gleich geblieben.
 
 ---
 
@@ -712,6 +731,59 @@ sie hat ein Administrator angelegt oder aufgenommen (`Person::unconfirmed_map()`
 
 ---
 
+## Umfragen (Modul, seit 1.16.0)
+
+Terminumfragen wie bei Doodle, Abstimmungen und Nominierungen. Angelegt und
+ausgewertet im Backend unter **„Umfragen“**, auf der Website über
+`[vp_umfragen]` (alle offenen und beendeten, Entwürfe nie) bzw.
+`[vp_umfragen id="…"]`. Anker `#umfrage-<id>` springt zu einer Umfrage.
+
+**Arten**
+- **Terminumfrage** (`kind = date`): je Vorschlag *passt / vielleicht / passt
+  nicht*; „vielleicht“ abschaltbar. Nicht beantwortete Vorschläge zählen als
+  „passt nicht“. Vorschläge mit Beginn, optionalem Ende (Uhrzeit) und Zusatz.
+  Auswertung im Backend als Tabelle Person × Vorschlag, Gäste gekennzeichnet.
+- **Abstimmung / Nominierung** (`kind = choice`): eine oder (einstellbar)
+  mehrere Antworten; bei einer Nominierung je Zeile eine Person.
+
+**Einstellungen je Umfrage:** Status (Entwurf / offen / beendet), optionales
+Ende (danach keine Abstimmung mehr), **geheim** (Namen werden niemandem
+angezeigt, auch dem Orgateam nicht – gespeichert wird die Person trotzdem,
+damit niemand doppelt abstimmt), **Ergebnis sichtbar** sofort / nach der
+eigenen Abstimmung / erst nach dem Ende / nur Orgateam (Orgateam sieht es
+immer), **nur angemeldete Mitglieder** (für Nominierungen empfohlen – ohne
+Anmeldung kann jemand unter mehreren Namen abstimmen).
+
+**Teilnahme ohne Anmeldung.** Wer nicht bekannt ist, nennt beim ersten
+Abstimmen seinen Namen, E-Mail freiwillig (`POST /polls/identify`). Das ist
+die Gast-Erkennung der Basis (`GuestService`, Cookie); gehört die E-Mail zu
+einem Mitgliedskonto, geht ein Zugangscode dorthin (`Members\MemberCode`,
+dieselbe Regel wie am Terminlink seit 1.15.6), nach der Eingabe ist die
+Person angemeldet und die Seite lädt neu. Bremse: zehn Gast-Anmeldungen je
+IP-Adresse und Stunde (gemeinsam mit den Terminen).
+
+**Abstimmen und ändern.** Eine Abstimmung gilt als Ganzes; wer erneut
+abstimmt, ersetzt seine Antwort. „Antwort zurückziehen“ löscht sie, solange
+die Umfrage läuft.
+
+**Bearbeiten.** Antwortmöglichkeiten behalten ihre Stimmen, wenn nur der Text
+geändert wird; eine geleerte Zeile fällt samt ihren Stimmen weg. Die Art
+lässt sich nach der ersten Antwort nicht mehr ändern.
+
+**Technik.** Tabellen `vp_polls`, `vp_poll_options`, `vp_poll_votes`
+(`Polls\PollSchema`). Schnittstelle `GET /polls` (`?id=`), `POST /polls/identify`,
+`POST|DELETE /polls/{id}/vote`. Oberfläche `assets/js/polls.js` +
+`assets/css/polls.css`, Texte aus `PollsShortcode::texts()`; Farben über
+CSS-Variablen (`--vp-poll-accent` usw.) anpassbar.
+
+**Noch nicht enthalten (geplant):** Wettkampfmeldung mit Vorlagen für Alters-
+und Gewichtsklassen (ein Melder meldet mehrere Kinder, Namen am Konto ohne
+Alter und Gewicht); aus einer Terminumfrage direkt einen Termin anlegen.
+Nominierungen mit Personenauswahl aus der Mitgliederliste – bisher werden die
+Namen als Antworten eingetragen.
+
+---
+
 ## Flyer und QR-Codes
 
 Zu jeder Termininstanz erzeugt das Orgateam einen Aushang. Drei Formate:
@@ -840,14 +912,17 @@ bleiben gesperrt.
 | `[vp_banner]` | Hervorgehobene Termine als Banner, z. B. auf der Startseite – öffentlich, verschwinden nach Terminende von selbst |
 | `[vp_login]` | Anmeldung mit Einmalcode per E-Mail; Link zum WordPress-Login für Passwörter |
 | `[vp_register]` | Selbstregistrierung |
+| `[vp_umfragen]` | Modul Umfragen: offene und beendete Umfragen zum Mitmachen, auch ohne Anmeldung; `id="…"` für eine einzelne |
 
 Eine stets aktuelle Übersicht steht im Backend unter *Verein → Einstellungen*.
 
 ### Backend
 
-*Verein* → Termine (inkl. Freigabe, Teilnehmerlisten, CSV-Export, Flyer),
-Termintypen, Vorlagen, Mitglieder (inkl. offener Personen und Rollen),
+*Verein* (Basis) → Mitglieder (inkl. offener Personen und Rollen),
 Einstellungen (inkl. Startdaten und Shortcode-Übersicht).
+*Termine* → Termine (inkl. Freigabe, Teilnehmerlisten, CSV-Export, Flyer),
+Termintypen, Vorlagen.
+*Umfragen* → Liste, Anlegen/Bearbeiten, Ergebnis.
 
 **Anlegen und Bearbeiten laufen über Dialogfenster.** Vorher stand jedes
 Formular unter der Tabelle: Ein Klick auf „Bearbeiten“ lud die Seite neu und

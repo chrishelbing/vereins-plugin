@@ -394,6 +394,11 @@ class Schema {
         dbDelta( $member_companions );
         dbDelta( $event_companions  );
 
+        // Modul Umfragen – eigene Tabellen, eigene Schema-Klasse.
+        foreach ( \VereinsPlugin\Polls\PollSchema::tables( $wpdb->prefix, $charset ) as $sql ) {
+            dbDelta( $sql );
+        }
+
         update_option( 'vp_db_version', VP_VERSION );
     }
 

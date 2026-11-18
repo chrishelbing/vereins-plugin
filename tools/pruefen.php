@@ -26,6 +26,7 @@ $pruefungen = [
     'updatertest.php'    => 'Updates: Auswertung der GitHub-Releases',
     'texttest.php'       => 'Beschreibung: Links erkennen, nichts Gefährliches durchlassen',
     'fototest.php'       => 'Fotos nur für Mitglieder, Code-Anforderung ohne Kontoauskunft',
+    'umfragetest.php'    => 'Umfragen: Stimmen, Sichtbarkeit, geheime Abstimmung, Bearbeiten',
 ];
 
 $exec_frei = function_exists( 'exec' )
