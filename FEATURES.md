@@ -943,37 +943,44 @@ UTF-8 mit BOM für Excel): Nachname, Vorname, Jahrgang, Geschlecht,
 Altersklasse, Gewichtsklasse, Verein (aus Einstellungen → Vereinsname),
 Melder, Kontakt, Hinweis.
 
-**Meldung beim Veranstalter** (seit 1.23.0, als Ablauf seit 1.23.1). Oben auf
-der Meldeliste ein Prozessband **Meldungen sammeln → Beim Veranstalter melden →
-Gemeldet (wartet auf Bestätigung) → Bestätigt** (erledigt grün, aktuell blau)
-und darunter genau ein Kasten **„Nächster Schritt“**:
-- **Beim Veranstalter melden:** a) außerhalb der Website melden –
-  „BJV-Meldeliste (Excel)“ (`Polls\BjvExport`, per `ZipArchive`) baut das
-  offizielle BJV-„Meldeformular für alle Wettkämpfe“ nach: Blatt „Meldung“, Kopf
-  (Veranstaltung, Datum, meldender Verein, Ansprechpartner = angemeldeter Orga,
-  Kontakt-Mail, Kampfrichter Samstag/Sonntag – **die Kampfrichter bleiben
-  leer**), Tabelle Nr. | Name | Vorname | Jahrgang | Geschlecht | AK |
-  Gewichtsklasse, mindestens 40 Zeilen; dazu die CSV (mit Spalte „Beim
-  Veranstalter gemeldet“). b) dann **„Status auf ‚Gemeldet' setzen“**. Vor dem
-  Klick steht da, was passiert: wie viele Starter abgehakt werden, was die
-  Melder auf der Website sehen, **welche Melder namentlich eine Mail
-  bekommen** (abwählbar), wer mangels Adresse nicht (selbst Bescheid geben),
-  und „Mail ansehen“ mit dem fertig gefüllten Text (`EntryMail::plan()`).
-- **Mail „abgeschickt“ geht an jeden Melder, zu dessen gemeldeten Startern
-  noch keine Mail rausging** (`vp_poll_entries.notified_at`,
-  `PollModel::melder_to_notify()`) – egal, ob der Haken über die Abhakliste
-  oder den Statusknopf kam. Bei Nachmeldungen also nur an deren Melder.
-- **Abhakliste:** Spalte „Gemeldet“ je Starter, Kopf-Häkchen markiert die
-  ganze Klasse, „Alle abhaken“ / „Alle Haken entfernen“ für die ganze Liste,
-  speichern mit „Häkchen speichern“. Speichern verschickt **keine** Mail und
-  ändert den Status nicht – nur Arbeitsstand, etwa beim Eintragen in DokuMe.
-- **Nachmeldungen:** Kommt nach „Gemeldet“ jemand dazu oder ändert Klasse/
-  Gewicht, ist der Starter offen (gelb), der Kasten „Nächster Schritt: …
-  Nachmeldung“ erscheint wieder. Unveränderte Starter behalten beim erneuten
-  Speichern Haken und Mail-Vermerk (`PollModel::entry_key()`: Name, Jahrgang,
-  Klasse, Gewicht).
-- **Bestätigt:** „Status auf ‚Bestätigt' setzen“ vermerkt `confirmed_at`, Mail
-  „Meldung bestätigt“ (abwählbar) an alle Melder der Meldung.
+**Meldung beim Veranstalter** (seit 1.23.0; seit 1.23.3 steuern die Haken
+alles). Oben ein Prozessband **Meldungen sammeln → Beim Veranstalter melden →
+Gemeldet (wartet auf Bestätigung) → Bestätigt** (erledigt grün, aktuell blau),
+darunter ein Kasten **„Nächster Schritt“**:
+- **Vor dem Melden:** 1. Meldeliste holen – „BJV-Meldeliste (Excel)“
+  (`Polls\BjvExport`, per `ZipArchive`) baut das offizielle BJV-„Meldeformular
+  für alle Wettkämpfe“ nach: Blatt „Meldung“, Kopf (Veranstaltung, Datum,
+  meldender Verein, Ansprechpartner = angemeldeter Orga, Kontakt-Mail,
+  Kampfrichter Samstag/Sonntag – **die Kampfrichter bleiben leer**), Tabelle
+  Nr. | Name | Vorname | Jahrgang | Geschlecht | AK | Gewichtsklasse, mindestens
+  40 Zeilen; dazu die CSV. 2. Excel schicken oder in DokuMe eintragen.
+  3. unten abhaken und speichern.
+- **Nach dem Melden:** Knopf „Status auf ‚Bestätigt‘ setzen“ mit Liste, was
+  passiert, Empfängern und Mail-Vorschau; noch nicht abgehakte Starter
+  (Nachmeldungen) werden gezählt, Excel/CSV bleiben erreichbar.
+
+**Die Haken sind die einzige Quelle** („Wer ist beim Veranstalter gemeldet?“):
+Haken = gemeldet (`vp_poll_entries.submitted_at`). „Alle abhaken“ / „Alle
+Haken entfernen“, Kopf-Häkchen je Klasse. Unter der Liste klebt eine Leiste,
+die **beim Abhaken live** zeigt: wie viele abgehakt sind, **wer namentlich
+eine Mail bekommt – mit den Vornamen seiner neu abgehakten Starter**, wer
+mangels Adresse nicht (selbst Bescheid geben), wer schon informiert ist, und
+ein Mail-Beispiel. Zwei Knöpfe:
+- **„Als gemeldet speichern und Melder informieren“** (später „Speichern und
+  Melder informieren“): speichert die Haken, setzt beim ersten Mal den Status
+  „Gemeldet“ (`vp_polls.submitted_at`) und mailt „Meldung abgeschickt“ an jeden
+  Melder mit abgehakten Startern, zu denen noch keine Mail rausging
+  (`notified_at`, `PollModel::melder_to_notify()`). Die Mail nennt nur seine
+  abgehakten Starter (`EntryMail::plan()`). Mail-Haken abgewählt: Status und
+  Vermerk ohne Mail.
+- **„Nur Haken speichern“** – Arbeitsstand, z. B. beim Eintragen in DokuMe:
+  keine Mail, Status bleibt.
+Nachmeldung = Starter ohne Haken nach „Gemeldet“ (gelb); abhaken und wieder
+„Speichern und Melder informieren“ – Mail nur an deren Melder. Unveränderte
+Starter behalten beim erneuten Speichern der Meldung Haken und Mail-Vermerk
+(`PollModel::entry_key()`: Name, Jahrgang, Klasse, Gewicht).
+**Bestätigt:** `confirmed_at`, Mail „Meldung bestätigt“ (abwählbar) an alle
+Melder mit abgehakten Startern.
 Melder ohne echte E-Mail (Platzhalter `@invalid.local` oder keine) bekommen
 nichts; die Rückmeldung nennt sie zum selbst Bescheid geben
 (`Polls\EntryMail`). Auf der Website sehen Melder „Die Meldung ging am … an

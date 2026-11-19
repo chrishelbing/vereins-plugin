@@ -346,6 +346,9 @@ Pruefung::ok( 'Mail: Vorlagen aus den Einstellungen', str_contains( EntryMail::d
 $wpdb->insert( 'wp_vp_people', [ 'display_name' => 'Ohne Mail', 'source' => 'link' ] );
 $ohne = -(int) end( $wpdb->t['wp_vp_people'] )['id'];
 $model->replace_entries( $wid, $ohne, [ array_merge( $tom, [ 'first_name' => 'Kai', 'weight' => '' ] ) ] );
+Pruefung::gleich( 'Mail nur zu abgehakten Startern: Melder ohne gemeldete Starter fehlt', array_keys( EntryMail::plan( $model->find( $wid ), 'sent', [ $ohne ] ) ), [] );
+Pruefung::gleich( 'Vorschau vor dem Abhaken: alle Starter', EntryMail::plan( $model->find( $wid ), 'sent', [ $ohne ], '', false )[ $ohne ]['starters'], [ 'Kai' ] );
+$model->mark_entries_submitted( $wid, array_column( $model->entries( $wid, $ohne ), 'id' ) );
 $ergebnis = EntryMail::send( $model->find( $wid ), 'sent', [ $gerd, $ohne ], 'Olaf Orga' );
 Pruefung::gleich( 'Mail „abgeschickt“: an Melder mit Adresse, ohne Adresse genannt', [ $ergebnis['sent'], implode( ',', $ergebnis['skipped'] ) ], [ 1, 'Ohne Mail' ] );
 Pruefung::gleich( 'Mail „bestätigt“: an alle Melder', EntryMail::send( $model->find( $wid ), 'confirmed' )['sent'], 2 );

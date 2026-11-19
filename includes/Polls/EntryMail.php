@@ -35,18 +35,24 @@ class EntryMail {
     /**
      * Wer bekäme welche Mail? Für die Vorschau im Backend und fürs Verschicken.
      *
+     * Die Mail nennt nur Starter, die beim Veranstalter gemeldet (abgehakt)
+     * sind; Melder ohne solche Starter bekommen keine. Mit $nur_gemeldet =
+     * false zählen alle Starter – für eine Beispiel-Vorschau vor dem Abhaken.
+     *
      * @param int[] $melder Personen-IDs; leer = alle Melder dieser Meldung
-     * @return array<int, array{name:string, email:string, subject:string, body:string}>
+     * @return array<int, array{name:string, email:string, subject:string, body:string, starters:string[]}>
      *         email = '' bei Platzhalter-Adresse oder ohne Adresse
      */
-    public static function plan( array $poll, string $art, array $melder = [], string $absender = '' ): array {
+    public static function plan( array $poll, string $art, array $melder = [], string $absender = '', bool $nur_gemeldet = true ): array {
         $art     = $art === 'confirmed' ? 'confirmed' : 'sent';
         $betreff = (string) Settings::get( "entry_mail_{$art}_subject", self::defaults()[ "entry_mail_{$art}_subject" ] );
         $text    = (string) Settings::get( "entry_mail_{$art}_body", self::defaults()[ "entry_mail_{$art}_body" ] );
 
         $je_melder = [];
         foreach ( ( new PollModel() )->entries( (int) $poll['id'] ) as $e ) {
-            $je_melder[ (int) $e['person_id'] ][] = $e;
+            if ( ! $nur_gemeldet || ! empty( $e['submitted_at'] ) ) {
+                $je_melder[ (int) $e['person_id'] ][] = $e;
+            }
         }
         if ( $melder ) {
             $je_melder = array_intersect_key( $je_melder, array_flip( $melder ) );
@@ -63,6 +69,7 @@ class EntryMail {
                 'email'   => $p && ! MemberService::is_placeholder_email( $mail ) && is_email( $mail ) ? $mail : '',
                 'subject' => self::fill( $betreff, $werte ),
                 'body'    => self::fill( $text, $werte ),
+                'starters' => array_map( static fn( $e ) => (string) $e['first_name'], $starter ),
             ];
         }
         return $plan;
