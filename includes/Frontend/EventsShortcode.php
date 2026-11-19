@@ -1188,7 +1188,7 @@ class EventsShortcode {
         wp_register_style(
             self::STYLE,
             plugins_url( 'assets/css/events.css', VP_PLUGIN_FILE ),
-            [],
+            [ \VereinsPlugin\Support\ThemeStyle::handle() ],
             VP_VERSION
         );
 

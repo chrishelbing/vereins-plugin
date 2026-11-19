@@ -1,0 +1,58 @@
+/*
+ * Farben des Plugins – abgeleitet aus dem Theme („automagisch“).
+ *
+ * Jede Grundfarbe fragt zuerst die Palette, die das Theme seitenweit
+ * bereitstellt: Block-Themes (theme.json, --wp--preset--color--…), Astra
+ * (--ast-global-color-…), Kadence (--global-palette…). Erst ohne sie gelten
+ * die Ersatzwerte – das frühere Grau/Blau des Plugins. Linien, Flächen,
+ * gedämpfter Text und helle Akzenttöne werden daraus gemischt.
+ *
+ * NICHT hier: die Farben der Termintypen. Die stellt das Orgateam je Typ
+ * ein, und sie kommen als Inline-Stil an die Kachel bzw. als --vp-accent an
+ * den Banner – sie gewinnen immer gegen diese Datei.
+ *
+ * Bedeutungsfarben (Zusage grün, Absage rot, Hinweis bernsteinfarben)
+ * bleiben fest in den einzelnen Stylesheets.
+ *
+ * Anpassen ohne Code: im Customizer unter „Zusätzliches CSS“, z. B.
+ *   :root { --vp-c-accent: #0a7d3b; }
+ *
+ * Wird von Support\ThemeStyle als „vp-theme“ angemeldet; alle anderen
+ * Stylesheets des Plugins hängen davon ab. Jede Verwendung trägt zusätzlich
+ * einen Ersatzwert – var(--vp-c-ink, #111827) –, damit auch Inline-Stile ohne
+ * diese Datei lesbar bleiben.
+ */
+:root {
+    --vp-c-accent: var(--wp--preset--color--primary, var(--ast-global-color-0, var(--global-palette1, #2563eb)));
+    --vp-c-ink:    var(--wp--preset--color--contrast, var(--ast-global-color-2, var(--global-palette3, #111827)));
+    --vp-c-body:   var(--ast-global-color-3, var(--global-palette4, #374151));
+    --vp-c-bg:     var(--wp--preset--color--base, var(--ast-global-color-5, var(--global-palette9, #ffffff)));
+
+    /* Feste Werte für Browser ohne color-mix() … */
+    --vp-c-muted:         #6b7280;
+    --vp-c-faint:         #9ca3af;
+    --vp-c-line-strong:   #d1d5db;
+    --vp-c-line:          #e5e7eb;
+    --vp-c-soft-2:        #f3f4f6;
+    --vp-c-soft:          #f9fafb;
+    --vp-c-accent-strong: #1d4ed8;
+    --vp-c-tint:          #eff6ff;
+    --vp-c-tint-2:        #dbeafe;
+    --vp-c-accent-25:     #bfdbfe;
+    --vp-c-accent-40:     #93c5fd;
+    --vp-c-accent-55:     #60a5fa;
+
+    /* … und gemischt aus den Theme-Farben für alle anderen. */
+    --vp-c-muted:         color-mix(in srgb, var(--vp-c-body) 80%, var(--vp-c-bg));
+    --vp-c-faint:         color-mix(in srgb, var(--vp-c-body) 50%, var(--vp-c-bg));
+    --vp-c-line-strong:   color-mix(in srgb, var(--vp-c-ink) 20%, var(--vp-c-bg));
+    --vp-c-line:          color-mix(in srgb, var(--vp-c-ink) 12%, var(--vp-c-bg));
+    --vp-c-soft-2:        color-mix(in srgb, var(--vp-c-ink) 5%, var(--vp-c-bg));
+    --vp-c-soft:          color-mix(in srgb, var(--vp-c-ink) 2.5%, var(--vp-c-bg));
+    --vp-c-accent-strong: color-mix(in srgb, var(--vp-c-accent) 80%, var(--vp-c-ink));
+    --vp-c-tint:          color-mix(in srgb, var(--vp-c-accent) 7%, var(--vp-c-bg));
+    --vp-c-tint-2:        color-mix(in srgb, var(--vp-c-accent) 14%, var(--vp-c-bg));
+    --vp-c-accent-25:     color-mix(in srgb, var(--vp-c-accent) 25%, var(--vp-c-bg));
+    --vp-c-accent-40:     color-mix(in srgb, var(--vp-c-accent) 40%, var(--vp-c-bg));
+    --vp-c-accent-55:     color-mix(in srgb, var(--vp-c-accent) 55%, var(--vp-c-bg));
+}

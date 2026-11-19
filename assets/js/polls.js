@@ -695,16 +695,16 @@
 
     // ------------------------------------------------------------------
     // Übersicht: jede Umfrage eine zuklappbare Karte. Kopfzeile mit Titel,
-    // Art, Stand und „mitgemacht“; aufgeklappt ist höchstens eine, damit die
+    // Art, Stand und „abgestimmt“ bzw. „gemeldet“; aufgeklappt ist höchstens eine, damit die
     // Liste auch auf dem Handy überschaubar bleibt.
     // ------------------------------------------------------------------
 
     var cards = {};
 
     function participated(p) {
-        if (p.kind === 'entry') { return p.entries && p.entries.length ? fmt(p.entries.length === 1 ? T.mineStarter : T.mineStarters, p.entries.length) : ''; }
-        if (p.kind === 'text') { return p.mine && p.mine.length ? T.mineDone : ''; }
-        return p.mine && Object.keys(p.mine).length ? T.mineDone : '';
+        if (p.kind === 'entry') { return p.entries && p.entries.length ? T.mineEntered : ''; }
+        if (p.kind === 'text') { return p.mine && p.mine.length ? T.mineIdeas : ''; }
+        return p.mine && Object.keys(p.mine).length ? T.mineVoted : '';
     }
 
     function kindText(k) {
@@ -721,7 +721,11 @@
         c.badge.textContent = mit;
         c.badge.hidden = !mit;
         c.card.classList.toggle('is-closed', !p.open);
-        c.state.textContent = p.open ? T.stateOpen : T.stateClosed;
+        stateText(c);
+    }
+
+    function stateText(c) {
+        c.state.textContent = c.head.getAttribute('aria-expanded') === 'true' ? T.detailsHide : T.detailsShow;
     }
 
     function setOpen(id, auf, scroll) {
@@ -731,6 +735,7 @@
             c.head.setAttribute('aria-expanded', dies ? 'true' : 'false');
             c.body.hidden = !dies;
             c.card.classList.toggle('is-open', dies);
+            if (c.state) { stateText(c); }
         });
         if (auf && cards[id]) {
             if (window.history && history.replaceState) { history.replaceState(null, '', '#umfrage-' + id); }

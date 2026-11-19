@@ -9,26 +9,26 @@
 .vp-form-wrap { max-width: 600px; font-family: inherit; }
 
 .vp-form__group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
-.vp-form__group label { font-size: .85rem; font-weight: 600; color: #374151; }
+.vp-form__group label { font-size: .85rem; font-weight: 600; color: var(--vp-c-body, #374151); }
 .vp-form__group input,
 .vp-form__group select,
-.vp-form__group textarea { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: .95rem; font-family: inherit; }
+.vp-form__group textarea { padding: 8px 10px; border: 1px solid var(--vp-c-line-strong, #d1d5db); border-radius: 6px; font-size: .95rem; font-family: inherit; }
 .vp-form__group input:focus,
 .vp-form__group select:focus,
-.vp-form__group textarea:focus { outline: 2px solid #3b82f6; border-color: transparent; }
+.vp-form__group textarea:focus { outline: 2px solid var(--vp-c-accent, #3b82f6); border-color: transparent; }
 
 .vp-form__row { display: flex; gap: 16px; }
 .vp-form__row .vp-form__group { flex: 1; }
 
 .vp-form__check label { display: flex; align-items: center; gap: 8px; font-weight: 400; cursor: pointer; }
 
-.vp-recurrence { background: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+.vp-recurrence { background: var(--vp-c-soft-2, #f3f4f6); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
 
 .vp-weekdays { display: flex; gap: 8px; flex-wrap: wrap; }
 .vp-weekdays__btn { display: flex; align-items: center; gap: 4px; font-size: .85rem; cursor: pointer; }
 
-.vp-btn { background: #3b82f6; color: #fff; border: none; padding: 10px 24px; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: 600; }
-.vp-btn:hover { background: #2563eb; }
+.vp-btn { background: var(--vp-c-accent, #3b82f6); color: #fff; border: none; padding: 10px 24px; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: 600; }
+.vp-btn:hover { background: var(--vp-c-accent-strong, #2563eb); }
 .vp-btn:disabled { opacity: .6; cursor: not-allowed; }
 
 .vp-form__msg { min-height: 24px; font-size: .9rem; padding: 4px 0; }
@@ -48,15 +48,15 @@
 
 /* Löschen steht bewusst abseits und ohne Signalfarbe, bis man darauf
    zeigt: Es ist der einzige Knopf hier, der nichts zurücknehmen lässt. */
-.vp-edit__delete { margin-left: auto; background: none; border: none; color: #6b7280; font-size: .85rem; cursor: pointer; padding: 6px 4px; text-decoration: underline; }
+.vp-edit__delete { margin-left: auto; background: none; border: none; color: var(--vp-c-muted, #6b7280); font-size: .85rem; cursor: pointer; padding: 6px 4px; text-decoration: underline; }
 .vp-edit__delete:hover { color: #dc2626; }
 
 /* Die Rückfrage bei Serien: erscheint erst beim Speichern. */
-.vp-edit__scope { background: #f3f4f6; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+.vp-edit__scope { background: var(--vp-c-soft-2, #f3f4f6); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
 .vp-edit__scope[hidden] { display: none; }
-.vp-edit__scope strong { display: block; font-size: .85rem; color: #374151; margin-bottom: 8px; }
+.vp-edit__scope strong { display: block; font-size: .85rem; color: var(--vp-c-body, #374151); margin-bottom: 8px; }
 .vp-edit__scope label { display: flex; align-items: flex-start; gap: 8px; font-size: .9rem; cursor: pointer; padding: 4px 0; }
-.vp-edit__scope small { display: block; color: #6b7280; font-size: .8rem; }
+.vp-edit__scope small { display: block; color: var(--vp-c-muted, #6b7280); font-size: .8rem; }
 
 /* Solange die Serienfrage offen ist, gehören die Felder nicht angefasst. */
 .vp-edit__fields.is-locked { opacity: .5; pointer-events: none; }
@@ -66,15 +66,15 @@
 .vp-tags__btn { display: flex; align-items: center; gap: 4px; font-size: .85rem; font-weight: 400; cursor: pointer; }
 
 /* „?“ mit Tooltip neben einer Feldbeschriftung (EventForm::format_hint). */
-.vp-hint { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 4px; border-radius: 999px; background: #e5e7eb; color: #374151; font-size: 11px; font-weight: 700; line-height: 1; cursor: help; vertical-align: middle; }
-.vp-hint:focus { outline: 2px solid #2563eb; outline-offset: 1px; }
-.vp-hint__box { display: none; position: absolute; z-index: 100; left: -10px; bottom: calc(100% + 8px); width: 260px; max-width: calc(100vw - 40px); padding: 10px 12px; border-radius: 8px; background: #111827; color: #f9fafb; font-size: 12px; font-weight: 400; line-height: 1.45; text-align: left; box-shadow: 0 6px 20px rgba(0,0,0,.2); white-space: normal; }
-.vp-hint__box::after { content: ""; position: absolute; top: 100%; left: 12px; border: 6px solid transparent; border-top-color: #111827; }
+.vp-hint { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 4px; border-radius: 999px; background: var(--vp-c-line, #e5e7eb); color: var(--vp-c-body, #374151); font-size: 11px; font-weight: 700; line-height: 1; cursor: help; vertical-align: middle; }
+.vp-hint:focus { outline: 2px solid var(--vp-c-accent, #2563eb); outline-offset: 1px; }
+.vp-hint__box { display: none; position: absolute; z-index: 100; left: -10px; bottom: calc(100% + 8px); width: 260px; max-width: calc(100vw - 40px); padding: 10px 12px; border-radius: 8px; background: var(--vp-c-ink, #111827); color: var(--vp-c-soft, #f9fafb); font-size: 12px; font-weight: 400; line-height: 1.45; text-align: left; box-shadow: 0 6px 20px rgba(0,0,0,.2); white-space: normal; }
+.vp-hint__box::after { content: ""; position: absolute; top: 100%; left: 12px; border: 6px solid transparent; border-top-color: var(--vp-c-ink, #111827); }
 .vp-hint:hover .vp-hint__box, .vp-hint:focus .vp-hint__box, .vp-hint:focus-within .vp-hint__box { display: block; }
 .vp-hint__box strong { display: block; margin-bottom: 6px; font-size: 12px; }
 .vp-hint__row { display: block; margin-top: 6px; }
-.vp-hint__box code { display: inline-block; margin-top: 2px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.12); color: #f9fafb; font-size: 11px; word-break: break-all; }
-.vp-hint__note { color: #d1d5db; }
+.vp-hint__box code { display: inline-block; margin-top: 2px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.12); color: var(--vp-c-soft, #f9fafb); font-size: 11px; word-break: break-all; }
+.vp-hint__note { color: var(--vp-c-line-strong, #d1d5db); }
 
 /* Handy: Safari zoomt bei Feldern unter 16 px beim Antippen heran und
    nicht von selbst zurück. Darum auf Touch-Geräten 16 px. */

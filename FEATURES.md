@@ -788,26 +788,18 @@ haben keine Wahl – die Meldungen sieht nur das Orgateam.
 **Übersicht auf der Website** (seit 1.19.0). `[vp_umfragen]` zeigt alle
 Umfragen als zuklappbare Karten, getrennt in „Laufende Umfragen“ und
 „Beendet“. Die Kopfzeile nennt Titel, Art, Stand (offen bis … / beendet bzw.
-Wettkampftag) und „✓ mitgemacht“ bzw. „✓ n Starter gemeldet“; aufgeklappt ist
+Wettkampftag) und – wenn man teilgenommen hat – „✓ abgestimmt“, „✓ gemeldet“ bzw. „✓ Vorschläge eingereicht“; aufgeklappt ist
 höchstens eine. Die geöffnete Umfrage steht als `#umfrage-<id>` in der
 Adresse, so lässt sich ein Link auf genau sie teilen. Läuft nur eine
 Umfrage, ist sie aufgeklappt; mit `id="…"` oder bei nur einer Umfrage gibt es
 keine Klappliste. Große Tippflächen fürs Handy. Rechts in der Kopfzeile
-„Mitmachen ▾“ bzw. „Ansehen ▾“; beim Überfahren Rahmen in Akzentfarbe mit
+„Details anzeigen ▾“ bzw. aufgeklappt „Details ausblenden ▴“; beim Überfahren Rahmen in Akzentfarbe mit
 leichtem Schatten, aufgeklappt hellgraue Kopfzeile mit Trennlinie – wie die
 Gürtel-Kacheln der JVL-Seite (seit 1.20.0).
 
-**Aussehen folgt dem Theme** (seit 1.20.0). `assets/css/polls.css` holt
-Akzent-, Text- und Hintergrundfarbe aus der Palette, die das Theme
-seitenweit bereitstellt – Block-Themes (`--wp--preset--color--primary`,
-`contrast`, `base`), Astra (`--ast-global-color-0/2/3/5`), Kadence
-(`--global-palette1/3/4/9`) – und nimmt erst ohne sie eigene Werte.
-Gedämpfter Text, Rahmen und Flächen werden mit `color-mix()` daraus
-gemischt (ältere Browser bekommen feste Werte). Schrift und Knöpfe erbt das
-Plugin von der Seite. Feste Farben behalten nur passt/vielleicht/passt nicht
-und Fehler. Anpassen lässt sich alles über die Variablen `--vp-poll-…` (z. B.
-`--vp-poll-accent`, `--vp-poll-radius`) im Zusätzlichen CSS. Auf der
-JVL-Seite ergibt das ohne Zutun das Astra-Rot `#B3121B`.
+**Aussehen folgt dem Theme** (seit 1.20.0) – siehe „Farben und Theme“. Die Umfragen nehmen dieselben Farben wie der Rest des Plugins und
+lassen sich zusätzlich einzeln über `--vp-poll-…` (z. B. `--vp-poll-accent`,
+`--vp-poll-radius`) anpassen.
 
 **Teilnahme ohne Anmeldung.** Wer nicht bekannt ist, nennt beim ersten
 Abstimmen seinen Namen, E-Mail freiwillig (`POST /polls/identify`). Das ist
@@ -1024,6 +1016,35 @@ WordPress selbst zur Vergabe freigibt; das eigene Konto und Administratoren
 bleiben gesperrt.
 
 ---
+
+## Farben und Theme (seit 1.20.0)
+
+Das Plugin bringt keine eigene Farbwelt mit, sondern übernimmt die des
+Themes. `assets/css/theme.css` (Handle `vp-theme`, angemeldet über
+`Support\ThemeStyle`) setzt auf `:root` die Plugin-Farben `--vp-c-…`:
+
+- **Grundfarben aus der Theme-Palette**, jeweils mit Ersatzwert:
+  Akzent (`--wp--preset--color--primary` → Astra `--ast-global-color-0` →
+  Kadence `--global-palette1` → Blau `#2563eb`), Überschriften/Text dunkel,
+  Fließtext, Hintergrund. Auf der JVL-Seite (Astra) ergibt das Rot `#B3121B`.
+- **Abgeleitet per `color-mix()`:** gedämpfter Text, Linien, helle Flächen,
+  helle und dunkle Akzenttöne. Browser ohne `color-mix()` bekommen die
+  früheren festen Werte.
+- **Fest bleiben** die Bedeutungsfarben: Zusage grün, Absage/Löschen rot,
+  Hinweise bernsteinfarben, Text auf farbigem Grund weiß.
+- **Termintypen behalten ihre eigene Farbe.** Die Farbe, die das Orgateam je
+  Termintyp einstellt, kommt weiterhin als Inline-Stil an Kachel
+  (Typ-Beschriftung, Titelfläche ohne Bild), Banner (`--vp-accent`) und
+  Flyer – Inline-Stile gewinnen immer gegen das Stylesheet. Nur ein Banner
+  ohne gültige Typfarbe fällt auf den Theme-Akzent zurück.
+
+Alle Stylesheets (`events.css`, `banner.css`, `form.css`, `polls.css`)
+hängen von `vp-theme` ab; Anmeldung und Registrierung mit Inline-Stil
+fordern es selbst an. Jede Verwendung trägt einen Ersatzwert
+(`var(--vp-c-ink, #111827)`). Anpassen ohne Code im Customizer unter
+„Zusätzliches CSS“, z. B. `:root { --vp-c-accent: #0a7d3b; }`.
+`tools/check.php` meldet Variablen mit Selbstbezug und `--vp-c-…`-Namen,
+die in `theme.css` fehlen.
 
 ## Was wo zu finden ist
 
