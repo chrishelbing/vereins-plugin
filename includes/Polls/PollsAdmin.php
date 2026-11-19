@@ -787,7 +787,6 @@ class PollsAdmin {
         $jahr    = EntryService::year( $poll );
         $klassen = array_column( PollModel::classes( $poll ), null, 'key' );
         $faellig = EntryCleanup::due_date( $poll );
-        $sicht   = sanitize_key( $_GET['sicht'] ?? '' ) === 'melder' ? 'melder' : 'klasse';
         ?>
         <h1><?php echo esc_html( $poll['title'] ); ?></h1>
         <p><a href="<?php echo esc_url( $this->url() ); ?>">&larr; <?php esc_html_e( 'Zur Übersicht', 'vereins-plugin' ); ?></a></p>
@@ -811,18 +810,9 @@ class PollsAdmin {
         <?php endif; ?>
         <?php $this->render_entry_steps( $poll, $liste ); ?>
 
-        <p>
-            <?php if ( $sicht === 'klasse' ) : ?>
-                <a class="button" href="<?php echo esc_url( $this->url( [ 'ergebnis' => $poll['id'], 'sicht' => 'melder' ] ) ); ?>"><?php esc_html_e( 'Nach Melder ordnen', 'vereins-plugin' ); ?></a>
-            <?php else : ?>
-                <a class="button" href="<?php echo esc_url( $this->url( [ 'ergebnis' => $poll['id'] ] ) ); ?>"><?php esc_html_e( 'Nach Klassen ordnen', 'vereins-plugin' ); ?></a>
-            <?php endif; ?>
-        </p>
-
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
             <input type="hidden" name="action" value="vp_poll_entries_mark">
             <input type="hidden" name="id" value="<?php echo (int) $poll['id']; ?>">
-            <input type="hidden" name="sicht" value="<?php echo esc_attr( $sicht ); ?>">
             <?php wp_nonce_field( 'vp_poll_entries_mark_' . (int) $poll['id'] ); ?>
             <h2 id="vp-abhaken" style="margin-bottom:4px;"><?php esc_html_e( 'Wer ist beim Veranstalter gemeldet?', 'vereins-plugin' ); ?></h2>
             <p style="margin-top:0;">
@@ -834,22 +824,6 @@ class PollsAdmin {
                 <input type="hidden" name="alle[]" value="<?php echo (int) $z['id']; ?>">
             <?php endforeach; ?>
         <?php
-        if ( $sicht === 'melder' ) {
-            $gruppen = [];
-            foreach ( $liste as $z ) {
-                $gruppen[ $z['person_id'] ][] = $z;
-            }
-            foreach ( $gruppen as $zeilen ) {
-                $erster = $zeilen[0];
-                echo '<h2 style="margin-bottom:4px;">' . esc_html( $erster['reporter'] )
-                    . ( $erster['reporter_guest'] ? ' <span class="description">(' . esc_html__( 'Gast', 'vereins-plugin' ) . ')</span>' : '' ) . '</h2>';
-                echo '<p style="margin-top:0;">' . ( $erster['contact'] !== '' ? esc_html( $erster['contact'] ) : '<span class="description">' . esc_html__( 'kein Kontakt hinterlegt', 'vereins-plugin' ) . '</span>' ) . '</p>';
-                $this->entry_table( $zeilen, false, ! empty( $poll['dokume'] ) );
-            }
-            $this->close_mark_form( $poll );
-            return;
-        }
-
         $gruppen = [];
         foreach ( $liste as $z ) {
             $gruppen[ $z['class_key'] . ' ' . $z['sex'] ][] = $z;
@@ -1383,7 +1357,7 @@ class PollsAdmin {
         $gemeldet = array_map( 'intval', (array) ( $_POST['gemeldet'] ?? [] ) );
         $this->model->mark_entries_submitted( $id, array_intersect( $gemeldet, $alle ), true );
         $this->model->mark_entries_submitted( $id, array_diff( $alle, $gemeldet ), false );
-        $args = [ 'ergebnis' => $id, 'sicht' => sanitize_key( $_POST['sicht'] ?? '' ), 'msg' => 'marked' ];
+        $args = [ 'ergebnis' => $id, 'msg' => 'marked' ];
 
         // „Als gemeldet speichern und Melder informieren“: Status setzen und
         // jeden Melder mit abgehakten, noch nicht gemailten Startern informieren.

@@ -938,7 +938,7 @@ Meldeschluss. Jeder Melder sieht nur seine eigenen Starter.
 
 **Meldeliste fürs Orgateam** (Backend, „Meldeliste“): nach Klasse und
 Geschlecht gruppiert, nach Gewicht sortiert, je Starter „gemeldet von“ mit
-E-Mail/Telefon; umschaltbar „nach Melder ordnen“. **CSV-Download** (Semikolon,
+E-Mail/Telefon (seit 1.23.5 nur noch diese Ansicht). **CSV-Download** (Semikolon,
 UTF-8 mit BOM für Excel): Nachname, Vorname, Jahrgang, Geschlecht,
 Altersklasse, Gewichtsklasse, Verein (aus Einstellungen → Vereinsname),
 Melder, Kontakt, Hinweis.
