@@ -815,11 +815,7 @@ class PollsAdmin {
             <input type="hidden" name="id" value="<?php echo (int) $poll['id']; ?>">
             <?php wp_nonce_field( 'vp_poll_entries_mark_' . (int) $poll['id'] ); ?>
             <h2 id="vp-abhaken" style="margin-bottom:4px;"><?php esc_html_e( 'Wer ist beim Veranstalter gemeldet?', 'vereins-plugin' ); ?></h2>
-            <p style="margin-top:0;">
-                <span class="description"><?php esc_html_e( 'Haken = gemeldet. Unten siehst du vor dem Speichern, wer eine Mail bekommt.', 'vereins-plugin' ); ?></span>
-                <button type="button" class="button button-small vp-check-every" data-on="1"><?php esc_html_e( 'Alle abhaken', 'vereins-plugin' ); ?></button>
-                <button type="button" class="button button-small vp-check-every" data-on="0"><?php esc_html_e( 'Alle Haken entfernen', 'vereins-plugin' ); ?></button>
-            </p>
+            <p class="description" style="margin-top:0;"><?php esc_html_e( 'Haken = gemeldet; der Haken im Tabellenkopf markiert die ganze Klasse. Unten siehst du vor dem Speichern, wer eine Mail bekommt.', 'vereins-plugin' ); ?></p>
             <?php foreach ( $liste as $z ) : ?>
                 <input type="hidden" name="alle[]" value="<?php echo (int) $z['id']; ?>">
             <?php endforeach; ?>
@@ -973,13 +969,6 @@ class PollsAdmin {
                 alle.addEventListener('change', function () { boxen().forEach(function (x) { x.checked = alle.checked; }); rechnen(); });
                 boxen().forEach(function (x) { x.addEventListener('change', function () { sync(); rechnen(); }); });
                 sync();
-            });
-            document.querySelectorAll('.vp-check-every').forEach(function (k) {
-                k.addEventListener('click', function () {
-                    var an = k.dataset.on === '1';
-                    document.querySelectorAll('input[name="gemeldet[]"], .vp-check-all').forEach(function (x) { x.checked = an; x.indeterminate = false; });
-                    rechnen();
-                });
             });
             q('[data-mail-toggle]').addEventListener('change', rechnen);
             rechnen();

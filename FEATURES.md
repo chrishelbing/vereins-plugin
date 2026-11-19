@@ -960,8 +960,8 @@ darunter ein Kasten **„Nächster Schritt“**:
   (Nachmeldungen) werden gezählt, Excel/CSV bleiben erreichbar.
 
 **Die Haken sind die einzige Quelle** („Wer ist beim Veranstalter gemeldet?“):
-Haken = gemeldet (`vp_poll_entries.submitted_at`). „Alle abhaken“ / „Alle
-Haken entfernen“, Kopf-Häkchen je Klasse. Unter der Liste klebt eine Leiste,
+Haken = gemeldet (`vp_poll_entries.submitted_at`); das Kopf-Häkchen markiert
+die ganze Klasse. Unter der Liste klebt eine Leiste,
 die **beim Abhaken live** zeigt: wie viele abgehakt sind, **wer namentlich
 eine Mail bekommt – mit den Vornamen seiner neu abgehakten Starter**, wer
 mangels Adresse nicht (selbst Bescheid geben), wer schon informiert ist, und
