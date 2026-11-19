@@ -55,7 +55,7 @@ class BannerShortcode {
         wp_register_style(
             self::STYLE,
             plugins_url( 'assets/css/banner.css', VP_PLUGIN_FILE ),
-            [],
+            [ \VereinsPlugin\Support\ThemeStyle::handle() ],
             VP_VERSION
         );
     }

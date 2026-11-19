@@ -1,34 +1,25 @@
 /* Umfragen – [vp_umfragen]
  *
- * Farben folgen dem Theme („automagisch“): Jede Variable fragt zuerst die
- * Farbpalette ab, die das Theme ohnehin seitenweit bereitstellt – Block-
- * Themes (theme.json: --wp--preset--color--…), Astra (--ast-global-color-…),
- * Kadence (--global-palette…) – und fällt erst dann auf eigene Werte
- * zurück. Gedämpfter Text, Rahmen und Flächen werden aus Text- und
- * Hintergrundfarbe gemischt, passen sich also mit an. Schrift, Größe und
- * Zeilenhöhe erbt alles von der Seite.
+ * Farben folgen dem Theme: Die Grundfarben kommen aus der gemeinsamen
+ * Farbdatei theme.css (--vp-c-…, abgeleitet aus der Palette des Themes), die
+ * als Abhängigkeit vorher geladen wird. Die Ersatzwerte hinter dem Komma
+ * greifen nur, falls sie fehlt. Schrift, Größe und Zeilenhöhe erbt alles von
+ * der Seite.
  *
- * Wer es anders will, setzt die Variablen im Customizer (Zusätzliches CSS):
+ * Nur für die Umfragen anders: im Customizer (Zusätzliches CSS), z. B.
  *   .vp-polls { --vp-poll-accent: #0a5; --vp-poll-radius: 6px; }
  */
 
 /* Variablen auch für den Namensdialog – er hängt außerhalb von .vp-polls. */
 .vp-polls, .vp-poll-who {
-    /* Theme-Farben mit Ersatzwerten */
-    --vp-poll-accent: var(--wp--preset--color--primary, var(--ast-global-color-0, var(--global-palette1, #b3121b)));
-    --vp-poll-ink:    var(--wp--preset--color--contrast, var(--ast-global-color-2, var(--global-palette3, #16191d)));
-    --vp-poll-body:   var(--ast-global-color-3, var(--global-palette4, #3a4048));
-    --vp-poll-bg:     var(--wp--preset--color--base, var(--ast-global-color-5, var(--global-palette9, #ffffff)));
-
-    /* daraus abgeleitet – erst feste Werte für alte Browser, dann gemischt */
-    --vp-poll-muted:  #5d6570;
-    --vp-poll-border: #dde3ea;
-    --vp-poll-soft:   #fafbfc;
-    --vp-poll-tint:   #fdf2f2;
-    --vp-poll-muted:  color-mix(in srgb, var(--vp-poll-body) 80%, var(--vp-poll-bg));
-    --vp-poll-border: color-mix(in srgb, var(--vp-poll-ink) 13%, var(--vp-poll-bg));
-    --vp-poll-soft:   color-mix(in srgb, var(--vp-poll-ink) 2.5%, var(--vp-poll-bg));
-    --vp-poll-tint:   color-mix(in srgb, var(--vp-poll-accent) 7%, var(--vp-poll-bg));
+    --vp-poll-accent: var(--vp-c-accent, #b3121b);
+    --vp-poll-ink:    var(--vp-c-ink, #16191d);
+    --vp-poll-body:   var(--vp-c-body, #3a4048);
+    --vp-poll-bg:     var(--vp-c-bg, #ffffff);
+    --vp-poll-muted:  var(--vp-c-muted, #5d6570);
+    --vp-poll-border: var(--vp-c-line, #dde3ea);
+    --vp-poll-soft:   var(--vp-c-soft, #fafbfc);
+    --vp-poll-tint:   var(--vp-c-tint, #fdf2f2);
 
     --vp-poll-radius: 14px;
 

@@ -382,7 +382,19 @@ foreach ( $css_dateien as $datei ) {
         $css_fehler[] = basename( $datei ) . ': Klammern { } gehen nicht auf';
     }
 }
-$fehler += melde( 'Stylesheets', $css_fehler, count( $css_dateien ) . ' Dateien ohne Selbstbezug' );
+// Jede verwendete Plugin-Farbe --vp-c-… muss in theme.css stehen, sonst
+// greift überall nur der Ersatzwert und das Theme bleibt außen vor.
+$theme_css = (string) @file_get_contents( $root . '/assets/css/theme.css' );
+preg_match_all( '/(--vp-c-[\w-]+)\s*:/', $theme_css, $definiert );
+$definiert = array_unique( $definiert[1] );
+$quellen   = array_merge( $css_dateien, glob( $root . '/includes/Frontend/*.php' ) ?: [] );
+foreach ( $quellen as $datei ) {
+    preg_match_all( '/var\(\s*(--vp-c-[\w-]+)/', (string) file_get_contents( $datei ), $benutzt );
+    foreach ( array_diff( array_unique( $benutzt[1] ), $definiert ) as $name ) {
+        $css_fehler[] = basename( $datei ) . " verwendet {$name}, das in theme.css fehlt";
+    }
+}
+$fehler += melde( 'Stylesheets', $css_fehler, count( $css_dateien ) . ' Dateien ohne Selbstbezug, ' . count( $definiert ) . ' Theme-Farben' );
 
 // ---------------------------------------------------------------------
 // 8. Versionsnummer: Schemaänderungen greifen nur bei erhöhter Version

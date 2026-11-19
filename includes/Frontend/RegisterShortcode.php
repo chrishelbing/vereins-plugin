@@ -37,6 +37,7 @@ class RegisterShortcode {
         $status_param = sanitize_text_field( $_GET['vp_registered'] ?? '' );
         $error_param  = sanitize_text_field( $_GET['vp_error'] ?? '' );
 
+        \VereinsPlugin\Support\ThemeStyle::enqueue();
         ob_start();
 
         if ( $status_param ) {
@@ -82,13 +83,13 @@ class RegisterShortcode {
         <style>
         .vp-form-wrap{max-width:480px;font-family:inherit}
         .vp-form__group{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
-        .vp-form__group label{font-size:.85rem;font-weight:600;color:#374151}
-        .vp-form__group input{padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:.95rem;font-family:inherit}
+        .vp-form__group label{font-size:.85rem;font-weight:600;color:var(--vp-c-body, #374151)}
+        .vp-form__group input{padding:8px 10px;border:1px solid var(--vp-c-line-strong, #d1d5db);border-radius:6px;font-size:.95rem;font-family:inherit}
         /* Handy: unter 16 px zoomt Safari beim Antippen heran */
         @media (max-width:782px),(pointer:coarse){.vp-form__group input{font-size:16px !important}}
-        .vp-btn{background:#3b82f6;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:1rem;cursor:pointer;font-weight:600}
-        .vp-btn:hover{background:#2563eb}
-        .vp-notice{color:#6b7280;font-style:italic}
+        .vp-btn{background:var(--vp-c-accent, #3b82f6);color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:1rem;cursor:pointer;font-weight:600}
+        .vp-btn:hover{background:var(--vp-c-accent-strong, #2563eb)}
+        .vp-notice{color:var(--vp-c-muted, #6b7280);font-style:italic}
         .vp-notice--ok{color:#059669;font-style:normal}
         .vp-notice--err{color:#dc2626;font-style:normal}
         </style>

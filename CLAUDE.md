@@ -115,6 +115,11 @@ aufsetzen (`Core\Modules` ist die Quelle):
   aktives Mitglied, und Deaktivieren nimmt die Vereinsrolle mit.
 - **Rollenkennungen** stehen als Konstanten in `Core\Activator`; frühere Namen
   stehen in `ROLE_HISTORY` und werden beim Update übernommen.
+- **Farben** nur über die Theme-Farben `var(--vp-c-…, Ersatzwert)` aus
+  `assets/css/theme.css` – nie ein neues festes Grau oder Blau. Fest sind nur
+  Bedeutungsfarben (grün/rot/bernstein) und Weiß auf farbigem Grund. Die
+  Termintyp-Farben kommen als Inline-Stil und dürfen nicht überschrieben
+  werden. Neue Stylesheets hängen von `Support\ThemeStyle::handle()` ab.
 - **Versionsnummer erhöhen**, sobald sich das Schema oder eine Migration
   ändert – sonst läuft `maybe_upgrade()` nicht an. Kopfzeile und `VP_VERSION`
   müssen übereinstimmen, `tools/check.php` prüft das.

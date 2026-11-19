@@ -33,7 +33,7 @@ class PollsShortcode {
         $atts = shortcode_atts( [ 'id' => 0 ], (array) $atts, self::TAG );
 
         $base = plugin_dir_url( VP_PLUGIN_FILE );
-        wp_enqueue_style( 'vp-polls', $base . 'assets/css/polls.css', [], VP_VERSION );
+        wp_enqueue_style( 'vp-polls', $base . 'assets/css/polls.css', [ \VereinsPlugin\Support\ThemeStyle::handle() ], VP_VERSION );
         wp_enqueue_script( 'vp-polls', $base . 'assets/js/polls.js', [], VP_VERSION, true );
         wp_localize_script( 'vp-polls', 'vpPolls', [
             'api'   => esc_url_raw( rest_url( 'vereins-plugin/v1' ) ),
@@ -91,11 +91,11 @@ class PollsShortcode {
             'kindChoice'    => __( 'Abstimmung', 'vereins-plugin' ),
             'kindText'      => __( 'Ideensammlung', 'vereins-plugin' ),
             'kindEntry'     => __( 'Wettkampfmeldung', 'vereins-plugin' ),
-            'stateOpen'     => __( 'Mitmachen', 'vereins-plugin' ),
-            'stateClosed'   => __( 'Ansehen', 'vereins-plugin' ),
-            'mineDone'      => __( '✓ mitgemacht', 'vereins-plugin' ),
-            'mineStarter'   => __( '✓ 1 Starter gemeldet', 'vereins-plugin' ),
-            'mineStarters'  => __( '✓ %d Starter gemeldet', 'vereins-plugin' ),
+            'detailsShow'   => __( 'Details anzeigen', 'vereins-plugin' ),
+            'detailsHide'   => __( 'Details ausblenden', 'vereins-plugin' ),
+            'mineVoted'     => __( '✓ abgestimmt', 'vereins-plugin' ),
+            'mineEntered'   => __( '✓ gemeldet', 'vereins-plugin' ),
+            'mineIdeas'     => __( '✓ Vorschläge eingereicht', 'vereins-plugin' ),
             'resultsOrga'   => __( 'Das Ergebnis sieht nur das Orgateam.', 'vereins-plugin' ),
             'ideasOrga'     => __( 'Die Vorschläge sieht nur das Orgateam.', 'vereins-plugin' ),
             'forgetName'    => __( '%s aus der Liste entfernen', 'vereins-plugin' ),
