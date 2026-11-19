@@ -1,30 +1,62 @@
 /* Umfragen – [vp_umfragen]
- * Zurückhaltend gestaltet: Farben über Variablen, damit eine Website sie
- * im Customizer an ihr Design anpassen kann (--vp-poll-accent usw.). */
+ *
+ * Farben folgen dem Theme („automagisch“): Jede Variable fragt zuerst die
+ * Farbpalette ab, die das Theme ohnehin seitenweit bereitstellt – Block-
+ * Themes (theme.json: --wp--preset--color--…), Astra (--ast-global-color-…),
+ * Kadence (--global-palette…) – und fällt erst dann auf eigene Werte
+ * zurück. Gedämpfter Text, Rahmen und Flächen werden aus Text- und
+ * Hintergrundfarbe gemischt, passen sich also mit an. Schrift, Größe und
+ * Zeilenhöhe erbt alles von der Seite.
+ *
+ * Wer es anders will, setzt die Variablen im Customizer (Zusätzliches CSS):
+ *   .vp-polls { --vp-poll-accent: #0a5; --vp-poll-radius: 6px; }
+ */
+
+/* Variablen auch für den Namensdialog – er hängt außerhalb von .vp-polls. */
+.vp-polls, .vp-poll-who {
+    /* Theme-Farben mit Ersatzwerten */
+    --vp-poll-accent: var(--wp--preset--color--primary, var(--ast-global-color-0, var(--global-palette1, #b3121b)));
+    --vp-poll-ink:    var(--wp--preset--color--contrast, var(--ast-global-color-2, var(--global-palette3, #16191d)));
+    --vp-poll-body:   var(--ast-global-color-3, var(--global-palette4, #3a4048));
+    --vp-poll-bg:     var(--wp--preset--color--base, var(--ast-global-color-5, var(--global-palette9, #ffffff)));
+
+    /* daraus abgeleitet – erst feste Werte für alte Browser, dann gemischt */
+    --vp-poll-muted:  #5d6570;
+    --vp-poll-border: #dde3ea;
+    --vp-poll-soft:   #fafbfc;
+    --vp-poll-tint:   #fdf2f2;
+    --vp-poll-muted:  color-mix(in srgb, var(--vp-poll-body) 80%, var(--vp-poll-bg));
+    --vp-poll-border: color-mix(in srgb, var(--vp-poll-ink) 13%, var(--vp-poll-bg));
+    --vp-poll-soft:   color-mix(in srgb, var(--vp-poll-ink) 2.5%, var(--vp-poll-bg));
+    --vp-poll-tint:   color-mix(in srgb, var(--vp-poll-accent) 7%, var(--vp-poll-bg));
+
+    --vp-poll-radius: 14px;
+
+    /* Bedeutungsfarben bleiben fest – Grün heißt überall „passt“. */
+    --vp-poll-yes:   #059669;
+    --vp-poll-maybe: #d97706;
+    --vp-poll-no:    #9ca3af;
+    --vp-poll-error: #b91c1c;
+}
 
 .vp-polls {
-    --vp-poll-accent: #b3121b;
-    --vp-poll-border: #dde3ea;
-    --vp-poll-muted: #5d6570;
-    --vp-poll-yes: #059669;
-    --vp-poll-maybe: #d97706;
-    --vp-poll-no: #9ca3af;
+    color: var(--vp-poll-body);
     display: grid;
     gap: 1.25rem;
 }
 
 .vp-poll {
     border: 1px solid var(--vp-poll-border);
-    border-radius: 12px;
+    border-radius: var(--vp-poll-radius);
     padding: 1.25rem;
-    background: #fff;
+    background: var(--vp-poll-bg);
 }
 .vp-poll.is-closed { opacity: .92; }
 .vp-poll__title { margin: 0 0 .25rem; font-size: 1.15rem; }
 .vp-poll__meta, .vp-poll__note, .vp-poll__who { margin: 0 0 .75rem; color: var(--vp-poll-muted); font-size: .9rem; }
 .vp-poll__desc { margin: 0 0 1rem; }
 .vp-poll__ok { margin: .5rem 0 0; color: var(--vp-poll-yes); font-size: .9rem; }
-.vp-poll__error { margin: .5rem 0 0; color: #b91c1c; font-size: .9rem; }
+.vp-poll__error { margin: .5rem 0 0; color: var(--vp-poll-error); font-size: .9rem; }
 
 .vp-poll__row {
     display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
@@ -34,7 +66,7 @@
 .vp-poll__label { font-weight: 600; }
 .vp-poll__choices { display: inline-flex; gap: .35rem; flex-wrap: wrap; }
 .vp-poll__pick {
-    border: 1px solid var(--vp-poll-border); background: #fff; color: inherit;
+    border: 1px solid var(--vp-poll-border); background: var(--vp-poll-bg); color: inherit;
     border-radius: 999px; padding: .3rem .8rem; font-size: .85rem; cursor: pointer;
 }
 .vp-poll__pick[aria-pressed="true"].is-yes   { background: var(--vp-poll-yes);   border-color: var(--vp-poll-yes);   color: #fff; }
@@ -58,7 +90,7 @@
 .vp-poll__results h4 { margin: 0 0 .6rem; font-size: 1rem; }
 .vp-poll__result { margin-bottom: .7rem; }
 .vp-poll__resulthead { display: flex; justify-content: space-between; gap: .75rem; font-size: .92rem; }
-.vp-poll__bar { height: 8px; background: #f1f4f7; border-radius: 999px; overflow: hidden; margin-top: .3rem; }
+.vp-poll__bar { height: 8px; background: var(--vp-poll-soft); border-radius: 999px; overflow: hidden; margin-top: .3rem; }
 .vp-poll__bar span { display: block; height: 100%; background: var(--vp-poll-no); }
 .vp-poll__result.is-top .vp-poll__bar span { background: var(--vp-poll-accent); }
 .vp-poll__names { margin: .3rem 0 0; color: var(--vp-poll-muted); font-size: .85rem; }
@@ -69,7 +101,7 @@
 }
 .vp-poll-who[hidden] { display: none; }
 .vp-poll-who__card {
-    background: #fff; border-radius: 12px; padding: 1.25rem; width: 100%; max-width: 420px;
+    background: var(--vp-poll-bg); border-radius: var(--vp-poll-radius); padding: 1.25rem; width: 100%; max-width: 420px; color: var(--vp-poll-body);
     box-shadow: 0 20px 50px rgba(0, 0, 0, .2);
 }
 .vp-poll-who__card h3 { margin: 0 0 .5rem; }
@@ -79,7 +111,7 @@
     display: block; width: 100%; margin-top: .3rem; padding: .5rem .6rem;
     border: 1px solid var(--vp-poll-border, #dde3ea); border-radius: 8px; font: inherit;
 }
-.vp-poll-who .vp-poll__save { background: #b3121b; }
+.vp-poll-who .vp-poll__save { background: var(--vp-poll-accent); }
 
 /* Wettkampfmeldung ------------------------------------------------------ */
 .vp-entry__classes { list-style: none; margin: 0 0 .75rem; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
@@ -91,8 +123,8 @@
 }
 .vp-entry__row legend { font-weight: 600; padding: 0 .3rem; }
 .vp-entry__field { display: flex; flex-direction: column; font-size: .85rem; color: var(--vp-poll-muted); gap: .2rem; }
-.vp-entry__field input, .vp-entry__field select { font-size: 1rem; padding: .4rem .5rem; border: 1px solid var(--vp-poll-border); border-radius: 6px; background: #fff; color: inherit; min-width: 0; }
-.vp-entry__field select:disabled { background: #f6f7f9; color: inherit; }
+.vp-entry__field input, .vp-entry__field select { font-size: 1rem; padding: .4rem .5rem; border: 1px solid var(--vp-poll-border); border-radius: 6px; background: var(--vp-poll-bg); color: inherit; min-width: 0; }
+.vp-entry__field select:disabled { background: var(--vp-poll-soft); color: inherit; }
 .vp-entry__field.is-note { grid-column: 1 / -1; }
 .vp-entry__near { grid-column: 1 / -1; margin: 0; font-size: .85rem; color: var(--vp-poll-muted); }
 .vp-entry__remove, .vp-entry__add {
@@ -110,29 +142,45 @@
 .vp-ideas__text { font-weight: 500; }
 .vp-ideas__name { color: var(--vp-poll-muted); font-size: .85rem; }
 
-/* Übersicht: zuklappbare Karten ------------------------------------------ */
-.vp-polls__group { margin: .5rem 0 0; font-size: 1rem; color: var(--vp-poll-muted); font-weight: 600; }
-.vp-polls__list { display: grid; gap: .6rem; }
-.vp-pollcard { border: 1px solid var(--vp-poll-border); border-radius: 12px; background: #fff; overflow: hidden; }
-.vp-pollcard.is-open { border-color: var(--vp-poll-accent); }
-.vp-pollcard.is-closed:not(.is-open) { opacity: .85; }
-.vp-pollcard__head {
-    width: 100%; min-height: 3.25rem; display: flex; align-items: center; gap: .75rem;
-    padding: .8rem 1rem; background: none; border: 0; text-align: left; cursor: pointer; color: inherit; font: inherit;
+/* Übersicht: zuklappbare Karten ------------------------------------------
+ * Optik wie die Gürtel-Kacheln der JVL-Seite (.jvl-belttile): weißer
+ * Kasten, Rahmen 1px, Rundung 14px; beim Überfahren Rahmen in Akzentfarbe mit
+ * leichtem Schatten; aufgeklappt hellgraue Kopfzeile mit Trennlinie; rechts
+ * ein roter Hinweis mit ▾/▴ statt eines Pfeils. */
+.vp-polls__group { margin: .75rem 0 .5rem; font-size: 1rem; color: var(--vp-poll-muted); font-weight: 600; }
+.vp-polls__list { display: block; }
+.vp-pollcard {
+    border: 1px solid var(--vp-poll-border); border-radius: var(--vp-poll-radius); background: var(--vp-poll-bg);
+    margin: 0 0 .75rem; transition: box-shadow .25s, border-color .25s;
 }
-.vp-pollcard__head:focus-visible { outline: 2px solid var(--vp-poll-accent); outline-offset: -2px; }
-.vp-pollcard__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
-.vp-pollcard__title { font-weight: 600; font-size: 1.05rem; overflow-wrap: anywhere; }
-.vp-pollcard__meta { color: var(--vp-poll-muted); font-size: .85rem; }
-.vp-pollcard__badge { flex: none; font-size: .8rem; color: var(--vp-poll-yes); border: 1px solid currentColor; border-radius: 999px; padding: .1rem .55rem; white-space: nowrap; }
-.vp-pollcard__chevron { flex: none; width: .6rem; height: .6rem; border-right: 2px solid var(--vp-poll-muted); border-bottom: 2px solid var(--vp-poll-muted); transform: rotate(45deg); transition: transform .15s; margin: 0 .25rem .2rem; }
-.vp-pollcard.is-open .vp-pollcard__chevron { transform: rotate(-135deg); margin-bottom: -.2rem; }
-.vp-pollcard .vp-poll { border: 0; border-top: 1px solid var(--vp-poll-border); border-radius: 0; }
+.vp-pollcard:hover { border-color: var(--vp-poll-accent); box-shadow: 0 8px 20px rgba(22, 25, 29, .08); }
+.vp-pollcard__head {
+    width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .9rem;
+    padding: .85rem 1.1rem; background: none; border: 0; border-radius: calc(var(--vp-poll-radius) - 1px); text-align: left; cursor: pointer;
+    font: inherit; font-weight: 600; font-size: .98rem; color: var(--vp-poll-ink);
+}
+/* Themes gestalten <button> gern als roten Knopf – hier zurücksetzen. */
+.vp-pollcard__head { text-transform: none; letter-spacing: normal; line-height: 1.4; box-shadow: none; min-height: 3rem; }
+.vp-pollcard__head:hover, .vp-pollcard__head:focus, .vp-pollcard__head:active { background: none; color: var(--vp-poll-ink); box-shadow: none; }
+.vp-pollcard.is-open .vp-pollcard__head:hover { background: var(--vp-poll-soft); }
+.vp-pollcard__head:focus-visible { outline: 2px solid var(--vp-poll-accent); outline-offset: 2px; }
+.vp-pollcard.is-open .vp-pollcard__head { border-bottom: 1px solid var(--vp-poll-border); background: var(--vp-poll-soft); border-radius: calc(var(--vp-poll-radius) - 1px) calc(var(--vp-poll-radius) - 1px) 0 0; }
+.vp-pollcard__text { flex: 1 1 12rem; min-width: 0; }
+.vp-pollcard__title { overflow-wrap: anywhere; }
+.vp-pollcard__meta { display: block; margin-top: .1rem; color: var(--vp-poll-muted); font-weight: 400; font-size: .85rem; }
+.vp-pollcard__badge {
+    flex: 0 0 auto; background: var(--vp-poll-bg); border: 1px solid var(--vp-poll-border); border-radius: 999px;
+    padding: .18em .65em; font-size: .75rem; font-weight: 600; color: var(--vp-poll-body); white-space: nowrap;
+}
+.vp-pollcard__state { flex: 0 0 auto; font-size: .77rem; font-weight: 700; color: var(--vp-poll-accent); white-space: nowrap; }
+.vp-pollcard__state::after { content: " ▾"; }
+.vp-pollcard.is-open .vp-pollcard__state::after { content: " ▴"; }
+.vp-pollcard.is-closed .vp-pollcard__state { color: var(--vp-poll-muted); }
+.vp-pollcard .vp-poll { border: 0; border-radius: 0 0 var(--vp-poll-radius) var(--vp-poll-radius); padding: 1.1rem; background: none; }
 .vp-pollcard .vp-poll__title { display: none; }
 @media (max-width: 480px) {
-    .vp-pollcard__head { flex-wrap: wrap; }
-    .vp-pollcard__badge { order: 3; margin-left: 0; }
-    .vp-pollcard .vp-poll { padding: 1rem .85rem; }
+    .vp-pollcard__head { padding: .8rem .9rem; }
+    .vp-pollcard .vp-poll { padding: 1rem .9rem; }
 }
 
 /* Gemerkte Namen mit × */
@@ -142,7 +190,7 @@
 .vp-entry__chipname, .vp-entry__chipforget { background: none; border: 0; color: var(--vp-poll-accent); cursor: pointer; font: inherit; min-height: 2.25rem; }
 .vp-entry__chipname { padding: .25rem .4rem .25rem .8rem; }
 .vp-entry__chipforget { padding: .25rem .7rem .25rem .45rem; font-size: 1.1rem; line-height: 1; border-left: 1px solid var(--vp-poll-border); }
-.vp-entry__chipforget:hover { background: #fdf2f2; }
+.vp-entry__chipforget:hover { background: var(--vp-poll-tint); }
 
 /* hidden muss gegen display:flex/grid gewinnen */
 .vp-polls [hidden] { display: none !important; }

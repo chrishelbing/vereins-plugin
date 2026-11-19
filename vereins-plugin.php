@@ -4,7 +4,9 @@
  * Plugin URI:  https://github.com/chrishelbing/vereins-plugin
  * Update URI:  https://github.com/chrishelbing/vereins-plugin
  * Description: Terminorganisation für Vereine – Zusagen mit Begleitpersonen, Mitbringliste, Helferaufgaben, Fotos, Aushänge mit QR-Code und Mitgliederverwaltung. Im Frontend bedienbar, Gäste sagen ohne Konto über einen Terminlink zu.
- * Version:     1.19.0
+ * Version:     1.20.0
+ * Requires at least: 6.0
+ * Requires PHP:      8.2
  * Author:      Chris Helbing
  * License:     GPL-2.0+
  * Text Domain: vereins-plugin
@@ -14,11 +16,32 @@
 defined( 'ABSPATH' ) || exit;
 
 // --- Konstanten -----------------------------------------------------------
-define( 'VP_VERSION',     '1.19.0' );
+define( 'VP_VERSION',     '1.20.0' );
 define( 'VP_PLUGIN_FILE', __FILE__ );
 define( 'VP_PLUGIN_DIR',  plugin_dir_path( __FILE__ ) );
 define( 'VP_PLUGIN_URL',  plugin_dir_url( __FILE__ ) );
 define( 'VP_PREFIX',      'vp_' );
+// Mindestversionen – müssen zu „Requires at least“ / „Requires PHP“ oben
+// passen (tools/check.php prüft das). PHP 8.2 wegen Rückgabetyp `true`.
+define( 'VP_MIN_WP',      '6.0' );
+define( 'VP_MIN_PHP',     '8.2' );
+
+// --- Mindestversionen -----------------------------------------------------
+// WordPress verweigert die Aktivierung bei zu altem PHP schon selbst. Läuft
+// das Plugin aber bereits und der Server wird zurückgestuft, soll es nicht
+// mit einem Fehler die Website mitreißen, sondern nur einen Hinweis zeigen.
+if ( version_compare( PHP_VERSION, VP_MIN_PHP, '<' ) || version_compare( get_bloginfo( 'version' ), VP_MIN_WP, '<' ) ) {
+    add_action( 'admin_notices', static function (): void {
+        printf(
+            '<div class="notice notice-error"><p><strong>Vereins-Plugin:</strong> %s</p></div>',
+            esc_html( sprintf(
+                'braucht mindestens WordPress %1$s und PHP %2$s. Hier laufen WordPress %3$s und PHP %4$s – das Plugin ist bis dahin außer Betrieb.',
+                VP_MIN_WP, VP_MIN_PHP, get_bloginfo( 'version' ), PHP_VERSION
+            ) )
+        );
+    } );
+    return;
+}
 
 // --- Autoloader (PSR-4 light) ---------------------------------------------
 spl_autoload_register( function ( string $class ): void {

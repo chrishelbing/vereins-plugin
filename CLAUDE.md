@@ -24,7 +24,7 @@ Umgebung nicht, sind die zwölf Dateien einzeln aufzurufen.
 
 | Datei | prüft |
 |---|---|
-| `tools/check.php` | Syntax, Autoloader-Pfade, Symbole, Shortcode-Registry, Modultrennung, Texte der Umfrage-Skripte, Frontend-Skript, Einstellungen, Versionsnummer, „keine WordPress-Profile für Unbestätigte" |
+| `tools/check.php` | Syntax, Autoloader-Pfade, Symbole, Shortcode-Registry, Modultrennung, Texte der Umfrage-Skripte, Frontend-Skript, Einstellungen, Versionsnummer, Mindestversionen (Kopfzeile = `VP_MIN_WP`/`VP_MIN_PHP`), „keine WordPress-Profile für Unbestätigte" |
 | `tools/zugriffstest.php` | Wer sich anmelden darf, wer in den Mitgliederbereich kommt, wer ins Backend – dazu Aussperrschutz und die Kopplung von Status und Vereinsrolle |
 | `tools/personentest.php` | Der Weg einer Person: Zusage über Terminlink, Wiedererkennung, Bestätigung, Aufnahme, Ablehnung, Übernahme von Altbeständen |
 | `tools/apitest.php` | Die Schnittstelle aus Sicht der App: Lebensdauer, Verlängerung und Widerruf von Sitzungen, die Form von `GET /me`, die Erkennung nicht angeschlossener Versandwege |
@@ -32,7 +32,7 @@ Umgebung nicht, sind die zwölf Dateien einzeln aufzurufen.
 | `tools/qrtest.php` | Der selbstgebaute QR-Encoder gegen hinterlegte Sollwerte |
 | `tools/bannertest.php` | Terminbanner: Sichtbarkeitsfenster, Reihenfolge, nur die nächste Serieninstanz, nur freigegebene Termine |
 | `tools/tagtest.php` | Infotermine (Termintyp ohne Zusagen) und Tags: Vorgabe am Typ, Auswahl am Termin, Speichern und Leeren |
-| `tools/updatertest.php` | Updates aus GitHub-Releases: Version aus dem Tag, Paket am Release, Vorabversionen und Entwürfe ausgenommen |
+| `tools/updatertest.php` | Updates aus GitHub-Releases: Version aus dem Tag, Paket am Release, Vorabversionen und Entwürfe ausgenommen; Ergebnis von „Nach Updates suchen“ |
 | `tools/texttest.php` | Beschreibung: Links, fett/kursiv, Listen, Maskierung, nur http(s), Gendersternchen bleibt, Textfassung für Banner und Flyer, jedes Beispiel der Hilfe wirkt |
 | `tools/umfragetest.php` | Modul Umfragen: gültige und ungültige Stimmen, beendete Umfragen, „nur Mitglieder“, wer das Ergebnis sieht, geheime Abstimmung ohne Namen, Stimmen bleiben beim Bearbeiten; Ideensammlung (Höchstzahl, Länge, Sichtbarkeit, Übernahme als Abstimmung); Klassen-Vorlagen, Wettkampfmeldung (Klasse aus Jahrgang, Gewichte, Kontaktpflicht für Gäste, gemerkte Namen, Orga-Liste, CSV, Löschen nach dem Wettkampf) |
 | `tools/fototest.php` | Termin-Fotos: Ablage im gesperrten Ordner, Adressen über die Auslieferung statt `uploads/`, Heraushalten aus der Mediathek; Code-Anforderung mit gleicher Antwort für jede Adresse |
@@ -125,6 +125,8 @@ Websites holen Updates aus den GitHub-Releases (`Support\Updater`, Header
 `Update URI`). Ein Release entsteht beim Push auf `main` von selbst:
 
 1. Version in `vereins-plugin.php` erhöhen – Kopfzeile **und** `VP_VERSION`.
+   Braucht der Code eine neuere PHP- oder WordPress-Version, auch
+   „Requires PHP“/„Requires at least“ **und** `VP_MIN_PHP`/`VP_MIN_WP`.
 2. Committen und auf `main` pushen. **Kein Tag von Hand** – Claude-Sitzungen
    dürfen keine Tags pushen, deshalb setzt GitHub ihn selbst.
 3. `.github/workflows/release.yml` sieht eine Version ohne Release, lässt die

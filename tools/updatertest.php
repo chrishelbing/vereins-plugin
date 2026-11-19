@@ -46,4 +46,10 @@ Pruefung::gleich( 'Entwurf zählt nicht',         Updater::parse( [ 'draft' => t
 Pruefung::gleich( 'Tag ohne Versionsnummer',     Updater::parse( [ 'tag_name' => 'testlauf' ] + $release ), [] );
 Pruefung::gleich( 'leere Antwort',               Updater::parse( [] ), [] );
 
+echo "\nNach Updates suchen\n";
+Pruefung::gleich( 'neuere Version gefunden', Updater::check_result( [ 'version' => '1.20.0' ], '1.19.0' ), [ 'vp_update_check' => 'new', 'vp_version' => '1.20.0' ] );
+Pruefung::gleich( 'gleiche Version: aktuell', Updater::check_result( [ 'version' => '1.19.0' ], '1.19.0' ), [ 'vp_update_check' => 'current' ] );
+Pruefung::gleich( 'ältere Version: aktuell',  Updater::check_result( [ 'version' => '1.9.0' ], '1.19.0' ), [ 'vp_update_check' => 'current' ] );
+Pruefung::gleich( 'keine Antwort: Fehler',    Updater::check_result( null, '1.19.0' ), [ 'vp_update_check' => 'failed' ] );
+
 Pruefung::abschluss( 'Updates' );

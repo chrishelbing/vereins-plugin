@@ -91,6 +91,8 @@ class PollsShortcode {
             'kindChoice'    => __( 'Abstimmung', 'vereins-plugin' ),
             'kindText'      => __( 'Ideensammlung', 'vereins-plugin' ),
             'kindEntry'     => __( 'Wettkampfmeldung', 'vereins-plugin' ),
+            'stateOpen'     => __( 'Mitmachen', 'vereins-plugin' ),
+            'stateClosed'   => __( 'Ansehen', 'vereins-plugin' ),
             'mineDone'      => __( '✓ mitgemacht', 'vereins-plugin' ),
             'mineStarter'   => __( '✓ 1 Starter gemeldet', 'vereins-plugin' ),
             'mineStarters'  => __( '✓ %d Starter gemeldet', 'vereins-plugin' ),

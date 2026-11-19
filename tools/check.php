@@ -364,6 +364,27 @@ if ( $treffer > 2 ) {
 $fehler += melde( 'Personen ohne Profil', $profile, 'WordPress-Nutzer entstehen nur bei der Aufnahme' );
 
 // ---------------------------------------------------------------------
+// 7b. Stylesheets: eine CSS-Variable, die sich selbst verwendet
+//     (--a: var(--a)), ist im Browser ungültig – alles, was sie nutzt,
+//     verliert lautlos seine Farbe. Passiert schnell beim Suchen/Ersetzen.
+// ---------------------------------------------------------------------
+$css_fehler = [];
+$css_dateien = glob( $root . '/assets/css/*.css' ) ?: [];
+foreach ( $css_dateien as $datei ) {
+    $css = (string) file_get_contents( $datei );
+    preg_match_all( '/(--[\w-]+)\s*:\s*([^;{}]+);/', $css, $treffer, PREG_SET_ORDER );
+    foreach ( $treffer as $t ) {
+        if ( preg_match( '/var\(\s*' . preg_quote( $t[1], '/' ) . '\s*[,)]/', $t[2] ) ) {
+            $css_fehler[] = basename( $datei ) . ': ' . trim( $t[0] );
+        }
+    }
+    if ( substr_count( $css, '{' ) !== substr_count( $css, '}' ) ) {
+        $css_fehler[] = basename( $datei ) . ': Klammern { } gehen nicht auf';
+    }
+}
+$fehler += melde( 'Stylesheets', $css_fehler, count( $css_dateien ) . ' Dateien ohne Selbstbezug' );
+
+// ---------------------------------------------------------------------
 // 8. Versionsnummer: Schemaänderungen greifen nur bei erhöhter Version
 // ---------------------------------------------------------------------
 $haupt = file_get_contents( $root . '/vereins-plugin.php' );
@@ -375,6 +396,25 @@ if ( ( $a[1] ?? '' ) !== ( $b[1] ?? '' ) ) {
     $version[] = "Kopfzeile sagt {$b[1]}, VP_VERSION sagt {$a[1]}";
 }
 $fehler += melde( 'Version', $version, 'Kopfzeile und VP_VERSION stimmen überein (' . ( $a[1] ?? '?' ) . ')' );
+
+// Mindestversionen: Kopfzeile (wertet WordPress aus) und Konstanten (Hinweis
+// im Plugin, Angaben an den Updater) müssen dasselbe sagen.
+$mindest = [];
+foreach ( [ 'Requires at least' => 'VP_MIN_WP', 'Requires PHP' => 'VP_MIN_PHP' ] as $kopf => $konstante ) {
+    preg_match( '/' . preg_quote( $kopf, '/' ) . ':\s*([\d.]+)/', $haupt, $k );
+    preg_match( "/define\(\s*'{$konstante}',\s*'([^']+)'/", $haupt, $c );
+    if ( empty( $k[1] ) || empty( $c[1] ) ) {
+        $mindest[] = "„{$kopf}“ oder {$konstante} fehlt";
+    } elseif ( $k[1] !== $c[1] ) {
+        $mindest[] = "„{$kopf}: {$k[1]}“ passt nicht zu {$konstante} = {$c[1]}";
+    }
+}
+preg_match( "/define\(\s*'VP_MIN_PHP',\s*'([^']+)'/", $haupt, $php );
+preg_match( "/define\(\s*'VP_MIN_WP',\s*'([^']+)'/", $haupt, $wp );
+if ( ! empty( $php[1] ) && version_compare( PHP_VERSION, $php[1], '<' ) ) {
+    $mindest[] = 'Diese Prüfung läuft mit PHP ' . PHP_VERSION . ', das Plugin verlangt ' . $php[1];
+}
+$fehler += melde( 'Mindestversionen', $mindest, 'WordPress ' . ( $wp[1] ?? '?' ) . ' bzw. PHP ' . ( $php[1] ?? '?' ) . ' – Kopfzeile und Konstanten gleich' );
 
 echo str_repeat( '-', 70 ), "\n";
 if ( $fehler ) {

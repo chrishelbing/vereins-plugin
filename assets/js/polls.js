@@ -721,6 +721,7 @@
         c.badge.textContent = mit;
         c.badge.hidden = !mit;
         c.card.classList.toggle('is-closed', !p.open);
+        c.state.textContent = p.open ? T.stateOpen : T.stateClosed;
     }
 
     function setOpen(id, auf, scroll) {
@@ -754,7 +755,8 @@
         text.appendChild(c.meta);
         c.head.appendChild(text);
         c.head.appendChild(c.badge);
-        c.head.appendChild(el('span', 'vp-pollcard__chevron'));
+        c.state = el('span', 'vp-pollcard__state');
+        c.head.appendChild(c.state);
         c.body = el('section', 'vp-poll');
         c.body.hidden = true;
         c.head.addEventListener('click', function () {

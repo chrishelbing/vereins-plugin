@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.19.0
+> Stand: Version 1.20.0
 
 ---
 
@@ -792,7 +792,22 @@ Wettkampftag) und „✓ mitgemacht“ bzw. „✓ n Starter gemeldet“; aufgek
 höchstens eine. Die geöffnete Umfrage steht als `#umfrage-<id>` in der
 Adresse, so lässt sich ein Link auf genau sie teilen. Läuft nur eine
 Umfrage, ist sie aufgeklappt; mit `id="…"` oder bei nur einer Umfrage gibt es
-keine Klappliste. Große Tippflächen fürs Handy.
+keine Klappliste. Große Tippflächen fürs Handy. Rechts in der Kopfzeile
+„Mitmachen ▾“ bzw. „Ansehen ▾“; beim Überfahren Rahmen in Akzentfarbe mit
+leichtem Schatten, aufgeklappt hellgraue Kopfzeile mit Trennlinie – wie die
+Gürtel-Kacheln der JVL-Seite (seit 1.20.0).
+
+**Aussehen folgt dem Theme** (seit 1.20.0). `assets/css/polls.css` holt
+Akzent-, Text- und Hintergrundfarbe aus der Palette, die das Theme
+seitenweit bereitstellt – Block-Themes (`--wp--preset--color--primary`,
+`contrast`, `base`), Astra (`--ast-global-color-0/2/3/5`), Kadence
+(`--global-palette1/3/4/9`) – und nimmt erst ohne sie eigene Werte.
+Gedämpfter Text, Rahmen und Flächen werden mit `color-mix()` daraus
+gemischt (ältere Browser bekommen feste Werte). Schrift und Knöpfe erbt das
+Plugin von der Seite. Feste Farben behalten nur passt/vielleicht/passt nicht
+und Fehler. Anpassen lässt sich alles über die Variablen `--vp-poll-…` (z. B.
+`--vp-poll-accent`, `--vp-poll-radius`) im Zusätzlichen CSS. Auf der
+JVL-Seite ergibt das ohne Zutun das Astra-Rot `#B3121B`.
 
 **Teilnahme ohne Anmeldung.** Wer nicht bekannt ist, nennt beim ersten
 Abstimmen seinen Namen, E-Mail freiwillig (`POST /polls/identify`). Das ist
@@ -1105,6 +1120,24 @@ nimmt das angehängte Paket `vereins-plugin.zip`. „Erneut prüfen“ unter
 *Dashboard → Aktualisierungen* löscht die gemerkte Antwort vor der Prüfung
 (Priorität 1, vor `wp_update_plugins()`) und fragt damit sofort.
 „Details ansehen“ zeigt die Versionshinweise des Releases.
+
+**„Nach Updates suchen“** (seit 1.20.0) steht direkt in der Zeile des
+Plugins unter *Plugins* (nur für Nutzer mit `update_plugins`). Der Link
+verwirft die gemerkten Antworten (eigene und die von WordPress), fragt
+sofort neu und kehrt zur Plugin-Übersicht zurück – mit Hinweis „Version x ist
+verfügbar“, „Du hast die neueste Version“ oder „GitHub war nicht
+erreichbar“. Ist eine neue Version da, steht in der Zeile wie gewohnt
+„Jetzt aktualisieren“.
+
+**Mindestversionen:** WordPress 6.0, PHP 8.2 (Kopfzeile „Requires at least“ /
+„Requires PHP“, Konstanten `VP_MIN_WP` / `VP_MIN_PHP`). PHP 8.2, weil der Code
+den Rückgabetyp `true` nutzt; WordPress kennt die Updates über `Update URI`
+ab 5.8, 6.0 ist die getestete Untergrenze. WordPress verweigert die
+Aktivierung bei zu altem PHP selbst; wird ein Server nachträglich
+zurückgestuft, schaltet sich das Plugin ab und zeigt nur einen Hinweis,
+statt die Website mit einem Fehler mitzureißen. Die Angaben gehen auch an den
+Update-Dialog. `tools/check.php` prüft, dass Kopfzeile und Konstanten
+übereinstimmen.
 
 - Ein Release entsteht beim Push auf `main`, sobald `vereins-plugin.php`
   eine Version trägt, zu der es noch kein Release gibt

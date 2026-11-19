@@ -59,6 +59,70 @@ class Updater {
         add_action( 'upgrader_process_complete', static function (): void {
             delete_site_transient( self::CACHE );
         } );
+
+        // „Nach Updates suchen“ direkt in der Plugin-Übersicht – ohne Umweg
+        // über Dashboard → Aktualisierungen und ohne die gemerkte Antwort.
+        add_filter( 'plugin_action_links_' . plugin_basename( VP_PLUGIN_FILE ), [ $this, 'action_link' ] );
+        add_action( 'admin_post_vp_check_update', [ $this, 'handle_check' ] );
+        add_action( 'admin_notices', [ $this, 'check_notice' ] );
+    }
+
+    /** Link „Nach Updates suchen“ in der Zeile des Plugins. */
+    public function action_link( array $links ): array {
+        if ( ! current_user_can( 'update_plugins' ) ) {
+            return $links;
+        }
+        $url = wp_nonce_url( admin_url( 'admin-post.php?action=vp_check_update' ), 'vp_check_update' );
+        $links['vp_check_update'] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Nach Updates suchen', 'vereins-plugin' ) . '</a>';
+        return $links;
+    }
+
+    /**
+     * Gemerkte Antworten verwerfen, GitHub und WordPress neu fragen und mit
+     * dem Ergebnis zur Plugin-Übersicht zurück. Ist eine neue Version da,
+     * steht dort wie gewohnt „Jetzt aktualisieren“.
+     */
+    public function handle_check(): void {
+        check_admin_referer( 'vp_check_update' );
+        if ( ! current_user_can( 'update_plugins' ) ) {
+            wp_die( esc_html__( 'Keine Berechtigung.', 'vereins-plugin' ), 403 );
+        }
+        delete_site_transient( self::CACHE );
+        delete_site_transient( 'update_plugins' );
+        wp_update_plugins();
+
+        $args = self::check_result( get_site_transient( self::CACHE ), VP_VERSION );
+        wp_safe_redirect( add_query_arg( $args, admin_url( 'plugins.php' ) ) );
+        exit;
+    }
+
+    /**
+     * Was „Nach Updates suchen“ melden soll: neue Version, aktuell, oder
+     * GitHub nicht erreichbar (keine gemerkte Antwort).
+     *
+     * @param mixed $release gemerkte Antwort aus latest_release()
+     */
+    public static function check_result( $release, string $installiert ): array {
+        if ( ! is_array( $release ) || empty( $release['version'] ) ) {
+            return [ 'vp_update_check' => 'failed' ];
+        }
+        return version_compare( $release['version'], $installiert, '>' )
+            ? [ 'vp_update_check' => 'new', 'vp_version' => $release['version'] ]
+            : [ 'vp_update_check' => 'current' ];
+    }
+
+    /** Ergebnis von „Nach Updates suchen“ oben in der Plugin-Übersicht. */
+    public function check_notice(): void {
+        $was = sanitize_key( $_GET['vp_update_check'] ?? '' );
+        if ( $was === '' || ! current_user_can( 'update_plugins' ) ) {
+            return;
+        }
+        [ $klasse, $text ] = match ( $was ) {
+            'new'     => [ 'notice-warning', sprintf( __( 'Vereins-Plugin: Version %s ist verfügbar – unten in der Zeile des Plugins auf „Jetzt aktualisieren“ klicken.', 'vereins-plugin' ), sanitize_text_field( wp_unslash( $_GET['vp_version'] ?? '' ) ) ) ],
+            'current' => [ 'notice-success', sprintf( __( 'Vereins-Plugin: Du hast die neueste Version (%s).', 'vereins-plugin' ), VP_VERSION ) ],
+            default   => [ 'notice-error', __( 'Vereins-Plugin: GitHub war gerade nicht erreichbar. Bitte später noch einmal versuchen.', 'vereins-plugin' ) ],
+        };
+        printf( '<div class="notice %s is-dismissible"><p>%s</p></div>', esc_attr( $klasse ), esc_html( $text ) );
     }
 
     /**
@@ -83,7 +147,8 @@ class Updater {
             'url'          => $release['html_url'],
             'package'      => $release['package'],
             'tested'       => '',
-            'requires_php' => '8.0',
+            'requires'     => VP_MIN_WP,
+            'requires_php' => VP_MIN_PHP,
         ];
     }
 
@@ -109,6 +174,8 @@ class Updater {
             'homepage'      => 'https://github.com/' . self::REPO,
             'download_link' => $release['package'],
             'last_updated'  => $release['published_at'],
+            'requires'      => VP_MIN_WP,
+            'requires_php'  => VP_MIN_PHP,
             'sections'      => [
                 'changelog' => $release['notes'] !== ''
                     ? wpautop( esc_html( $release['notes'] ) )
