@@ -968,16 +968,20 @@ Speichern-Knopf für Haken entfällt. Unter der Liste klebt eine Leiste, die
 **beim Abhaken live** zeigt: wie viele abgehakt sind, **wer namentlich eine
 Mail bekommt – mit den Vornamen seiner neu abgehakten Starter**, wer mangels
 Adresse nicht (selbst Bescheid geben), wer schon informiert ist, und ein
-Mail-Beispiel. Ein Knopf:
-**„Status ‚Gemeldet‘ setzen und Melder informieren“** (danach „Melder
-informieren“, nur sichtbar, wenn jemand Neues zu informieren ist): setzt beim
-ersten Mal den Status „Gemeldet“ (`vp_polls.submitted_at`) und mailt „Meldung
-abgeschickt“ an jeden Melder mit abgehakten Startern, zu denen noch keine
-Mail rausging (`notified_at`, `PollModel::melder_to_notify()`). Die Mail nennt
-nur seine abgehakten Starter (`EntryMail::plan()`). Mail-Haken abgewählt:
-Status und Vermerk ohne Mail.
-Nachmeldung = Starter ohne Haken nach „Gemeldet“ (gelb); abhaken und „Melder
-informieren“ – Mail nur an deren Melder. Unveränderte Starter behalten beim
+Mail-Beispiel. **Zweistufig, damit nichts überraschend rausgeht** (seit
+1.23.10): Der Knopf in der Leiste heißt „Weiter: Status ‚Gemeldet‘ setzen“
+bzw. später „Weiter: Nachmeldung abschließen“ (nur sichtbar, wenn jemand
+Neues zu informieren ist) und öffnet einen Dialog mit den Empfängern
+(namentlich, mit Vornamen der Starter), denen ohne Adresse, dem Mail-Beispiel
+und drei Knöpfen: „Status setzen und n E-Mails senden“ / „n E-Mails senden“,
+„Status setzen, keine E-Mail“ / „Ohne E-Mail abschließen“, „Abbrechen“.
+Das setzt beim ersten Mal den Status „Gemeldet“ (`vp_polls.submitted_at`) und
+mailt – falls gewählt – „Meldung abgeschickt“ an jeden Melder mit abgehakten
+Startern, zu denen noch keine Mail rausging (`notified_at`,
+`PollModel::melder_to_notify()`); die Mail nennt nur seine abgehakten Starter
+(`EntryMail::plan()`). Ohne Mail gelten die Melder trotzdem als informiert.
+Nachmeldung = Starter ohne Haken nach „Gemeldet“ (gelb); abhaken und „Weiter:
+Nachmeldung abschließen“ – Mail nur an deren Melder. Unveränderte Starter behalten beim
 erneuten Speichern der Meldung Haken und Mail-Vermerk
 (`PollModel::entry_key()`: Name, Jahrgang, Klasse, Gewicht).
 **Bestätigt wird je Starter** (seit 1.23.4, `vp_poll_entries.confirmed_at`,
