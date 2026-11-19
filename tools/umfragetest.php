@@ -221,7 +221,17 @@ Pruefung::ok( 'Gewicht des anderen Geschlechts abgelehnt', is_wp_error( $entry->
 Pruefung::ok( 'Jahrgang ohne Klasse abgelehnt', is_wp_error( $entry->submit( $w, $gerd, [ array_merge( $mia, [ 'birth_year' => 2005 ] ) ] ) ) );
 Pruefung::ok( 'zwei passende Klassen: Wahl verlangt', is_wp_error( $entry->submit( $w, $gerd, [ array_merge( $mia, [ 'birth_year' => 2015, 'weight' => '-27' ] ) ] ) ) );
 Pruefung::ok( 'fremde Klasse abgelehnt', is_wp_error( $entry->submit( $w, $gerd, [ array_merge( $mia, [ 'class_key' => 'U15' ] ) ] ) ) );
-Pruefung::ok( 'doppelter Starter abgelehnt', is_wp_error( $entry->submit( $w, $gerd, [ $mia, $mia ] ) ) );
+Pruefung::ok( 'derselbe Starter zweimal in derselben Klasse abgelehnt', is_wp_error( $entry->submit( $w, $gerd, [ $mia, $mia ] ) ) );
+$lea13 = [ 'first_name' => 'Lea', 'last_name' => 'Doppel', 'birth_year' => 2015, 'sex' => 'w', 'class_key' => 'U13', 'weight' => '-27' ];
+$lea15 = [ 'first_name' => 'Lea', 'last_name' => 'Doppel', 'birth_year' => 2015, 'sex' => 'w', 'class_key' => 'U15', 'weight' => '-33' ];
+Pruefung::ok( 'derselbe Starter in zwei Klassen erlaubt (U13 und U15)', $entry->submit( $w, $gerd, [ $mia, $tom, $lea13, $lea15 ] ) === true );
+Pruefung::gleich( 'beide Klassen gespeichert', array_column( array_filter( $model->entries( $wid, $gerd ), fn( $e ) => $e['first_name'] === 'Lea' ), 'class_key' ), [ 'U13', 'U15' ] );
+Pruefung::ok( 'Groß/klein und Leerzeichen zählen nicht – trotzdem doppelt', is_wp_error( $entry->submit( $w, $gerd, [ $lea13, array_merge( $lea13, [ 'first_name' => ' lea', 'last_name' => 'DOPPEL' ] ) ] ) ) );
+$wpdb->insert( 'wp_vp_people', [ 'display_name' => 'Zweiter Elternteil', 'email' => 'zweit@example.test', 'source' => 'link' ] );
+$zweit = -(int) end( $wpdb->t['wp_vp_people'] )['id'];
+Pruefung::ok( 'anderer Melder: dieselbe Klasse abgelehnt', ( $r = $entry->submit( $w, $zweit, [ $lea13 ] ) ) instanceof WP_Error && str_contains( $r->get_error_message(), 'schon von jemand anderem' ) );
+Pruefung::ok( 'eigene Meldung ändern: eigene Einträge zählen nicht als fremd', $entry->submit( $w, $gerd, [ $mia, $tom, $lea13, $lea15 ] ) === true );
+Pruefung::ok( 'Ausgangslage für die folgenden Fälle', $entry->submit( $w, $gerd, [ $mia, $tom ] ) === true );
 Pruefung::ok( 'Fehler nennt den Starter', ( $r = $entry->submit( $w, $gerd, [ $mia, array_merge( $tom, [ 'last_name' => '' ] ) ] ) ) instanceof WP_Error && str_starts_with( $r->get_error_message(), 'Starter 2' ) );
 Pruefung::gleich( 'abgelehnte Meldung lässt die alte stehen', count( $model->entries( $wid, $gerd ) ), 2 );
 

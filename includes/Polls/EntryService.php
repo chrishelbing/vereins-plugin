@@ -89,6 +89,15 @@ class EntryService {
         $sauber  = [];
         $doppelt = [];
 
+        // Was andere Melder schon gemeldet haben – derselbe Starter darf in
+        // einer Klasse nur einmal stehen, auch wenn ihn zwei Leute melden.
+        $fremd = [];
+        foreach ( $this->model->entries( (int) $poll['id'] ) as $e ) {
+            if ( (int) $e['person_id'] !== $person_id ) {
+                $fremd[ self::starter_key( $e['first_name'], $e['last_name'], (int) $e['birth_year'], $e['class_key'] ) ] = true;
+            }
+        }
+
         foreach ( array_values( $rows ) as $i => $r ) {
             $nr    = $i + 1;
             $vor   = mb_substr( trim( sanitize_text_field( (string) ( $r['first_name'] ?? '' ) ) ), 0, 60 );
@@ -132,9 +141,14 @@ class EntryService {
                 return self::row_error( $nr, __( 'Bitte eine Gewichtsklasse wählen.', 'vereins-plugin' ) );
             }
 
-            $schluessel = mb_strtolower( $vor . '|' . $nach . '|' . $jg );
+            // Derselbe Starter in zwei Klassen ist erlaubt (z. B. U18 und
+            // U21), zweimal in derselben Klasse nicht.
+            $schluessel = self::starter_key( $vor, $nach, $jg, $klasse['key'] );
             if ( isset( $doppelt[ $schluessel ] ) ) {
-                return self::row_error( $nr, __( 'Dieser Starter steht schon in der Meldung.', 'vereins-plugin' ) );
+                return self::row_error( $nr, sprintf( __( '%1$s %2$s steht schon in der Klasse %3$s in dieser Meldung.', 'vereins-plugin' ), $vor, $nach, $klasse['key'] ) );
+            }
+            if ( isset( $fremd[ $schluessel ] ) ) {
+                return self::row_error( $nr, sprintf( __( '%1$s %2$s ist in der Klasse %3$s schon von jemand anderem gemeldet. Bei Fragen wende dich ans Orgateam.', 'vereins-plugin' ), $vor, $nach, $klasse['key'] ) );
             }
             $doppelt[ $schluessel ] = true;
 
@@ -158,6 +172,12 @@ class EntryService {
             }
         }
         return true;
+    }
+
+    /** Wer ist „derselbe Starter in derselben Klasse“? Name ohne Groß/klein, Jahrgang, Klasse. */
+    public static function starter_key( string $vor, string $nach, int $jg, string $klasse ): string {
+        $norm = static fn( $t ) => mb_strtolower( trim( preg_replace( '/\s+/u', ' ', $t ) ) );
+        return $norm( $vor ) . '|' . $norm( $nach ) . '|' . $jg . '|' . $norm( $klasse );
     }
 
     private static function row_error( int $nr, string $text ): WP_Error {

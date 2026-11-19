@@ -144,6 +144,8 @@ class PollsShortcode {
             'pick'             => __( 'bitte wählen', 'vereins-plugin' ),
             'chooseYearSex'    => __( 'erst Jahrgang und Geschlecht', 'vereins-plugin' ),
             'noClass'          => __( 'keine passende Klasse ausgeschrieben', 'vereins-plugin' ),
+            'secondClass'      => __( '+ Auch in weiterer Klasse melden', 'vereins-plugin' ),
+            'dupClass'         => __( '%1$s steht schon in der Klasse %2$s.', 'vereins-plugin' ),
             'removeStarter'    => __( 'Starter entfernen', 'vereins-plugin' ),
             'addStarter'       => __( '+ Weiteren Starter melden', 'vereins-plugin' ),
             'savedNames'       => __( 'Schnell eintragen:', 'vereins-plugin' ),

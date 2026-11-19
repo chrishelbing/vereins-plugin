@@ -185,3 +185,10 @@
 
 /* hidden muss gegen display:flex/grid gewinnen */
 .vp-polls [hidden] { display: none !important; }
+
+/* Starter-Zeile: Knöpfe „weitere Klasse“ und „entfernen“ nebeneinander */
+.vp-entry__rowactions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem; }
+.vp-entry__second {
+    background: none; border: 1px solid var(--vp-poll-accent); color: var(--vp-poll-accent);
+    border-radius: 999px; padding: .3rem .8rem; cursor: pointer; font-size: .85rem; font: inherit; font-size: .85rem;
+}

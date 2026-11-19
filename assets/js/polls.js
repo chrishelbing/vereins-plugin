@@ -406,7 +406,7 @@
             return { label: l, input: i };
         }
 
-        function addRow(e) {
+        function addRow(e, after) {
             e = e || {};
             var row = el('fieldset', 'vp-entry__row');
             var legend = el('legend', '', '');
@@ -425,6 +425,22 @@
                 rows.removeChild(row);
                 if (!rows.children.length) { addRow(); }
                 nummern();
+                refreshAll();
+            });
+
+            // Derselbe Starter in einer weiteren Klasse (z. B. U18 und U21):
+            // neue Zeile direkt darunter, Name/Jahrgang/Geschlecht übernommen,
+            // die nächste noch freie passende Klasse vorgewählt.
+            var zweit = el('button', 'vp-entry__second', T.secondClass);
+            zweit.type = 'button';
+            zweit.hidden = true;
+            zweit.addEventListener('click', function () {
+                if (rows.children.length >= p.max_rows) { return; }
+                var d = row._get();
+                var belegt = classesOf(d);
+                var frei = eligible(p, d.birth_year, d.sex).filter(function (c) { return belegt.indexOf(c.key) === -1; })[0];
+                var neu = addRow({ first_name: d.first_name, last_name: d.last_name, birth_year: d.birth_year, sex: d.sex, class_key: frei ? frei.key : '' }, row);
+                neu.querySelector('.is-weight select').focus();
             });
 
             function update(keepKey, keepWeight) {
@@ -458,7 +474,19 @@
                     gewicht.input.appendChild(o4);
                 });
                 gewicht.input.disabled = !liste.length;
+                refreshAll();
             }
+
+            function zweitZeigen() {
+                var d = row._get ? row._get() : null;
+                if (!d || !d.first_name || !d.last_name || !d.birth_year || !d.sex) { zweit.hidden = true; return; }
+                var belegt = classesOf(d);
+                var frei = eligible(p, d.birth_year, d.sex).filter(function (c) { return belegt.indexOf(c.key) === -1; });
+                zweit.hidden = !frei.length;
+            }
+            vor.input.addEventListener('input', refreshAll);
+            nach.input.addEventListener('input', refreshAll);
+            row._refresh = zweitZeigen;
             jg.input.addEventListener('change', function () { update(); });
             sex.input.addEventListener('change', function () { update(); });
             klasse.input.addEventListener('change', function () { update(klasse.input.value); });
@@ -466,9 +494,11 @@
             [vor, nach, jg, sex, klasse, gewicht].forEach(function (f) { row.appendChild(f.label); });
             row.appendChild(naehe);
             row.appendChild(notiz.label);
-            row.appendChild(weg);
-            rows.appendChild(row);
-            update(e.class_key || '', e.weight || '');
+            var knoepfe = el('div', 'vp-entry__rowactions');
+            knoepfe.appendChild(zweit);
+            knoepfe.appendChild(weg);
+            row.appendChild(knoepfe);
+            if (after && after.nextSibling) { rows.insertBefore(row, after.nextSibling); } else { rows.appendChild(row); }
             row._get = function () {
                 return {
                     first_name: vor.input.value.trim(), last_name: nach.input.value.trim(),
@@ -477,6 +507,7 @@
                 };
             };
             row._empty = function () { return !vor.input.value.trim() && !nach.input.value.trim(); };
+            update(e.class_key || '', e.weight || '');
             row._fill = function (name) {
                 var i = name.lastIndexOf(' ');
                 vor.input.value = i > 0 ? name.substr(0, i) : name;
@@ -485,6 +516,24 @@
             };
             nummern();
             return row;
+        }
+
+        // In welchen Klassen steht dieser Starter schon (Name + Jahrgang)?
+        function starterKey(d) {
+            return (d.first_name + '|' + d.last_name).toLowerCase().replace(/\s+/g, ' ') + '|' + d.birth_year;
+        }
+        function classesOf(d) {
+            var k = starterKey(d), out = [];
+            Array.prototype.forEach.call(rows.children, function (r) {
+                var x = r._get ? r._get() : null;
+                if (x && x.class_key && starterKey(x) === k) { out.push(x.class_key); }
+            });
+            return out;
+        }
+
+        // „Weitere Klasse“ hängt von allen Zeilen ab – nach jeder Änderung neu.
+        function refreshAll() {
+            Array.prototype.forEach.call(rows.children, function (r) { if (r._refresh) { r._refresh(); } });
         }
 
         function nummern() {
@@ -570,6 +619,15 @@
             var starter = [];
             Array.prototype.forEach.call(rows.children, function (r) { if (!r._empty()) { starter.push(r._get()); } });
             if (!starter.length) { err.textContent = T.noStarter; err.hidden = false; return; }
+            var gesehen = {};
+            for (var i = 0; i < starter.length; i++) {
+                var sk = starterKey(starter[i]) + '|' + starter[i].class_key;
+                if (starter[i].class_key && gesehen[sk]) {
+                    err.textContent = fmt(T.starterNo, i + 1) + ': ' + T.dupClass.replace('%1$s', starter[i].first_name + ' ' + starter[i].last_name).replace('%2$s', starter[i].class_key);
+                    err.hidden = false; return;
+                }
+                gesehen[sk] = true;
+            }
             var send = function () {
                 save.disabled = true;
                 api('/polls/' + p.id + '/entries', 'POST', { starters: starter }).then(function (res) {

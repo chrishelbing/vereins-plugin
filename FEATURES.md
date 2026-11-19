@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.20.1
+> Stand: Version 1.20.2
 
 ---
 
@@ -860,7 +860,16 @@ U15 beim BJV), wählt der Melder; passt genau eine, wird sie gesetzt.
 `EntryService::MAX_ROWS`) – je Starter Vorname, Nachname, Jahrgang,
 Geschlecht, Altersklasse, Gewichtsklasse (Auswahl passend zu Klasse und
 Geschlecht), Hinweis. Geschwister in verschiedenen Klassen gehen in einer
-Meldung. Die Meldung gilt als Ganzes, ändern und zurückziehen bis zum
+Meldung. **Ein Starter darf in mehreren Klassen stehen** (seit 1.20.2), etwa
+U13 und U15 oder U18 und U21: „+ Auch in weiterer Klasse melden“ erscheint,
+sobald für Jahrgang und Geschlecht noch eine Klasse frei ist, und legt
+darunter eine Zeile mit Name, Jahrgang und Geschlecht an (nächste freie
+Klasse vorgewählt, Gewicht neu wählen). **In derselben Klasse nur einmal** –
+gleich ist, wer Vor- und Nachname (ohne Groß-/Kleinschreibung und
+Leerzeichen) und Jahrgang teilt (`EntryService::starter_key()`). Das gilt auch
+über Melder hinweg: Hat jemand anderes den Starter in dieser Klasse schon
+gemeldet, kommt eine Fehlermeldung mit dem Hinweis aufs Orgateam (ohne zu
+sagen, wer gemeldet hat). Das Formular prüft vor dem Absenden mit. Die Meldung gilt als Ganzes, ändern und zurückziehen bis zum
 Meldeschluss. Jeder Melder sieht nur seine eigenen Starter.
 - **Gäste** brauchen für Rückfragen eine E-Mail-Adresse **oder** Telefonnummer
   (Abfrage im Namensdialog; serverseitig `contact_required`).

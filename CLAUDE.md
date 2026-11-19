@@ -34,7 +34,7 @@ Umgebung nicht, sind die zwölf Dateien einzeln aufzurufen.
 | `tools/tagtest.php` | Infotermine (Termintyp ohne Zusagen) und Tags: Vorgabe am Typ, Auswahl am Termin, Speichern und Leeren |
 | `tools/updatertest.php` | Updates aus GitHub-Releases: Version aus dem Tag, Paket am Release, Vorabversionen und Entwürfe ausgenommen; Ergebnis von „Nach Updates suchen“ |
 | `tools/texttest.php` | Beschreibung: Links, fett/kursiv, Listen, Maskierung, nur http(s), Gendersternchen bleibt, Textfassung für Banner und Flyer, jedes Beispiel der Hilfe wirkt |
-| `tools/umfragetest.php` | Modul Umfragen: gültige und ungültige Stimmen, beendete Umfragen, „nur Mitglieder“, wer das Ergebnis sieht, geheime Abstimmung ohne Namen, Stimmen bleiben beim Bearbeiten; Ideensammlung (Höchstzahl, Länge, Sichtbarkeit, Übernahme als Abstimmung); Klassen-Vorlagen, Wettkampfmeldung (Klasse aus Jahrgang, Gewichte, Kontaktpflicht für Gäste, gemerkte Namen, Orga-Liste, CSV, Löschen nach dem Wettkampf) |
+| `tools/umfragetest.php` | Modul Umfragen: gültige und ungültige Stimmen, beendete Umfragen, „nur Mitglieder“, wer das Ergebnis sieht, geheime Abstimmung ohne Namen, Stimmen bleiben beim Bearbeiten; Ideensammlung (Höchstzahl, Länge, Sichtbarkeit, Übernahme als Abstimmung); Klassen-Vorlagen, Wettkampfmeldung (Klasse aus Jahrgang, Gewichte, mehrere Klassen je Starter, keine Doppelten je Klasse – auch über Melder hinweg, Kontaktpflicht für Gäste, gemerkte Namen, Orga-Liste, CSV, Löschen nach dem Wettkampf) |
 | `tools/fototest.php` | Termin-Fotos: Ablage im gesperrten Ordner, Adressen über die Auslieferung statt `uploads/`, Heraushalten aus der Mediathek; Code-Anforderung mit gleicher Antwort für jede Adresse |
 
 Neue Fachlogik gehört mit einem Fall in die passende Testdatei. Die Tests
