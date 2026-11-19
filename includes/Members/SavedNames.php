@@ -33,6 +33,15 @@ class SavedNames {
         return $namen;
     }
 
+    /** Einen gemerkten Namen vergessen – bei Terminen und Meldungen gleichermaßen. */
+    public static function forget( int $person_id, string $name ): void {
+        global $wpdb;
+        if ( $person_id <= 0 ) {
+            return;
+        }
+        $wpdb->delete( self::table(), [ 'person_id' => $person_id, 'name' => trim( (string) $name ) ] );
+    }
+
     /** Namen merken, sofern noch nicht vorhanden. Nur für Mitglieder (ID > 0). */
     public static function remember( int $person_id, string $name ): void {
         global $wpdb;

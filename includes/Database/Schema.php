@@ -398,6 +398,7 @@ class Schema {
         foreach ( \VereinsPlugin\Polls\PollSchema::tables( $wpdb->prefix, $charset ) as $sql ) {
             dbDelta( $sql );
         }
+        \VereinsPlugin\Polls\PollSchema::migrate( $wpdb->prefix );
 
         update_option( 'vp_db_version', VP_VERSION );
     }

@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.18.0
+> Stand: Version 1.19.0
 
 ---
 
@@ -751,8 +751,8 @@ ausgewertet im Backend unter **„Umfragen“**, auf der Website über
   (`max_texts`, 1–10, Vorgabe 3), je Vorschlag bis 300 Zeichen; doppelte
   (ohne Rücksicht auf Groß-/Kleinschreibung) zählen einmal. Ändern ersetzt die
   eigenen Vorschläge, unveränderte behalten ihren Platz. Wann die anderen
-  Vorschläge sichtbar sind, regelt „Ergebnis sichtbar“ (bei neuen
-  Ideensammlungen vorbelegt: sofort); „geheim“ blendet die Namen aus. Im
+  Vorschläge sichtbar sind, regelt „Vorschläge sichtbar“ (vier Stufen wie
+  unten; „Niemand“ zeigt sie nur dem Orgateam, ohne Namen). Im
   Backend: Liste mit **Löschen je Vorschlag** (Moderation) und **„Als
   Abstimmung übernehmen“** – legt eine Abstimmung als Entwurf an, jeder
   verschiedene Vorschlag eine Antwort (Ergebnis nach dem Ende, „nur
@@ -760,13 +760,39 @@ ausgewertet im Backend unter **„Umfragen“**, auf der Website über
   bei Stimmen (`POST /polls/{id}/vote` mit `texts: [...]`).
 - **Wettkampfmeldung** (`kind = entry`, seit 1.17.0): siehe unten.
 
+**Anlegen.** Die Art wird beim Anlegen gewählt (je Art ein Knopf „+ …“ mit
+kurzer Erklärung) und steht danach fest – das Formular zeigt nur die Felder
+dieser Art, und der Server übernimmt beim Speichern die gespeicherte Art,
+nicht einen Formularwert (seit 1.19.0).
+
 **Einstellungen je Umfrage:** Status (Entwurf / offen / beendet), optionales
-Ende (danach keine Abstimmung mehr), **geheim** (Namen werden niemandem
-angezeigt, auch dem Orgateam nicht – gespeichert wird die Person trotzdem,
-damit niemand doppelt abstimmt), **Ergebnis sichtbar** sofort / nach der
-eigenen Abstimmung / erst nach dem Ende / nur Orgateam (Orgateam sieht es
-immer), **nur angemeldete Mitglieder** (für Nominierungen empfohlen – ohne
-Anmeldung kann jemand unter mehreren Namen abstimmen).
+Ende (danach keine Teilnahme mehr), **nur angemeldete Mitglieder** (ohne
+Anmeldung kann sich jemand unter mehreren Namen eintragen) und
+**Ergebnis sichtbar** – seit 1.19.0 eine Einstellung mit vier Stufen:
+
+| Stufe | Wert | wer sieht was |
+|---|---|---|
+| Sofort sichtbar | `always` | alle, mit Namen, schon während es läuft |
+| Nach Abschluss sichtbar | `after_close` | alle, mit Namen, nach dem Ende |
+| Nur Orgateam | `orga` | nur das Orgateam, mit Namen |
+| Niemand (geheim) | `nobody` | keine Namen für niemanden; das Orgateam sieht nur Zahlen bzw. Vorschläge ohne Namen |
+
+`anonymous` ist keine eigene Einstellung mehr, sondern folgt aus `nobody`
+(gespeichert wird die Person trotzdem, damit niemand doppelt abstimmt). Die
+früheren Werte „nach eigener Abstimmung“ (`after_vote` → `always`) und
+„geheim“ (→ `nobody`) stellt `PollSchema::migrate()` beim Update um.
+Vorbelegung: Abstimmung „nach Abschluss“, Terminumfrage und Ideensammlung
+„sofort“; Ideensammlung zusätzlich „nur Mitglieder“. Wettkampfmeldungen
+haben keine Wahl – die Meldungen sieht nur das Orgateam.
+
+**Übersicht auf der Website** (seit 1.19.0). `[vp_umfragen]` zeigt alle
+Umfragen als zuklappbare Karten, getrennt in „Laufende Umfragen“ und
+„Beendet“. Die Kopfzeile nennt Titel, Art, Stand (offen bis … / beendet bzw.
+Wettkampftag) und „✓ mitgemacht“ bzw. „✓ n Starter gemeldet“; aufgeklappt ist
+höchstens eine. Die geöffnete Umfrage steht als `#umfrage-<id>` in der
+Adresse, so lässt sich ein Link auf genau sie teilen. Läuft nur eine
+Umfrage, ist sie aufgeklappt; mit `id="…"` oder bei nur einer Umfrage gibt es
+keine Klappliste. Große Tippflächen fürs Handy.
 
 **Teilnahme ohne Anmeldung.** Wer nicht bekannt ist, nennt beim ersten
 Abstimmen seinen Namen, E-Mail freiwillig (`POST /polls/identify`). Das ist
@@ -781,8 +807,7 @@ abstimmt, ersetzt seine Antwort. „Antwort zurückziehen“ löscht sie, solang
 die Umfrage läuft.
 
 **Bearbeiten.** Antwortmöglichkeiten behalten ihre Stimmen, wenn nur der Text
-geändert wird; eine geleerte Zeile fällt samt ihren Stimmen weg. Die Art
-lässt sich nach der ersten Antwort nicht mehr ändern.
+geändert wird; eine geleerte Zeile fällt samt ihren Stimmen weg.
 
 **Technik.** Tabellen `vp_polls`, `vp_poll_options`, `vp_poll_votes`
 (`Polls\PollSchema`). Schnittstelle `GET /polls` (`?id=`), `POST /polls/identify`,
@@ -809,14 +834,16 @@ Vorlagen lassen sich bearbeiten, kopieren, entfernen; „Auslieferung
 wiederherstellen“ holt die mitgelieferte Fassung zurück. Mannschaftsklassen
 sind nicht enthalten.
 
-**Anlegen** („Neue Wettkampfmeldung“): Wettkampftag (sein Jahr bestimmt die
+**Anlegen** („+ Wettkampfmeldung“): **Wettkampftag (Pflicht;** sein Jahr bestimmt die
 Jahrgänge), Vorlage übernehmen, dann je Turnier anpassen – nicht
 ausgeschriebene Klassen abhaken, **Jahrgänge** und Gewichte so eintragen, wie
 sie in der Ausschreibung stehen (leerer ältester Jahrgang = „und älter“).
 Gespeichert wird eine Kopie an der Meldung (`vp_polls.classes`); spätere
 Änderungen an der Vorlage wirken nicht zurück. Ändert sich der Wettkampftag
 auf ein anderes Jahr, wandern die Jahrgänge im Formular mit. Meldeschluss =
-„Ende“ der Umfrage.
+„Ende“ der Umfrage. **Ohne Wettkampftag oder ohne angehakte Klasse bleibt die
+Meldung Entwurf** – auch wenn „Offen“ gewählt war; das Formular öffnet sich
+wieder mit einem Hinweis (seit 1.19.0).
 
 **Altersklasse aus dem Jahrgang** (DJB-WKO 3.1.2): Alter = Wettkampfjahr −
 Geburtsjahr. Passen mehrere Klassen (z. B. Jahrgang mit 12 Jahren: U13 und
@@ -833,7 +860,9 @@ Meldeschluss. Jeder Melder sieht nur seine eigenen Starter.
 - **Mit Login** werden die Namen der Starter am Konto gemerkt
   (`Members\SavedNames`, dieselbe Liste wie die Begleitpersonen bei Terminen) und
   beim nächsten Mal als „Schnell eintragen“ angeboten – **nur der Name**, kein
-  Jahrgang, kein Gewicht.
+  Jahrgang, kein Gewicht. Mit „×“ am Namen fliegt er aus der Liste
+  (`DELETE /polls/saved-names`, seit 1.19.0) – auch bei den Terminen, wo
+  dieselbe Liste schon immer ein „×“ hatte. Abgegebene Meldungen bleiben.
 
 **Meldeliste fürs Orgateam** (Backend, „Meldeliste“): nach Klasse und
 Geschlecht gruppiert, nach Gewicht sortiert, je Starter „gemeldet von“ mit

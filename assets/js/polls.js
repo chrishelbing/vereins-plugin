@@ -58,6 +58,7 @@
     // ------------------------------------------------------------------
 
     function renderPoll(p, box) {
+        updateHead(p);
         if (p.kind === 'entry') { renderEntry(p, box); return; }
         if (p.kind === 'text') { renderTexts(p, box); return; }
         box.textContent = '';
@@ -90,6 +91,8 @@
 
         if (p.results) {
             box.appendChild(results(p));
+        } else if (p.results_rule === 'orga' || p.results_rule === 'nobody') {
+            box.appendChild(el('p', 'vp-poll__note', T.resultsOrga));
         } else if (hasVoted || !p.open) {
             box.appendChild(el('p', 'vp-poll__note', T.resultsLater));
         }
@@ -231,6 +234,7 @@
     // ------------------------------------------------------------------
 
     function renderTexts(p, box) {
+        updateHead(p);
         box.textContent = '';
         box.className = 'vp-poll vp-poll--text' + (p.open ? '' : ' is-closed');
         box.id = 'umfrage-' + p.id;
@@ -262,6 +266,8 @@
             });
             wrap.appendChild(ul);
             box.appendChild(wrap);
+        } else if (p.results_rule === 'orga' || p.results_rule === 'nobody') {
+            box.appendChild(el('p', 'vp-poll__note', T.ideasOrga));
         } else if (mine.length || !p.open) {
             box.appendChild(el('p', 'vp-poll__note', T.ideasLater));
         }
@@ -320,6 +326,7 @@
     }
 
     function renderEntry(p, box) {
+        updateHead(p);
         box.textContent = '';
         box.className = 'vp-poll vp-poll--entry' + (p.open ? '' : ' is-closed');
         box.id = 'umfrage-' + p.id;
@@ -488,11 +495,17 @@
 
         (p.entries.length ? p.entries : [null]).forEach(function (e) { addRow(e); });
 
-        if (p.saved_names && p.saved_names.length) {
-            var chips = el('p', 'vp-entry__saved');
-            chips.appendChild(el('span', '', T.savedNames + ' '));
-            p.saved_names.forEach(function (n) {
-                var b = el('button', 'vp-entry__chip', n);
+        // Gemerkte Namen: antippen trägt ein, × nimmt den Namen aus der Liste
+        // (dieselbe Liste wie die Begleitpersonen bei Terminen).
+        var chips = el('div', 'vp-entry__saved');
+        function renderChips(namen) {
+            chips.textContent = '';
+            chips.hidden = !namen.length;
+            if (!namen.length) { return; }
+            chips.appendChild(el('span', 'vp-entry__savedlabel', T.savedNames));
+            namen.forEach(function (n) {
+                var chip = el('span', 'vp-entry__chip');
+                var b = el('button', 'vp-entry__chipname', n);
                 b.type = 'button';
                 b.addEventListener('click', function () {
                     var leer = Array.prototype.filter.call(rows.children, function (r) { return r._empty(); })[0];
@@ -502,10 +515,23 @@
                     }
                     leer._fill(n);
                 });
-                chips.appendChild(b);
+                var x = el('button', 'vp-entry__chipforget', '×');
+                x.type = 'button';
+                x.title = fmt(T.forgetName, n);
+                x.setAttribute('aria-label', fmt(T.forgetName, n));
+                x.addEventListener('click', function () {
+                    if (!window.confirm(fmt(T.forgetNameAsk, n))) { return; }
+                    api('/polls/saved-names', 'DELETE', { name: n }).then(function (res) {
+                        if (res.ok) { p.saved_names = res.data.saved_names || []; renderChips(p.saved_names); }
+                    });
+                });
+                chip.appendChild(b);
+                chip.appendChild(x);
+                chips.appendChild(chip);
             });
-            form.appendChild(chips);
         }
+        renderChips(p.saved_names || []);
+        form.appendChild(chips);
 
         form.appendChild(rows);
         var mehr = el('button', 'vp-entry__add', T.addStarter);
@@ -667,22 +693,110 @@
     // Start
     // ------------------------------------------------------------------
 
+    // ------------------------------------------------------------------
+    // Übersicht: jede Umfrage eine zuklappbare Karte. Kopfzeile mit Titel,
+    // Art, Stand und „mitgemacht“; aufgeklappt ist höchstens eine, damit die
+    // Liste auch auf dem Handy überschaubar bleibt.
+    // ------------------------------------------------------------------
+
+    var cards = {};
+
+    function participated(p) {
+        if (p.kind === 'entry') { return p.entries && p.entries.length ? fmt(p.entries.length === 1 ? T.mineStarter : T.mineStarters, p.entries.length) : ''; }
+        if (p.kind === 'text') { return p.mine && p.mine.length ? T.mineDone : ''; }
+        return p.mine && Object.keys(p.mine).length ? T.mineDone : '';
+    }
+
+    function kindText(k) {
+        return { date: T.kindDate, choice: T.kindChoice, text: T.kindText, entry: T.kindEntry }[k] || '';
+    }
+
+    function updateHead(p) {
+        var c = cards[p.id];
+        if (!c) { return; }
+        c.title.textContent = p.title;
+        var teile = [kindText(p.kind), p.kind === 'entry' && p.event_date ? fmt(T.eventOn, dayText(p.event_date)) : closeText(p)];
+        c.meta.textContent = teile.join(' · ');
+        var mit = participated(p);
+        c.badge.textContent = mit;
+        c.badge.hidden = !mit;
+        c.card.classList.toggle('is-closed', !p.open);
+    }
+
+    function setOpen(id, auf, scroll) {
+        Object.keys(cards).forEach(function (k) {
+            var c = cards[k];
+            var dies = String(k) === String(id) && auf;
+            c.head.setAttribute('aria-expanded', dies ? 'true' : 'false');
+            c.body.hidden = !dies;
+            c.card.classList.toggle('is-open', dies);
+        });
+        if (auf && cards[id]) {
+            if (window.history && history.replaceState) { history.replaceState(null, '', '#umfrage-' + id); }
+            if (scroll) { cards[id].card.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+        } else if (window.history && history.replaceState && /^#umfrage-/.test(location.hash)) {
+            history.replaceState(null, '', location.pathname + location.search);
+        }
+    }
+
+    function card(p, list) {
+        var c = {};
+        c.card = el('article', 'vp-pollcard');
+        c.head = el('button', 'vp-pollcard__head');
+        c.head.type = 'button';
+        c.head.setAttribute('aria-expanded', 'false');
+        c.head.setAttribute('aria-controls', 'umfrage-' + p.id);
+        c.title = el('span', 'vp-pollcard__title');
+        c.meta = el('span', 'vp-pollcard__meta');
+        c.badge = el('span', 'vp-pollcard__badge');
+        var text = el('span', 'vp-pollcard__text');
+        text.appendChild(c.title);
+        text.appendChild(c.meta);
+        c.head.appendChild(text);
+        c.head.appendChild(c.badge);
+        c.head.appendChild(el('span', 'vp-pollcard__chevron'));
+        c.body = el('section', 'vp-poll');
+        c.body.hidden = true;
+        c.head.addEventListener('click', function () {
+            setOpen(p.id, c.head.getAttribute('aria-expanded') !== 'true', false);
+        });
+        c.card.appendChild(c.head);
+        c.card.appendChild(c.body);
+        list.appendChild(c.card);
+        cards[p.id] = c;
+        renderPoll(p, c.body);
+    }
+
     function start(container) {
         var id = parseInt(container.getAttribute('data-poll') || '0', 10);
         api('/polls' + (id ? '?id=' + id : '')).then(function (res) {
             container.textContent = '';
             if (!res.ok) { container.appendChild(el('p', 'vp-poll__error', T.error)); return; }
             person = res.data.person;
-            if (!res.data.polls.length) { container.appendChild(el('p', 'vp-polls__empty', T.none)); return; }
-            res.data.polls.forEach(function (p) {
+            var polls = res.data.polls;
+            if (!polls.length) { container.appendChild(el('p', 'vp-polls__empty', T.none)); return; }
+
+            // Eine einzelne Umfrage (Shortcode mit id) ohne Klappliste.
+            if (id || polls.length === 1) {
                 var box = el('section', 'vp-poll');
                 container.appendChild(box);
-                renderPoll(p, box);
-            });
-            if (location.hash && /^#umfrage-\d+$/.test(location.hash)) {
-                var ziel = document.querySelector(location.hash);
-                if (ziel) { ziel.scrollIntoView(); }
+                renderPoll(polls[0], box);
+                return;
             }
+
+            var offen = polls.filter(function (p) { return p.open; });
+            var zu = polls.filter(function (p) { return !p.open; });
+            [[T.groupOpen, offen], [T.groupClosed, zu]].forEach(function (g) {
+                if (!g[1].length) { return; }
+                container.appendChild(el('h3', 'vp-polls__group', g[0]));
+                var list = el('div', 'vp-polls__list');
+                container.appendChild(list);
+                g[1].forEach(function (p) { card(p, list); });
+            });
+
+            var m = /^#umfrage-(\d+)$/.exec(location.hash || '');
+            if (m && cards[m[1]]) { setOpen(m[1], true, true); }
+            else if (offen.length === 1) { setOpen(offen[0].id, true, false); }
         }).catch(function () {
             container.textContent = '';
             container.appendChild(el('p', 'vp-poll__error', T.error));

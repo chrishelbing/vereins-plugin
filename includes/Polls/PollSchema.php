@@ -19,9 +19,12 @@ class PollSchema {
         //          'entry'  – Wettkampfmeldung (Starter mit Alters-/Gewichtsklasse)
         //          'text'   – Ideensammlung: Vorschläge als Freitext (z. B. Slogans)
         // max_texts: Ideensammlung – wie viele Vorschläge je Person
-        // results: wann andere das Ergebnis sehen –
-        //          'always' sofort, 'after_vote' nach eigener Abstimmung,
-        //          'after_close' erst nach Ende, 'orga' nur Orgateam.
+        // results: wer das Ergebnis sieht (seit 1.19.0 vier Stufen) –
+        //          'always' sofort alle, 'after_close' alle nach dem Ende,
+        //          'orga' nur das Orgateam, 'nobody' niemand mit Namen
+        //          (geheim; das Orgateam sieht nur die Zahlen).
+        //          'after_vote' ist ein Altwert, migrate() macht 'always' daraus.
+        // anonymous: folgt aus results = 'nobody' (PollModel::save).
         // Nur Wettkampfmeldung:
         //   event_date  Wettkampftag – sein Jahr bestimmt die Jahrgänge
         //   classes     startende Klassen als JSON (Kopie der Vorlage, je
@@ -38,7 +41,7 @@ class PollSchema {
             multiple        TINYINT(1)      NOT NULL DEFAULT 0,
             allow_maybe     TINYINT(1)      NOT NULL DEFAULT 1,
             anonymous       TINYINT(1)      NOT NULL DEFAULT 0,
-            results         ENUM('always','after_vote','after_close','orga') NOT NULL DEFAULT 'after_vote',
+            results         ENUM('always','after_vote','after_close','orga','nobody') NOT NULL DEFAULT 'always',
             login_required  TINYINT(1)      NOT NULL DEFAULT 0,
             max_texts       TINYINT UNSIGNED NOT NULL DEFAULT 3,
             event_date      DATE            DEFAULT NULL,
@@ -119,5 +122,17 @@ class PollSchema {
         ) $charset;";
 
         return [ $polls, $options, $votes, $entries, $texts ];
+    }
+
+    /**
+     * Nach dbDelta: Altwerte der Sichtbarkeit auf die vier Stufen bringen
+     * (1.19.0). „nach eigener Abstimmung“ wird „sofort“, „geheim“ wird
+     * „niemand“. Läuft bei jedem Update, ändert aber nur noch Altzeilen.
+     */
+    public static function migrate( string $prefix ): void {
+        global $wpdb;
+        $t = $prefix . 'vp_polls';
+        $wpdb->query( "UPDATE {$t} SET results = 'nobody' WHERE anonymous = 1 AND results <> 'nobody'" );
+        $wpdb->query( "UPDATE {$t} SET results = 'always' WHERE results = 'after_vote'" );
     }
 }

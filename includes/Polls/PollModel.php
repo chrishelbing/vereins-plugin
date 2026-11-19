@@ -12,7 +12,7 @@ class PollModel {
 
     public const KINDS   = [ 'date', 'choice', 'entry', 'text' ];
     public const STATES  = [ 'draft', 'open', 'closed' ];
-    public const RESULTS = [ 'always', 'after_vote', 'after_close', 'orga' ];
+    public const RESULTS = [ 'always', 'after_close', 'orga', 'nobody' ];
 
     private function t( string $name ): string {
         global $wpdb;
@@ -43,6 +43,11 @@ class PollModel {
     /** Anlegen (ohne id) oder ändern (mit id). Gibt die ID zurück. */
     public function save( array $data ): int {
         global $wpdb;
+        // Altwert „nach eigener Abstimmung“ zählt als „sofort“, altes „geheim“ als „niemand“.
+        $results = $data['results'] ?? 'always';
+        $results = $results === 'after_vote' ? 'always' : $results;
+        $results = ! empty( $data['anonymous'] ) && ! isset( $data['results'] ) ? 'nobody' : $results;
+        $results = in_array( $results, self::RESULTS, true ) ? $results : 'always';
         $felder = [
             'kind'           => in_array( $data['kind'] ?? '', self::KINDS, true ) ? $data['kind'] : 'choice',
             'title'          => (string) ( $data['title'] ?? '' ),
@@ -51,8 +56,9 @@ class PollModel {
             'closes_at'      => ! empty( $data['closes_at'] ) ? (string) $data['closes_at'] : null,
             'multiple'       => ! empty( $data['multiple'] ) ? 1 : 0,
             'allow_maybe'    => ! empty( $data['allow_maybe'] ) ? 1 : 0,
-            'anonymous'      => ! empty( $data['anonymous'] ) ? 1 : 0,
-            'results'        => in_array( $data['results'] ?? '', self::RESULTS, true ) ? $data['results'] : 'after_vote',
+            'results'        => $results,
+            // „geheim“ ist keine eigene Einstellung mehr, sondern die Stufe „niemand“.
+            'anonymous'      => $results === 'nobody' ? 1 : 0,
             'login_required' => ! empty( $data['login_required'] ) ? 1 : 0,
             'event_date'     => ! empty( $data['event_date'] ) ? (string) $data['event_date'] : null,
             'classes'        => isset( $data['classes'] ) ? wp_json_encode( array_values( (array) $data['classes'] ) ) : null,

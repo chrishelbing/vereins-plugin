@@ -63,7 +63,7 @@ $gabi = -(int) end( $wpdb->t['wp_vp_people'] )['id'];
 // =====================================================================
 echo "Terminumfrage\n";
 
-$tid = $model->save( [ 'kind' => 'date', 'title' => 'Weihnachtsfeier', 'status' => 'open', 'allow_maybe' => 1, 'results' => 'after_vote' ] );
+$tid = $model->save( [ 'kind' => 'date', 'title' => 'Weihnachtsfeier', 'status' => 'open', 'allow_maybe' => 1, 'results' => 'always' ] );
 $model->save_options( $tid, PollsAdmin::parse_options( [
     [ 'starts_at' => '2026-12-19T15:00', 'ends_at' => '18:00', 'label' => '' ],
     [ 'starts_at' => '', 'label' => 'leere Zeile fällt weg' ],
@@ -96,7 +96,7 @@ Pruefung::ok( 'fremde Antwortmöglichkeit abgelehnt', is_wp_error( $service->vot
 // =====================================================================
 echo "\nAbstimmung und Nominierung\n";
 
-$nid = $model->save( [ 'kind' => 'choice', 'title' => 'Nachwuchspreis', 'status' => 'open', 'anonymous' => 1, 'login_required' => 1, 'results' => 'after_close' ] );
+$nid = $model->save( [ 'kind' => 'choice', 'title' => 'Nachwuchspreis', 'status' => 'open', 'login_required' => 1, 'results' => 'nobody' ] );
 $model->save_options( $nid, PollsAdmin::parse_options( [ [ 'label' => 'Mia' ], [ 'label' => 'Tom' ], [ 'label' => '' ] ], 'choice' ) );
 $n = $model->find( $nid );
 [ $mia, $tom ] = array_map( 'intval', array_column( $model->options( $nid ), 'id' ) );
@@ -111,23 +111,34 @@ $e = $service->results( $n );
 Pruefung::gleich( 'geheim: Zahl stimmt', $e[ $mia ]['yes'], 1 );
 Pruefung::gleich( 'geheim: keine Namen, auch nicht für die Auswertung', $e[ $mia ]['names']['yes'], [] );
 
-Pruefung::ok( 'Ergebnis nach Ende: Mitglied sieht es vorher nicht', ! $service->may_see_results( $n, $anna, true, false ) );
-Pruefung::ok( 'Orgateam sieht es immer', $service->may_see_results( $n, $orga, false, true ) );
+Pruefung::ok( '„niemand“ setzt geheim', (int) $n['anonymous'] === 1 );
+Pruefung::ok( '„niemand“: Mitglied sieht nichts', ! $service->may_see_results( $n, $anna, true, false ) );
+Pruefung::ok( 'Orgateam sieht die Zahlen', $service->may_see_results( $n, $orga, false, true ) );
 
 $model->set_status( $nid, 'closed' );
 $n = $model->find( $nid );
 Pruefung::ok( 'beendete Umfrage nimmt nichts mehr an', is_wp_error( $service->vote( $n, $anna, [ 'choices' => [ $tom ] ] ) ) );
-Pruefung::ok( 'nach dem Ende sichtbar', $service->may_see_results( $n, $anna, true, false ) );
+Pruefung::ok( '„niemand“: auch nach dem Ende nicht', ! $service->may_see_results( $n, $anna, true, false ) );
+
+$spaeter = $model->find( $model->save( [ 'kind' => 'choice', 'title' => 'nach Abschluss', 'status' => 'open', 'results' => 'after_close' ] ) );
+Pruefung::ok( 'nach Abschluss: vorher nicht', ! $service->may_see_results( $spaeter, $anna, true, false ) && (int) $spaeter['anonymous'] === 0 );
+$model->set_status( (int) $spaeter['id'], 'closed' );
+Pruefung::ok( 'nach Abschluss: danach für alle', $service->may_see_results( $model->find( (int) $spaeter['id'] ), $gabi, false, false ) );
+$nurorga = $model->find( $model->save( [ 'kind' => 'choice', 'title' => 'nur Orga', 'status' => 'closed', 'results' => 'orga' ] ) );
+Pruefung::ok( 'nur Orgateam: Mitglied nie', ! $service->may_see_results( $nurorga, $anna, true, false ) && $service->may_see_results( $nurorga, $orga, false, true ) );
+$alt = $model->find( $model->save( [ 'kind' => 'choice', 'title' => 'Altwert', 'status' => 'open', 'results' => 'after_vote' ] ) );
+Pruefung::gleich( 'Altwert „nach eigener Abstimmung“ wird „sofort“', $alt['results'], 'always' );
+$altgeheim = $model->find( $model->save( [ 'kind' => 'choice', 'title' => 'Alt geheim', 'status' => 'open', 'anonymous' => 1 ] ) );
+Pruefung::gleich( 'altes „geheim“ wird „niemand“', $altgeheim['results'], 'nobody' );
 
 $frist = $model->find( $model->save( [ 'kind' => 'choice', 'title' => 'abgelaufen', 'status' => 'open', 'closes_at' => '2026-01-01 00:00:00' ] ) );
 Pruefung::ok( 'Ende überschritten gilt als beendet', ! $service->is_open( $frist ) && $service->is_closed( $frist ) );
 
-$mehr = $model->find( $model->save( [ 'kind' => 'choice', 'title' => 'Mehrfach', 'status' => 'open', 'multiple' => 1, 'results' => 'after_vote' ] ) );
+$mehr = $model->find( $model->save( [ 'kind' => 'choice', 'title' => 'Mehrfach', 'status' => 'open', 'multiple' => 1, 'results' => 'always' ] ) );
 $model->save_options( (int) $mehr['id'], [ [ 'label' => 'A' ], [ 'label' => 'B' ] ] );
 $ab = array_map( 'intval', array_column( $model->options( (int) $mehr['id'] ), 'id' ) );
 Pruefung::ok( 'Mehrfachauswahl nimmt zwei an', $service->vote( $mehr, $gabi, [ 'choices' => $ab ] ) === true );
-Pruefung::ok( 'nach eigener Abstimmung sichtbar', $service->may_see_results( $mehr, $gabi, true, false ) );
-Pruefung::ok( 'vor eigener Abstimmung nicht', ! $service->may_see_results( $mehr, $anna, false, false ) );
+Pruefung::ok( 'sofort: für alle sichtbar, auch ohne eigene Stimme', $service->may_see_results( $mehr, $anna, false, false ) );
 
 // =====================================================================
 echo "\nBearbeiten behält Stimmen\n";
@@ -218,6 +229,10 @@ $ben = [ 'first_name' => 'Ben', 'last_name' => 'Aktiv', 'birth_year' => 2014, 's
 Pruefung::ok( 'Mitglied meldet', $entry->submit( $w, $anna, [ $ben ] ) === true );
 Pruefung::gleich( 'Mitglied: Name gemerkt – nur der Name', SavedNames::for_person( $anna ), [ 'Ben Aktiv' ] );
 Pruefung::gleich( 'Gast: nichts gemerkt', SavedNames::for_person( $gerd ), [] );
+SavedNames::remember( $anna, 'Lea Aktiv' );
+SavedNames::forget( $anna, 'Ben Aktiv' );
+Pruefung::gleich( 'gemerkten Namen entfernen', SavedNames::for_person( $anna ), [ 'Lea Aktiv' ] );
+Pruefung::gleich( 'Meldung bleibt beim Entfernen des Namens', count( $model->entries( $wid, $anna ) ), 1 );
 Pruefung::gleich( 'zwei Melder', $model->voter_count( $wid ), 2 );
 
 $liste = $entry->list_for_orga( $w );
@@ -249,7 +264,7 @@ Pruefung::gleich( 'Löschen der Umfrage räumt Meldungen ab', count( $model->ent
 // =====================================================================
 echo "\nIdeensammlung\n";
 
-$iid = $model->save( [ 'kind' => 'text', 'title' => 'Slogan fürs Vereinsshirt', 'status' => 'open', 'max_texts' => 2, 'results' => 'after_vote' ] );
+$iid = $model->save( [ 'kind' => 'text', 'title' => 'Slogan fürs Vereinsshirt', 'status' => 'open', 'max_texts' => 2, 'results' => 'after_close' ] );
 $i   = $model->find( $iid );
 Pruefung::ok( 'Gast schreibt zwei Vorschläge', $service->vote( $i, $gabi, [ 'texts' => [ 'Fallen, aufstehen, weitermachen', '  ', 'Ippon im Herzen' ] ] ) === true );
 Pruefung::ok( 'drei Vorschläge bei Höchstzahl 2 abgelehnt', is_wp_error( $service->vote( $i, $anna, [ 'texts' => [ 'A', 'B', 'C' ] ] ) ) );
@@ -265,15 +280,16 @@ Pruefung::ok( 'Ändern: unveränderter Vorschlag behält seine Zeile', (int) $g[
 Pruefung::gleich( 'Ändern: ersetzter Vorschlag ist weg', array_column( $g, 'text' ), [ 'Fallen, aufstehen, weitermachen', 'Judo verbindet' ] );
 Pruefung::gleich( 'zwei Personen', $model->voter_count( $iid ), 2 );
 
-$pay = $service->payload( $i, $orga, false );
-Pruefung::ok( 'vor eigenem Vorschlag keine fremden sichtbar', $pay['results'] === null && $pay['mine'] === [] );
 $pay = $service->payload( $i, $anna, false );
+Pruefung::ok( 'nach Abschluss: während der Sammlung keine fremden sichtbar', $pay['results'] === null && $pay['mine'] === [ 'Ippon im Herzen' ] );
+$pay = $service->payload( $i, $anna, true );
 Pruefung::gleich( 'nach eigenem Vorschlag alle sichtbar, mit Namen, älteste zuerst', array_column( $pay['results'], 'name' ), [ 'Gabi Gast', 'Anna Aktiv', 'Gabi Gast' ] );
 Pruefung::ok( 'eigener Vorschlag markiert', $pay['results'][1]['mine'] === true && $pay['results'][0]['mine'] === false );
 
-$geheim = $model->find( $model->save( [ 'kind' => 'text', 'title' => 'geheim', 'status' => 'open', 'anonymous' => 1, 'results' => 'always' ] ) );
+$geheim = $model->find( $model->save( [ 'kind' => 'text', 'title' => 'geheim', 'status' => 'open', 'results' => 'nobody' ] ) );
 $service->vote( $geheim, $anna, [ 'texts' => [ 'Idee' ] ] );
-Pruefung::ok( 'geheim: ohne Namen', $service->payload( $geheim, $gabi, false )['results'][0]['name'] === null );
+Pruefung::ok( 'niemand: auf der Website unsichtbar', $service->payload( $geheim, $gabi, false )['results'] === null );
+Pruefung::ok( 'niemand: Orgateam sieht Vorschläge ohne Namen', $service->payload( $geheim, $orga, true )['results'][0]['name'] === null );
 
 $model->delete_text( (int) $g[1]['id'] );
 Pruefung::gleich( 'Orgateam löscht einen Vorschlag', count( $model->texts( $iid ) ), 2 );

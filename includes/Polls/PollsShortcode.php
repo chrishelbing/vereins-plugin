@@ -84,6 +84,21 @@ class PollsShortcode {
             'codeText'     => __( 'Diese Adresse gehört zu einem Mitgliedskonto. Wir haben dir einen Zugangscode geschickt – nach der Eingabe bist du angemeldet. Kein Mitglied? Dann lass das E-Mail-Feld leer.', 'vereins-plugin' ),
             'codeNeeded'   => __( 'Bitte gib den sechsstelligen Code aus der E-Mail ein.', 'vereins-plugin' ),
 
+            // Übersicht (zuklappbare Karten)
+            'groupOpen'     => __( 'Laufende Umfragen', 'vereins-plugin' ),
+            'groupClosed'   => __( 'Beendet', 'vereins-plugin' ),
+            'kindDate'      => __( 'Terminumfrage', 'vereins-plugin' ),
+            'kindChoice'    => __( 'Abstimmung', 'vereins-plugin' ),
+            'kindText'      => __( 'Ideensammlung', 'vereins-plugin' ),
+            'kindEntry'     => __( 'Wettkampfmeldung', 'vereins-plugin' ),
+            'mineDone'      => __( '✓ mitgemacht', 'vereins-plugin' ),
+            'mineStarter'   => __( '✓ 1 Starter gemeldet', 'vereins-plugin' ),
+            'mineStarters'  => __( '✓ %d Starter gemeldet', 'vereins-plugin' ),
+            'resultsOrga'   => __( 'Das Ergebnis sieht nur das Orgateam.', 'vereins-plugin' ),
+            'ideasOrga'     => __( 'Die Vorschläge sieht nur das Orgateam.', 'vereins-plugin' ),
+            'forgetName'    => __( '%s aus der Liste entfernen', 'vereins-plugin' ),
+            'forgetNameAsk' => __( '„%s“ aus deiner Namensliste entfernen? Der Name wird dann auch bei Terminen nicht mehr vorgeschlagen. Bereits abgegebene Meldungen bleiben.', 'vereins-plugin' ),
+
             // Ideensammlung
             'ideaPerson'   => __( '1 Person hat Vorschläge gemacht', 'vereins-plugin' ),
             'ideaPersons'  => __( '%d Personen haben Vorschläge gemacht', 'vereins-plugin' ),

@@ -82,14 +82,10 @@ class PollsAdmin {
         ?>
         <h1><?php esc_html_e( 'Umfragen', 'vereins-plugin' ); ?></h1>
         <p class="description" style="max-width:70em;">
-            <?php esc_html_e( 'Terminumfragen, Abstimmungen und Nominierungen. Teilnehmen kann jede Person auch ohne Anmeldung – Gäste nennen einmal ihren Namen. Auf der Website erscheinen die Umfragen über den Shortcode [vp_umfragen]. Mitglieder und Anmeldung teilt das Modul mit den Terminen (Verein → Mitglieder).', 'vereins-plugin' ); ?>
+            <?php esc_html_e( 'Terminumfragen, Abstimmungen und Nominierungen, Ideensammlungen und Wettkampfmeldungen. Teilnehmen kann jede Person auch ohne Anmeldung – Gäste nennen einmal ihren Namen. Auf der Website erscheinen die Umfragen über den Shortcode [vp_umfragen]. Mitglieder und Anmeldung teilt das Modul mit den Terminen (Verein → Mitglieder).', 'vereins-plugin' ); ?>
         </p>
         <?php $this->render_notices(); ?>
-        <p>
-            <a class="button button-primary" href="<?php echo esc_url( $this->url( [ 'neu' => 1 ] ) ); ?>"><?php esc_html_e( 'Neue Umfrage', 'vereins-plugin' ); ?></a>
-            <a class="button" href="<?php echo esc_url( $this->url( [ 'neu' => 1, 'art' => 'ideen' ] ) ); ?>"><?php esc_html_e( 'Neue Ideensammlung', 'vereins-plugin' ); ?></a>
-            <a class="button" href="<?php echo esc_url( $this->url( [ 'neu' => 1, 'art' => 'meldung' ] ) ); ?>"><?php esc_html_e( 'Neue Wettkampfmeldung', 'vereins-plugin' ); ?></a>
-        </p>
+        <?php $this->render_new_buttons(); ?>
 
         <table class="vp-table">
             <thead>
@@ -179,66 +175,95 @@ class PollsAdmin {
     // Formular
     // ------------------------------------------------------------------
 
+    /** Arten, wie sie beim Anlegen angeboten werden – Kennung in der Adresse => Art. */
+    public const NEW_KINDS = [ 'termin' => 'date', 'abstimmung' => 'choice', 'ideen' => 'text', 'meldung' => 'entry' ];
+
+    /** Kurzbeschreibung je Art (Liste und Formular). */
+    public static function kind_hint( string $kind ): string {
+        return match ( $kind ) {
+            'date'  => __( 'Je Terminvorschlag: passt / vielleicht / passt nicht.', 'vereins-plugin' ),
+            'text'  => __( 'Vorschläge als Freitext, z. B. Slogans, Namen oder Wünsche.', 'vereins-plugin' ),
+            'entry' => __( 'Starter mit Alters- und Gewichtsklasse für ein Turnier.', 'vereins-plugin' ),
+            default => __( 'Auswahl aus Antworten – auch für Nominierungen.', 'vereins-plugin' ),
+        };
+    }
+
+    /** Die vier Stufen „Ergebnis sichtbar“. */
+    public static function results_choices( string $kind ): array {
+        $was = $kind === 'text' ? __( 'Vorschläge', 'vereins-plugin' ) : __( 'Ergebnis', 'vereins-plugin' );
+        return [
+            'always'      => [ __( 'Sofort sichtbar', 'vereins-plugin' ),     sprintf( __( 'Alle sehen %s mit Namen, schon während es läuft.', 'vereins-plugin' ), $was ) ],
+            'after_close' => [ __( 'Nach Abschluss sichtbar', 'vereins-plugin' ), sprintf( __( 'Alle sehen %s mit Namen, sobald es beendet ist.', 'vereins-plugin' ), $was ) ],
+            'orga'        => [ __( 'Nur Orgateam', 'vereins-plugin' ),        sprintf( __( 'Nur das Orgateam sieht %s mit Namen.', 'vereins-plugin' ), $was ) ],
+            'nobody'      => [ __( 'Niemand (geheim)', 'vereins-plugin' ),    __( 'Keine Namen, für niemanden. Das Orgateam sieht nur die Zahlen bzw. die Vorschläge ohne Namen.', 'vereins-plugin' ) ],
+        ];
+    }
+
     private function render_form( ?array $poll ): void {
+        $art  = sanitize_key( $_GET['art'] ?? '' );
+        $kind = $poll ? $poll['kind'] : ( self::NEW_KINDS[ $art ] ?? '' );
+        if ( ! $kind ) {
+            $this->render_kind_picker();
+            return;
+        }
         $p = $poll ?? [
-            'id' => 0, 'kind' => 'choice', 'title' => '', 'description' => '', 'status' => 'draft',
-            'closes_at' => '', 'multiple' => 0, 'allow_maybe' => 1, 'anonymous' => 0,
-            'results' => 'after_vote', 'login_required' => 0,
+            'id' => 0, 'kind' => $kind, 'title' => '', 'description' => '', 'status' => 'draft',
+            'closes_at' => '', 'multiple' => 0, 'allow_maybe' => 1,
+            'results' => $kind === 'choice' ? 'after_close' : 'always', 'login_required' => $kind === 'text' ? 1 : 0,
             'event_date' => '', 'classes' => null, 'purge_days' => 30, 'max_texts' => 3,
         ];
-        if ( ! $poll && ( $_GET['art'] ?? '' ) === 'meldung' ) {
-            $p['kind'] = 'entry';
-        }
-        if ( ! $poll && ( $_GET['art'] ?? '' ) === 'ideen' ) {
-            $p['kind']    = 'text';
-            $p['results'] = 'always';
-        }
+        $p['results'] = $p['results'] === 'after_vote' ? 'always' : $p['results'];
+
         $vorlagen = ClassTemplates::all();
-        $klassen  = $poll ? PollModel::classes( $poll ) : ( reset( $vorlagen )['classes'] ?? [] );
-        $optionen = $poll ? $this->model->options( (int) $poll['id'] ) : [];
+        $klassen  = $poll ? PollModel::classes( $poll ) : [];
+        if ( ! $klassen ) {
+            $klassen = reset( $vorlagen )['classes'] ?? [];
+        }
+        $optionen    = $poll ? $this->model->options( (int) $poll['id'] ) : [];
         $hat_stimmen = $poll && $this->model->voter_count( (int) $poll['id'] ) > 0;
         $dt = static fn( $v ) => $v ? str_replace( ' ', 'T', substr( (string) $v, 0, 16 ) ) : '';
+        $ende = match ( $kind ) {
+            'entry' => __( 'Meldeschluss', 'vereins-plugin' ),
+            'text'  => __( 'Sammlung endet', 'vereins-plugin' ),
+            default => __( 'Abstimmung endet', 'vereins-plugin' ),
+        };
         ?>
-        <h1><?php echo $poll ? esc_html__( 'Umfrage bearbeiten', 'vereins-plugin' ) : esc_html__( 'Neue Umfrage', 'vereins-plugin' ); ?></h1>
+        <h1><?php echo esc_html( ( $poll ? __( 'Bearbeiten:', 'vereins-plugin' ) : __( 'Neu:', 'vereins-plugin' ) ) . ' ' . self::kind_label( $kind ) ); ?></h1>
         <p><a href="<?php echo esc_url( $this->url() ); ?>">&larr; <?php esc_html_e( 'Zur Übersicht', 'vereins-plugin' ); ?></a></p>
         <?php $this->render_notices(); ?>
+        <p class="description"><?php echo esc_html( self::kind_hint( $kind ) ); ?></p>
 
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="vp-form-card vp-form-card--wide" id="vp-poll-form">
             <input type="hidden" name="action" value="vp_save_poll">
             <input type="hidden" name="id" value="<?php echo (int) $p['id']; ?>">
+            <input type="hidden" name="kind" value="<?php echo esc_attr( $kind ); ?>">
             <?php wp_nonce_field( 'vp_save_poll' ); ?>
 
             <table class="form-table" role="presentation">
                 <tr>
                     <th><label for="vp-poll-title"><?php esc_html_e( 'Titel', 'vereins-plugin' ); ?></label></th>
-                    <td><input type="text" class="regular-text" id="vp-poll-title" name="title" required value="<?php echo esc_attr( $p['title'] ); ?>" placeholder="<?php esc_attr_e( 'z. B. Wann machen wir die Weihnachtsfeier?', 'vereins-plugin' ); ?>"></td>
+                    <td><input type="text" class="regular-text" id="vp-poll-title" name="title" required value="<?php echo esc_attr( $p['title'] ); ?>" placeholder="<?php echo esc_attr( match ( $kind ) {
+                        'date'  => __( 'z. B. Wann machen wir die Weihnachtsfeier?', 'vereins-plugin' ),
+                        'text'  => __( 'z. B. Slogan für das Vereinsshirt', 'vereins-plugin' ),
+                        'entry' => __( 'z. B. Bezirkseinzelmeisterschaft U11/U13', 'vereins-plugin' ),
+                        default => __( 'z. B. Nachwuchspreis 2026', 'vereins-plugin' ),
+                    } ); ?>"></td>
                 </tr>
                 <tr>
                     <th><label for="vp-poll-desc"><?php esc_html_e( 'Beschreibung', 'vereins-plugin' ); ?></label></th>
                     <td><textarea id="vp-poll-desc" name="description" rows="3" class="large-text"><?php echo esc_textarea( $p['description'] ); ?></textarea></td>
                 </tr>
+
+                <?php if ( $kind === 'entry' ) : ?>
                 <tr>
-                    <th><?php esc_html_e( 'Art', 'vereins-plugin' ); ?></th>
+                    <th><label for="vp-poll-event-date"><?php esc_html_e( 'Wettkampftag', 'vereins-plugin' ); ?> <span style="color:#b32d2e">*</span></label></th>
                     <td>
-                        <label><input type="radio" name="kind" value="date" <?php checked( $p['kind'], 'date' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Terminumfrage – passt / vielleicht / passt nicht je Vorschlag', 'vereins-plugin' ); ?></label><br>
-                        <label><input type="radio" name="kind" value="choice" <?php checked( $p['kind'], 'choice' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Abstimmung oder Nominierung – Auswahl aus Antworten', 'vereins-plugin' ); ?></label><br>
-                        <label><input type="radio" name="kind" value="text" <?php checked( $p['kind'], 'text' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Ideensammlung – Vorschläge als Freitext (z. B. Slogans, Namen, Wünsche)', 'vereins-plugin' ); ?></label><br>
-                        <label><input type="radio" name="kind" value="entry" <?php checked( $p['kind'], 'entry' ); ?> <?php disabled( $hat_stimmen ); ?>> <?php esc_html_e( 'Wettkampfmeldung – Starter mit Alters- und Gewichtsklasse', 'vereins-plugin' ); ?></label>
-                        <?php if ( $hat_stimmen ) : ?>
-                            <input type="hidden" name="kind" value="<?php echo esc_attr( $p['kind'] ); ?>">
-                            <p class="description"><?php esc_html_e( 'Es gibt schon Antworten – die Art lässt sich nicht mehr ändern.', 'vereins-plugin' ); ?></p>
-                        <?php endif; ?>
+                        <input type="date" id="vp-poll-event-date" name="event_date" required value="<?php echo esc_attr( (string) $p['event_date'] ); ?>">
+                        <p class="description"><?php esc_html_e( 'Pflichtangabe. Sein Jahr bestimmt die Jahrgänge (Alter = Wettkampfjahr − Geburtsjahr). Ohne Wettkampftag lassen sich keine Klassen speichern, und die Meldung bleibt ein unsichtbarer Entwurf.', 'vereins-plugin' ); ?></p>
                     </td>
                 </tr>
-                <tr class="vp-only-entry">
-                    <th><label for="vp-poll-event-date"><?php esc_html_e( 'Wettkampftag', 'vereins-plugin' ); ?></label></th>
-                    <td>
-                        <input type="date" id="vp-poll-event-date" name="event_date" value="<?php echo esc_attr( (string) $p['event_date'] ); ?>">
-                        <span class="description"><?php esc_html_e( 'Sein Jahr bestimmt die Jahrgänge (Alter = Wettkampfjahr − Geburtsjahr).', 'vereins-plugin' ); ?></span>
-                    </td>
-                </tr>
-                <tr class="vp-only-entry">
-                    <th><?php esc_html_e( 'Startende Klassen', 'vereins-plugin' ); ?></th>
+                <tr>
+                    <th><?php esc_html_e( 'Startende Klassen', 'vereins-plugin' ); ?> <span style="color:#b32d2e">*</span></th>
                     <td>
                         <p>
                             <label for="vp-poll-template"><?php esc_html_e( 'Vorlage', 'vereins-plugin' ); ?></label>
@@ -250,11 +275,11 @@ class PollsAdmin {
                             <button type="button" class="button" id="vp-poll-template-load"><?php esc_html_e( 'Klassen aus Vorlage übernehmen', 'vereins-plugin' ); ?></button>
                             <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . ClassesAdmin::SLUG ) ); ?>"><?php esc_html_e( 'Vorlagen verwalten', 'vereins-plugin' ); ?></a>
                         </p>
-                        <p class="description" style="max-width:60em;"><?php esc_html_e( 'Klassen, die nicht ausgeschrieben sind, abhaken. Jahrgänge und Gewichtsklassen so anpassen, wie sie in der Ausschreibung stehen – das gilt nur für diese Meldung.', 'vereins-plugin' ); ?></p>
+                        <p class="description" style="max-width:60em;"><?php esc_html_e( 'Mindestens eine Klasse muss angehakt sein. Klassen, die nicht ausgeschrieben sind, abhaken; Jahrgänge und Gewichtsklassen so eintragen, wie sie in der Ausschreibung stehen – das gilt nur für diese Meldung.', 'vereins-plugin' ); ?></p>
                         <?php ClassesAdmin::editor( 'classes', $klassen, 'year' ); ?>
                     </td>
                 </tr>
-                <tr class="vp-only-entry">
+                <tr>
                     <th><label for="vp-poll-purge"><?php esc_html_e( 'Meldungen löschen', 'vereins-plugin' ); ?></label></th>
                     <td>
                         <input type="number" id="vp-poll-purge" name="purge_days" min="0" max="365" style="width:6em" value="<?php echo (int) $p['purge_days']; ?>">
@@ -262,22 +287,29 @@ class PollsAdmin {
                         <p class="description"><?php esc_html_e( 'Danach werden Namen, Jahrgänge und Gewichtsklassen der Starter gelöscht; die Umfrage selbst bleibt stehen. 0 = nicht automatisch löschen.', 'vereins-plugin' ); ?></p>
                     </td>
                 </tr>
-                <tr class="vp-only-text">
+                <?php endif; ?>
+
+                <?php if ( $kind === 'text' ) : ?>
+                <tr>
                     <th><label for="vp-poll-max-texts"><?php esc_html_e( 'Vorschläge je Person', 'vereins-plugin' ); ?></label></th>
                     <td>
                         <input type="number" id="vp-poll-max-texts" name="max_texts" min="1" max="10" style="width:5em" value="<?php echo (int) $p['max_texts']; ?>">
                         <p class="description"><?php printf( esc_html__( 'Jeder Vorschlag bis %d Zeichen. Unpassende Vorschläge kannst du in der Auswertung löschen; dort lassen sich die Vorschläge auch als Abstimmung übernehmen.', 'vereins-plugin' ), PollService::TEXT_MAX ); ?></p>
                     </td>
                 </tr>
-                <tr class="vp-not-entry vp-not-text">
-                    <th><?php esc_html_e( 'Antwortmöglichkeiten', 'vereins-plugin' ); ?></th>
+                <?php endif; ?>
+
+                <?php if ( in_array( $kind, [ 'date', 'choice' ], true ) ) : ?>
+                <tr>
+                    <th><?php echo $kind === 'date' ? esc_html__( 'Terminvorschläge', 'vereins-plugin' ) : esc_html__( 'Antworten', 'vereins-plugin' ); ?></th>
                     <td>
-                        <p class="description vp-only-date"><?php esc_html_e( 'Je Zeile ein Terminvorschlag: Beginn, optional Ende und ein Zusatz.', 'vereins-plugin' ); ?></p>
-                        <p class="description vp-only-choice"><?php esc_html_e( 'Je Zeile eine Antwort – bei einer Nominierung je Zeile eine Person.', 'vereins-plugin' ); ?></p>
+                        <p class="description"><?php echo $kind === 'date'
+                            ? esc_html__( 'Je Zeile ein Termin: Beginn, optional Ende (Uhrzeit) und ein Zusatz.', 'vereins-plugin' )
+                            : esc_html__( 'Je Zeile eine Antwort – bei einer Nominierung je Zeile eine Person.', 'vereins-plugin' ); ?></p>
                         <div id="vp-poll-options">
                             <?php
                             $zeilen = $optionen ?: [];
-                            $leer   = max( 3, 6 - count( $zeilen ) );
+                            $leer   = max( 2, 4 - count( $zeilen ) );
                             for ( $i = 0; $i < $leer; $i++ ) {
                                 $zeilen[] = [ 'id' => 0, 'label' => '', 'starts_at' => '', 'ends_at' => '' ];
                             }
@@ -285,9 +317,11 @@ class PollsAdmin {
                                 ?>
                                 <div class="vp-poll-option" style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap;">
                                     <input type="hidden" name="options[<?php echo $i; ?>][id]" value="<?php echo (int) $o['id']; ?>">
-                                    <input type="datetime-local" class="vp-only-date" name="options[<?php echo $i; ?>][starts_at]" value="<?php echo esc_attr( $dt( $o['starts_at'] ) ); ?>" aria-label="<?php esc_attr_e( 'Beginn', 'vereins-plugin' ); ?>">
-                                    <input type="time" class="vp-only-date" name="options[<?php echo $i; ?>][ends_at]" value="<?php echo esc_attr( $o['ends_at'] ? substr( (string) $o['ends_at'], 11, 5 ) : '' ); ?>" aria-label="<?php esc_attr_e( 'Ende (Uhrzeit, optional)', 'vereins-plugin' ); ?>">
-                                    <input type="text" class="regular-text" name="options[<?php echo $i; ?>][label]" value="<?php echo esc_attr( $o['label'] ); ?>" placeholder="<?php esc_attr_e( 'Antwort bzw. Zusatz', 'vereins-plugin' ); ?>">
+                                    <?php if ( $kind === 'date' ) : ?>
+                                        <input type="datetime-local" name="options[<?php echo $i; ?>][starts_at]" value="<?php echo esc_attr( $dt( $o['starts_at'] ) ); ?>" aria-label="<?php esc_attr_e( 'Beginn', 'vereins-plugin' ); ?>">
+                                        <input type="time" name="options[<?php echo $i; ?>][ends_at]" value="<?php echo esc_attr( $o['ends_at'] ? substr( (string) $o['ends_at'], 11, 5 ) : '' ); ?>" aria-label="<?php esc_attr_e( 'Ende (Uhrzeit, optional)', 'vereins-plugin' ); ?>">
+                                    <?php endif; ?>
+                                    <input type="text" class="regular-text" name="options[<?php echo $i; ?>][label]" value="<?php echo esc_attr( $o['label'] ); ?>" placeholder="<?php echo $kind === 'date' ? esc_attr__( 'Zusatz (optional)', 'vereins-plugin' ) : esc_attr__( 'Antwort', 'vereins-plugin' ); ?>">
                                 </div>
                             <?php endforeach; ?>
                         </div>
@@ -295,45 +329,60 @@ class PollsAdmin {
                         <?php if ( $hat_stimmen ) : ?>
                             <p class="description"><?php esc_html_e( 'Wird eine Zeile geleert, entfallen auch die Antworten darauf.', 'vereins-plugin' ); ?></p>
                         <?php endif; ?>
+                        <p>
+                            <?php if ( $kind === 'choice' ) : ?>
+                                <label><input type="checkbox" name="multiple" value="1" <?php checked( ! empty( $p['multiple'] ) ); ?>> <?php esc_html_e( 'Mehrere Antworten erlaubt', 'vereins-plugin' ); ?></label>
+                            <?php else : ?>
+                                <label><input type="checkbox" name="allow_maybe" value="1" <?php checked( ! empty( $p['allow_maybe'] ) ); ?>> <?php esc_html_e( '„Vielleicht“ erlaubt', 'vereins-plugin' ); ?></label>
+                            <?php endif; ?>
+                        </p>
+                    </td>
+                </tr>
+                <?php endif; ?>
+
+                <?php if ( $kind !== 'entry' ) : ?>
+                <tr>
+                    <th><?php echo $kind === 'text' ? esc_html__( 'Vorschläge sichtbar', 'vereins-plugin' ) : esc_html__( 'Ergebnis sichtbar', 'vereins-plugin' ); ?></th>
+                    <td>
+                        <fieldset>
+                        <?php foreach ( self::results_choices( $kind ) as $wert => [ $label, $hilfe ] ) : ?>
+                            <label style="display:block;margin-bottom:6px;">
+                                <input type="radio" name="results" value="<?php echo esc_attr( $wert ); ?>" <?php checked( $p['results'], $wert ); ?>>
+                                <strong><?php echo esc_html( $label ); ?></strong> – <span class="description"><?php echo esc_html( $hilfe ); ?></span>
+                            </label>
+                        <?php endforeach; ?>
+                        </fieldset>
+                    </td>
+                </tr>
+                <?php else : ?>
+                <tr>
+                    <th><?php esc_html_e( 'Sichtbarkeit', 'vereins-plugin' ); ?></th>
+                    <td><p class="description" style="margin-top:0;"><?php esc_html_e( 'Die Meldungen sieht nur das Orgateam (hier im Backend). Jeder Melder sieht auf der Website nur seine eigenen Starter. Gäste müssen für Rückfragen eine E-Mail-Adresse oder Telefonnummer angeben.', 'vereins-plugin' ); ?></p></td>
+                </tr>
+                <?php endif; ?>
+
+                <tr>
+                    <th><?php esc_html_e( 'Teilnahme', 'vereins-plugin' ); ?></th>
+                    <td>
+                        <label><input type="checkbox" name="login_required" value="1" <?php checked( ! empty( $p['login_required'] ) ); ?>> <?php esc_html_e( 'Nur angemeldete Mitglieder', 'vereins-plugin' ); ?></label>
+                        <p class="description"><?php esc_html_e( 'Ohne Haken kann jeder mit dem Link teilnehmen und gibt nur seinen Namen an – dann kann sich auch jemand mehrfach unter anderen Namen eintragen.', 'vereins-plugin' ); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th><?php esc_html_e( 'Einstellungen', 'vereins-plugin' ); ?></th>
-                    <td>
-                        <label class="vp-only-choice"><input type="checkbox" name="multiple" value="1" <?php checked( ! empty( $p['multiple'] ) ); ?>> <?php esc_html_e( 'Mehrere Antworten erlaubt', 'vereins-plugin' ); ?><br></label>
-                        <label class="vp-only-date"><input type="checkbox" name="allow_maybe" value="1" <?php checked( ! empty( $p['allow_maybe'] ) ); ?>> <?php esc_html_e( '„Vielleicht“ erlaubt', 'vereins-plugin' ); ?><br></label>
-                        <label class="vp-not-entry"><input type="checkbox" name="anonymous" value="1" <?php checked( ! empty( $p['anonymous'] ) ); ?>> <?php esc_html_e( 'Geheim – Namen werden niemandem angezeigt, auch nicht dem Orgateam', 'vereins-plugin' ); ?><br></label>
-                        <p class="description vp-only-entry" style="margin:0 0 6px;"><?php esc_html_e( 'Die Meldungen sieht nur das Orgateam (hier im Backend). Jeder Melder sieht auf der Website nur seine eigenen Starter. Gäste müssen für Rückfragen eine E-Mail-Adresse oder Telefonnummer angeben.', 'vereins-plugin' ); ?></p>
-                        <label><input type="checkbox" name="login_required" value="1" <?php checked( ! empty( $p['login_required'] ) ); ?>> <?php esc_html_e( 'Nur angemeldete Mitglieder (empfohlen für Nominierungen – sonst kann jemand unter mehreren Namen abstimmen)', 'vereins-plugin' ); ?></label>
-                    </td>
-                </tr>
-                <tr class="vp-not-entry">
-                    <th><label for="vp-poll-results"><?php esc_html_e( 'Ergebnis sichtbar', 'vereins-plugin' ); ?></label></th>
-                    <td>
-                        <select id="vp-poll-results" name="results">
-                            <?php foreach ( [
-                                'always'      => __( 'sofort für alle', 'vereins-plugin' ),
-                                'after_vote'  => __( 'nach der eigenen Abstimmung', 'vereins-plugin' ),
-                                'after_close' => __( 'erst nach dem Ende', 'vereins-plugin' ),
-                                'orga'        => __( 'nur für das Orgateam', 'vereins-plugin' ),
-                            ] as $wert => $text ) : ?>
-                                <option value="<?php echo esc_attr( $wert ); ?>" <?php selected( $p['results'], $wert ); ?>><?php echo esc_html( $text ); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                </tr>
-                <tr>
-                    <th><label for="vp-poll-close"><span class="vp-not-entry"><?php esc_html_e( 'Ende', 'vereins-plugin' ); ?></span><span class="vp-only-entry"><?php esc_html_e( 'Meldeschluss', 'vereins-plugin' ); ?></span></label></th>
-                    <td><input type="datetime-local" id="vp-poll-close" name="closes_at" value="<?php echo esc_attr( $dt( $p['closes_at'] ) ); ?>"> <span class="description"><?php esc_html_e( 'optional – danach ist keine Abstimmung mehr möglich', 'vereins-plugin' ); ?></span></td>
+                    <th><label for="vp-poll-close"><?php echo esc_html( $ende ); ?></label></th>
+                    <td><input type="datetime-local" id="vp-poll-close" name="closes_at" value="<?php echo esc_attr( $dt( $p['closes_at'] ) ); ?>"> <span class="description"><?php esc_html_e( 'optional – danach ist keine Teilnahme mehr möglich', 'vereins-plugin' ); ?></span></td>
                 </tr>
                 <tr>
                     <th><label for="vp-poll-status"><?php esc_html_e( 'Status', 'vereins-plugin' ); ?></label></th>
                     <td>
                         <select id="vp-poll-status" name="status">
                             <option value="draft" <?php selected( $p['status'], 'draft' ); ?>><?php esc_html_e( 'Entwurf – noch nicht sichtbar', 'vereins-plugin' ); ?></option>
-                            <option value="open" <?php selected( $p['status'], 'open' ); ?>><?php esc_html_e( 'Offen', 'vereins-plugin' ); ?></option>
+                            <option value="open" <?php selected( $p['status'], 'open' ); ?>><?php esc_html_e( 'Offen – auf der Website sichtbar', 'vereins-plugin' ); ?></option>
                             <option value="closed" <?php selected( $p['status'], 'closed' ); ?>><?php esc_html_e( 'Beendet', 'vereins-plugin' ); ?></option>
                         </select>
+                        <?php if ( $kind === 'entry' ) : ?>
+                            <p class="description"><?php esc_html_e( '„Offen“ geht erst mit Wettkampftag und mindestens einer Klasse – sonst wird als Entwurf gespeichert.', 'vereins-plugin' ); ?></p>
+                        <?php endif; ?>
                     </td>
                 </tr>
             </table>
@@ -341,20 +390,6 @@ class PollsAdmin {
         </form>
         <script>
         (function(){
-            var form = document.getElementById('vp-poll-form');
-            function art(){ var r = form.querySelector('input[name="kind"]:checked'); return r ? r.value : 'choice'; }
-            // vp-only-<art>: nur bei dieser Art; vp-not-<art>: nicht bei dieser Art
-            function zeigen(){
-                var a = art();
-                form.querySelectorAll('[class*="vp-only-"],[class*="vp-not-"]').forEach(function(e){
-                    var zeigen = true;
-                    e.classList.forEach(function(c){
-                        var m = c.match(/^vp-(only|not)-(date|choice|entry|text)$/);
-                        if (m && ((m[1] === 'only' && m[2] !== a) || (m[1] === 'not' && m[2] === a))) { zeigen = false; }
-                    });
-                    e.style.display = zeigen ? '' : 'none';
-                });
-            }
             var laden = document.getElementById('vp-poll-template-load');
             if (laden) {
                 laden.addEventListener('click', function(){
@@ -362,23 +397,47 @@ class PollsAdmin {
                     if (o && window.vpPollClassesLoad) { window.vpPollClassesLoad(JSON.parse(o.getAttribute('data-classes'))); }
                 });
             }
-            form.querySelectorAll('input[name="kind"]').forEach(function(r){ r.addEventListener('change', zeigen); });
-            document.getElementById('vp-poll-add').addEventListener('click', function(){
-                var box = document.getElementById('vp-poll-options');
-                var zeilen = box.querySelectorAll('.vp-poll-option');
-                var neu = zeilen[zeilen.length - 1].cloneNode(true);
-                var i = zeilen.length;
-                neu.querySelectorAll('input').forEach(function(e){
-                    e.name = e.name.replace(/options\[\d+\]/, 'options[' + i + ']');
-                    e.value = e.type === 'hidden' ? '0' : '';
+            var plus = document.getElementById('vp-poll-add');
+            if (plus) {
+                plus.addEventListener('click', function(){
+                    var box = document.getElementById('vp-poll-options');
+                    var zeilen = box.querySelectorAll('.vp-poll-option');
+                    var neu = zeilen[zeilen.length - 1].cloneNode(true);
+                    var i = zeilen.length;
+                    neu.querySelectorAll('input').forEach(function(e){
+                        e.name = e.name.replace(/options\[\d+\]/, 'options[' + i + ']');
+                        e.value = e.type === 'hidden' ? '0' : '';
+                    });
+                    box.appendChild(neu);
                 });
-                box.appendChild(neu);
-                zeigen();
-            });
-            zeigen();
+            }
         })();
         </script>
         <?php
+    }
+
+    /** „Neue Umfrage“ ohne Art: erst die Art wählen. */
+    private function render_kind_picker(): void {
+        ?>
+        <h1><?php esc_html_e( 'Neue Umfrage', 'vereins-plugin' ); ?></h1>
+        <p><a href="<?php echo esc_url( $this->url() ); ?>">&larr; <?php esc_html_e( 'Zur Übersicht', 'vereins-plugin' ); ?></a></p>
+        <p><?php esc_html_e( 'Welche Art? Die Art lässt sich später nicht mehr ändern.', 'vereins-plugin' ); ?></p>
+        <?php $this->render_new_buttons(); ?>
+        <?php
+    }
+
+    /** Je Art ein Knopf „Neu“ mit kurzer Erklärung. */
+    private function render_new_buttons(): void {
+        echo '<div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 20px;">';
+        foreach ( self::NEW_KINDS as $art => $kind ) {
+            printf(
+                '<a class="button" style="height:auto;padding:8px 14px;line-height:1.4;max-width:240px;white-space:normal;text-align:left;" href="%s"><strong>%s</strong><br><span class="description">%s</span></a>',
+                esc_url( $this->url( [ 'neu' => 1, 'art' => $art ] ) ),
+                esc_html( '+ ' . self::kind_label( $kind ) ),
+                esc_html( self::kind_hint( $kind ) )
+            );
+        }
+        echo '</div>';
     }
 
     public function handle_save(): void {
@@ -386,7 +445,10 @@ class PollsAdmin {
         $this->require_admin();
 
         $id   = (int) ( $_POST['id'] ?? 0 );
-        $kind = in_array( $_POST['kind'] ?? '', [ 'date', 'entry', 'text' ], true ) ? $_POST['kind'] : 'choice';
+        $alt  = $id ? $this->model->find( $id ) : null;
+        // Die Art steht seit dem Anlegen fest – ein geänderter Formularwert zählt nicht.
+        $kind = $alt ? $alt['kind'] : ( in_array( $_POST['kind'] ?? '', PollModel::KINDS, true ) ? $_POST['kind'] : 'choice' );
+        $status = sanitize_key( $_POST['status'] ?? 'draft' );
         $tag  = sanitize_text_field( wp_unslash( (string) ( $_POST['event_date'] ?? '' ) ) );
         $tag  = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $tag ) ? $tag : '';
         $dt   = static function ( $v ): ?string {
@@ -399,17 +461,15 @@ class PollsAdmin {
             'kind'           => $kind,
             'title'          => sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) ),
             'description'    => sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) ),
-            'status'         => sanitize_key( $_POST['status'] ?? 'draft' ),
+            'status'         => $status,
             'closes_at'      => $dt( $_POST['closes_at'] ?? '' ),
             'multiple'       => ! empty( $_POST['multiple'] ),
             'allow_maybe'    => ! empty( $_POST['allow_maybe'] ),
-            'anonymous'      => ! empty( $_POST['anonymous'] ),
-            'results'        => sanitize_key( $_POST['results'] ?? 'after_vote' ),
+            'results'        => sanitize_key( $_POST['results'] ?? 'always' ),
             'login_required' => ! empty( $_POST['login_required'] ),
             'max_texts'      => (int) ( $_POST['max_texts'] ?? 3 ),
             'created_by'     => get_current_user_id(),
         ], $kind === 'entry' ? [
-            'anonymous'  => false,
             'results'    => 'orga',
             'event_date' => $tag ?: null,
             'classes'    => ClassesAdmin::parse_rows( (array) ( $_POST['classes'] ?? [] ), 'year', $tag ? (int) substr( $tag, 0, 4 ) : (int) gmdate( 'Y' ) ),
@@ -420,11 +480,16 @@ class PollsAdmin {
             $this->model->save_options( $poll_id, self::parse_options( (array) ( $_POST['options'] ?? [] ), $kind ) );
         }
 
-        $hinweis = 'saved';
+        // Eine Wettkampfmeldung ohne Wettkampftag oder Klasse kann niemand
+        // ausfüllen – sie bleibt Entwurf, und das Formular sagt warum.
         if ( $kind === 'entry' && ( ! $tag || ! PollModel::classes( (array) $this->model->find( $poll_id ) ) ) ) {
-            $hinweis = 'entry_incomplete';
+            if ( $status === 'open' ) {
+                $this->model->set_status( $poll_id, 'draft' );
+            }
+            wp_safe_redirect( $this->url( [ 'edit' => $poll_id, 'msg' => 'entry_incomplete' ] ) );
+            exit;
         }
-        wp_safe_redirect( $this->url( [ 'msg' => $hinweis ] ) );
+        wp_safe_redirect( $this->url( [ 'msg' => 'saved' ] ) );
         exit;
     }
 
@@ -492,7 +557,7 @@ class PollsAdmin {
         ];
         $msg = sanitize_key( $_GET['msg'] ?? '' );
         if ( $msg === 'entry_incomplete' ) {
-            echo '<div class="notice notice-warning"><p>' . esc_html__( 'Gespeichert – aber es fehlt noch der Wettkampftag oder eine startende Klasse. Ohne beides kann niemand melden.', 'vereins-plugin' ) . '</p></div>';
+            echo '<div class="notice notice-warning"><p><strong>' . esc_html__( 'Als Entwurf gespeichert.', 'vereins-plugin' ) . '</strong> ' . esc_html__( 'Es fehlt noch der Wettkampftag oder mindestens eine angehakte Klasse. Ohne beides kann niemand melden, und die Meldung erscheint nicht auf der Website.', 'vereins-plugin' ) . '</p></div>';
         }
         if ( isset( $texte[ $msg ] ) ) {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $texte[ $msg ] ) . '</p></div>';

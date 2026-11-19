@@ -5,6 +5,7 @@ namespace VereinsPlugin\Polls;
 use VereinsPlugin\Members\GuestService;
 use VereinsPlugin\Members\MemberCode;
 use VereinsPlugin\Members\Person;
+use VereinsPlugin\Members\SavedNames;
 use VereinsPlugin\Support\Capabilities;
 use VereinsPlugin\Support\PublicLink;
 use WP_Error;
@@ -40,6 +41,12 @@ class PollController {
             'methods'             => 'POST',
             'callback'            => [ $this, 'identify' ],
             'permission_callback' => '__return_true',
+        ] );
+        // Gemerkte Namen (Basis) aus der Vorschlagsliste nehmen.
+        register_rest_route( $namespace, '/polls/saved-names', [
+            'methods'             => 'DELETE',
+            'callback'            => [ $this, 'forget_name' ],
+            'permission_callback' => static fn() => is_user_logged_in(),
         ] );
         register_rest_route( $namespace, '/polls/(?P<id>\d+)/entries', [
             [
@@ -128,6 +135,12 @@ class PollController {
         }
 
         return new WP_REST_Response( [ 'person' => self::person_payload( (int) $result['person_id'] ) ], 200 );
+    }
+
+    public function forget_name( WP_REST_Request $request ): WP_REST_Response {
+        $person = get_current_user_id();
+        SavedNames::forget( $person, (string) $request->get_param( 'name' ) );
+        return new WP_REST_Response( [ 'saved_names' => SavedNames::for_person( $person ) ], 200 );
     }
 
     /** Wer abstimmt – und ob für Rückfragen ein Kontakt hinterlegt ist. */

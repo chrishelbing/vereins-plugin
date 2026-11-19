@@ -155,17 +155,17 @@ class PollService {
 
     /**
      * Darf diese Person das Ergebnis sehen?
-     * Das Orgateam sieht es immer (bei geheimen Umfragen ohne Namen).
+     * Das Orgateam sieht es immer – bei „niemand“ (geheim) nur die Zahlen.
      */
     public function may_see_results( array $poll, int $person_id, bool $has_voted, bool $is_orga ): bool {
         if ( $is_orga ) {
             return true;
         }
+        // „nur Orgateam“ und „niemand“: auf der Website sieht es sonst keiner.
         return match ( $poll['results'] ) {
-            'always'      => true,
-            'after_vote'  => $has_voted || $this->is_closed( $poll ),
-            'after_close' => $this->is_closed( $poll ),
-            default       => false,
+            'always', 'after_vote' => true,
+            'after_close'          => $this->is_closed( $poll ),
+            default                => false,
         };
     }
 
