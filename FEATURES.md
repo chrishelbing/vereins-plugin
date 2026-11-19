@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.22.0
+> Stand: Version 1.22.1
 
 ---
 
@@ -904,7 +904,7 @@ U15 beim BJV), wählt der Melder; passt genau eine, wird sie gesetzt.
 Geschlecht, Altersklasse, Gewichtsklasse (Auswahl passend zu Klasse und
 Geschlecht), Hinweis. Geschwister in verschiedenen Klassen gehen in einer
 Meldung. **Ein Starter darf in mehreren Klassen stehen** (seit 1.20.2), etwa
-U13 und U15 oder U18 und U21: „+ Auch in weiterer Klasse melden“ erscheint,
+U13 und U15 oder U18 und U21: „In weiterer Klasse melden“ erscheint,
 sobald für Jahrgang und Geschlecht noch eine Klasse frei ist, und legt
 darunter eine Zeile mit Name, Jahrgang und Geschlecht an (nächste freie
 Klasse vorgewählt, Gewicht neu wählen). **In derselben Klasse nur einmal** –
