@@ -120,6 +120,8 @@ aufsetzen (`Core\Modules` ist die Quelle):
   Bedeutungsfarben (grün/rot/bernstein) und Weiß auf farbigem Grund. Die
   Termintyp-Farben kommen als Inline-Stil und dürfen nicht überschrieben
   werden. Neue Stylesheets hängen von `Support\ThemeStyle::handle()` ab.
+  Jeder neue Knopf bekommt im Schutzblock von `theme.css` eine Zeile
+  `:hover, :focus` mit seinen Grundfarben – sonst färbt Astra ihn schwarz.
 - **Versionsnummer erhöhen**, sobald sich das Schema oder eine Migration
   ändert – sonst läuft `maybe_upgrade()` nicht an. Kopfzeile und `VP_VERSION`
   müssen übereinstimmen, `tools/check.php` prüft das.

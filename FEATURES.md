@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.20.2
+> Stand: Version 1.20.3
 
 ---
 
@@ -1052,8 +1052,19 @@ hängen von `vp-theme` ab; Anmeldung und Registrierung mit Inline-Stil
 fordern es selbst an. Jede Verwendung trägt einen Ersatzwert
 (`var(--vp-c-ink, #111827)`). Anpassen ohne Code im Customizer unter
 „Zusätzliches CSS“, z. B. `:root { --vp-c-accent: #0a7d3b; }`.
-`tools/check.php` meldet Variablen mit Selbstbezug und `--vp-c-…`-Namen,
-die in `theme.css` fehlen.
+**Knöpfe gegen Theme-Stile geschützt** (seit 1.20.3). Themes wie Astra
+färben *jeden* `button` beim Überfahren und im Fokus um (Astra: schwarz,
+weiße Schrift). Ein Schutzblock in `theme.css` gibt jedem Plugin-Knopf für
+`:hover`/`:focus` zunächst seine Grundfarben; die eigenen Überfahren-Effekte
+der Stylesheets stehen danach und wirken weiter. Häkchen und Auswahlknöpfe
+tragen die Akzentfarbe (`accent-color`). Häkchen-Felder im Terminformular
+(Tags, Wochentage, Ganztägig/Wiederkehrend) haben bewusst höhere
+Spezifität, damit Seiten-CSS wie `.jvl-termine .vp-form label
+{ display:block }` sie nicht untereinanderstellt.
+
+`tools/check.php` meldet Variablen mit Selbstbezug, `--vp-c-…`-Namen, die in
+`theme.css` fehlen, und Knöpfe (aus `el('button', …)`, `<button class>` und
+`createElement('button')`), die im Schutzblock fehlen.
 
 ## Was wo zu finden ist
 
