@@ -140,6 +140,7 @@ class PollsShortcode {
             'entryConfirmed'   => __( 'Der Veranstalter hat die Meldung bestätigt (%s).', 'vereins-plugin' ),
             'entryLate'        => __( 'Neue Starter und Änderungen sind jetzt Nachmeldungen – das Orgateam gibt sie weiter.', 'vereins-plugin' ),
             'submittedBadge'   => __( 'gemeldet', 'vereins-plugin' ),
+            'confirmedBadge'   => __( 'bestätigt', 'vereins-plugin' ),
             'firstName'        => __( 'Vorname', 'vereins-plugin' ),
             'lastName'         => __( 'Nachname', 'vereins-plugin' ),
             'birthYear'        => __( 'Jahrgang', 'vereins-plugin' ),

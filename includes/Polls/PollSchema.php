@@ -100,6 +100,7 @@ class PollSchema {
         // judopass: 1/0 laut Melder (nur bei DokuMe-Meldungen), NULL = nicht gefragt.
         // submitted_at: dieser Starter ist beim Veranstalter gemeldet (Abhakliste).
         // notified_at: der Melder hat zu diesem Starter die Mail „abgeschickt“ bekommen.
+        // confirmed_at: der Veranstalter hat diesen Starter bestätigt.
         $entries = "CREATE TABLE {$prefix}vp_poll_entries (
             id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             poll_id     BIGINT UNSIGNED NOT NULL,
@@ -114,6 +115,7 @@ class PollSchema {
             judopass    TINYINT(1)      DEFAULT NULL,
             submitted_at DATETIME       DEFAULT NULL,
             notified_at  DATETIME       DEFAULT NULL,
+            confirmed_at DATETIME       DEFAULT NULL,
             created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
             KEY          poll_person (poll_id, person_id)
@@ -146,5 +148,10 @@ class PollSchema {
         $t = $prefix . 'vp_polls';
         $wpdb->query( "UPDATE {$t} SET results = 'nobody' WHERE anonymous = 1 AND results <> 'nobody'" );
         $wpdb->query( "UPDATE {$t} SET results = 'always' WHERE results = 'after_vote'" );
+        // 1.23.4: Bestätigung je Starter. Was vor der Bestätigung der Meldung
+        // schon gemeldet war, gilt als mitbestätigt.
+        $e = $prefix . 'vp_poll_entries';
+        $wpdb->query( "UPDATE {$e} e JOIN {$t} p ON p.id = e.poll_id SET e.confirmed_at = p.confirmed_at
+            WHERE e.confirmed_at IS NULL AND p.confirmed_at IS NOT NULL AND e.submitted_at IS NOT NULL AND e.submitted_at <= p.confirmed_at" );
     }
 }

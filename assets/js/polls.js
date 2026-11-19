@@ -360,7 +360,11 @@
         box.appendChild(el('p', 'vp-poll__note', hinweise.join(' ')));
 
         // Stand der Meldung beim Veranstalter (setzt das Orgateam von Hand).
-        if (p.confirmed_at) {
+        // Bestätigt wird je Starter – „bestätigt“ erst, wenn alle eigenen
+        // gemeldeten Starter es sind (Nachmeldungen warten sonst noch).
+        var eigeneGemeldet = p.entries.filter(function (e) { return e.submitted; });
+        var alleBestaetigt = eigeneGemeldet.length && eigeneGemeldet.every(function (e) { return e.confirmed; });
+        if (p.confirmed_at && alleBestaetigt) {
             box.appendChild(el('p', 'vp-entry__state is-confirmed', fmt(T.entryConfirmed, dayText(p.confirmed_at))));
         } else if (p.submitted_at) {
             box.appendChild(el('p', 'vp-entry__state', fmt(T.entrySubmitted, dayText(p.submitted_at))));
@@ -373,7 +377,7 @@
                 var ul = el('ul', 'vp-entry__mine');
                 p.entries.forEach(function (e) {
                     var li = el('li', '', e.first_name + ' ' + e.last_name + ' (' + e.birth_year + ') – ' + e.class_key + ' ' + e.sex + ', ' + weightText(e.weight));
-                    if (e.submitted) { li.appendChild(el('span', 'vp-entry__badge', T.submittedBadge)); }
+                    if (e.submitted) { li.appendChild(el('span', 'vp-entry__badge', e.confirmed ? T.confirmedBadge : T.submittedBadge)); }
                     ul.appendChild(li);
                 });
                 box.appendChild(ul);
@@ -433,7 +437,7 @@
             // Bei Meldung über DokuMe: nur Judoka mit digitalem Judopass sind meldbar.
             var pass = p.dokume ? sel('is-pass', T.judopass, [['', '–'], ['1', T.passYes], ['0', T.passNo]],
                 e.judopass === true ? '1' : (e.judopass === false ? '0' : (e.judopass || ''))) : null;
-            row._submitted = !!e.submitted;
+            row._submitted = e.submitted ? (e.confirmed ? T.confirmedBadge : T.submittedBadge) : '';
             var weg = el('button', 'vp-entry__remove', T.removeStarter);
             weg.type = 'button';
             weg.addEventListener('click', function () {
@@ -557,7 +561,7 @@
             Array.prototype.forEach.call(rows.children, function (r, i) {
                 var lg = r.querySelector('legend');
                 lg.textContent = fmt(T.starterNo, i + 1);
-                if (r._submitted) { lg.appendChild(el('span', 'vp-entry__badge', T.submittedBadge)); }
+                if (r._submitted) { lg.appendChild(el('span', 'vp-entry__badge', r._submitted)); }
             });
         }
 

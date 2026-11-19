@@ -979,8 +979,20 @@ Nachmeldung = Starter ohne Haken nach „Gemeldet“ (gelb); abhaken und wieder
 „Speichern und Melder informieren“ – Mail nur an deren Melder. Unveränderte
 Starter behalten beim erneuten Speichern der Meldung Haken und Mail-Vermerk
 (`PollModel::entry_key()`: Name, Jahrgang, Klasse, Gewicht).
-**Bestätigt:** `confirmed_at`, Mail „Meldung bestätigt“ (abwählbar) an alle
-Melder mit abgehakten Startern.
+**Bestätigt wird je Starter** (seit 1.23.4, `vp_poll_entries.confirmed_at`,
+`PollModel::confirm_entries()`): „Als bestätigt vermerken“ bestätigt alle
+gemeldeten, noch wartenden Starter (namentlich aufgeführt) und mailt
+„Meldung bestätigt“ (abwählbar) an deren Melder. **Nachmeldungen nach einer
+Bestätigung** laufen den Ablauf erneut: Prozessband „2. Nachmelden – n
+Starter offen“, nach dem Abhaken „Gemeldet – n Starter warten auf
+Bestätigung“ mit Knopf „Nachmeldung als bestätigt vermerken“. Fertig (✓) erst,
+wenn alle Starter gemeldet und bestätigt sind; Nachmelden und Bestätigen
+können gleichzeitig offen sein. Haken lösen nimmt auch die Bestätigung weg.
+In der Liste steht je Starter „✓ bestätigt“ bzw. „wartet auf Bestätigung“, auf
+der Website am Starter „gemeldet“ bzw. „bestätigt“; „vom Veranstalter
+bestätigt“ oben erst, wenn alle eigenen gemeldeten Starter bestätigt sind.
+Das Update übernimmt bestehende Bestätigungen für alle Starter, die vorher
+gemeldet waren (`PollSchema::migrate()`).
 Melder ohne echte E-Mail (Platzhalter `@invalid.local` oder keine) bekommen
 nichts; die Rückmeldung nennt sie zum selbst Bescheid geben
 (`Polls\EntryMail`). Auf der Website sehen Melder „Die Meldung ging am … an

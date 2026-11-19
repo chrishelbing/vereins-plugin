@@ -304,6 +304,22 @@ $model->mark_entries_submitted( $wid, [ (int) $g[0]['id'] ], false );
 Pruefung::ok( 'Haken wieder lösen', empty( $model->entries( $wid, $gerd )[0]['submitted_at'] ) );
 Pruefung::ok( 'CSV: Spalte „Beim Veranstalter gemeldet“', str_contains( $entry->csv( $model->find( $wid ), 'JVL' ), 'Beim Veranstalter gemeldet' ) );
 
+// Bestätigung je Starter: Nachmeldung nach Bestätigung wartet wieder
+$model->mark_entries_submitted( $wid, array_map( fn( $e ) => (int) $e['id'], $model->entries( $wid ) ) );
+$best = $model->confirm_entries( $wid );
+sort( $best );
+Pruefung::gleich( 'Bestätigen: Melder der wartenden Starter', $best, $erw );
+Pruefung::gleich( 'zweites Bestätigen: niemand neu', $model->confirm_entries( $wid ), [] );
+$entry->submit( $model->find( $wid ), $gerd, [ $mia, $tom, $lea13, $lea15 ] );
+$g = array_column( $model->entries( $wid, $gerd ), null, 'class_key' );
+Pruefung::ok( 'unveränderte Starter bleiben bestätigt', ! empty( $g['U11']['confirmed_at'] ) && empty( $g['U15']['confirmed_at'] ) );
+$model->mark_entries_submitted( $wid, [ (int) $g['U15']['id'] ] );
+Pruefung::gleich( 'Nachmeldung nach Bestätigung braucht eigene Bestätigung', $model->confirm_entries( $wid ), [ $gerd ] );
+$model->mark_entries_submitted( $wid, [ (int) $g['U15']['id'] ], false );
+Pruefung::ok( 'Haken lösen nimmt die Bestätigung weg', empty( array_column( $model->entries( $wid, $gerd ), null, 'class_key' )['U15']['confirmed_at'] ) );
+$entry->submit( $model->find( $wid ), $gerd, [ $mia, $tom, $lea13 ] );
+Pruefung::ok( 'Website: Starter als bestätigt markiert', $service->payload( $model->find( $wid ), $gerd, false )['entries'][0]['confirmed'] === true );
+
 // DokuMe: Judopass je Starter
 $dok = $model->find( $model->save( [ 'kind' => 'entry', 'title' => 'DokuMe-Turnier', 'status' => 'open', 'event_date' => '2027-02-06', 'classes' => PollModel::classes( $w ), 'dokume' => true ] ) );
 Pruefung::ok( 'DokuMe-Häkchen gespeichert', (int) $dok['dokume'] === 1 );

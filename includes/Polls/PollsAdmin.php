@@ -1029,17 +1029,23 @@ class PollsAdmin {
         $offen     = array_values( array_filter( $liste, static fn( $z ) => empty( $z['submitted_at'] ) ) );
         $ohne_pass = ! empty( $poll['dokume'] ) ? count( array_filter( $liste, static fn( $z ) => isset( $z['judopass'] ) && ! (int) $z['judopass'] ) ) : 0;
         $gemeldet  = ! empty( $poll['submitted_at'] );
-        $bestaetigt = ! empty( $poll['confirmed_at'] );
+        // Bestätigt wird je Starter: Nachmeldungen nach einer Bestätigung
+        // brauchen wieder eine.
+        $warten    = array_values( array_filter( $liste, static fn( $z ) => ! empty( $z['submitted_at'] ) && empty( $z['confirmed_at'] ) ) );
+        $bestaetigt = $gemeldet && ! $offen && ! $warten;
         $sammeln   = $this->service->is_open( $poll );
         $absender  = (string) wp_get_current_user()->display_name;
 
-        // Wo stehen wir? 1 sammeln, 2 melden, 3 gemeldet (wartet), 4 bestätigt
-        $stufe = $bestaetigt ? 4 : ( $gemeldet ? 3 : ( $sammeln ? 1 : 2 ) );
+        // Wo stehen wir? 1 sammeln, 2 melden (auch Nachmeldung), 3 gemeldet
+        // (wartet), 4 alles bestätigt. Der früheste offene Schritt zählt.
+        $stufe = $bestaetigt ? 4 : ( $gemeldet && ! $offen ? 3 : ( $sammeln && ! $gemeldet ? 1 : 2 ) );
         $stufen = [
             1 => [ __( 'Meldungen sammeln', 'vereins-plugin' ), $sammeln && ! empty( $poll['closes_at'] ) ? sprintf( __( 'bis %s', 'vereins-plugin' ), mysql2date( 'd.m. H:i', $poll['closes_at'] ) ) : sprintf( _n( '%d Starter', '%d Starter', count( $liste ), 'vereins-plugin' ), count( $liste ) ) ],
-            2 => [ __( 'Beim Veranstalter melden', 'vereins-plugin' ), __( 'Excel schicken oder DokuMe', 'vereins-plugin' ) ],
-            3 => [ __( 'Gemeldet', 'vereins-plugin' ), $gemeldet ? mysql2date( 'd.m.Y', $poll['submitted_at'] ) . ' · ' . __( 'wartet auf Bestätigung', 'vereins-plugin' ) : __( 'wartet auf Bestätigung', 'vereins-plugin' ) ],
-            4 => [ __( 'Bestätigt', 'vereins-plugin' ), $bestaetigt ? mysql2date( 'd.m.Y', $poll['confirmed_at'] ) : __( 'vom Veranstalter', 'vereins-plugin' ) ],
+            2 => $gemeldet && $offen
+                ? [ __( 'Nachmelden', 'vereins-plugin' ), sprintf( _n( '%d Starter offen', '%d Starter offen', count( $offen ), 'vereins-plugin' ), count( $offen ) ) ]
+                : [ __( 'Beim Veranstalter melden', 'vereins-plugin' ), __( 'Excel schicken oder DokuMe', 'vereins-plugin' ) ],
+            3 => [ __( 'Gemeldet', 'vereins-plugin' ), $warten ? sprintf( _n( '%d Starter wartet auf Bestätigung', '%d Starter warten auf Bestätigung', count( $warten ), 'vereins-plugin' ), count( $warten ) ) : ( $gemeldet ? sprintf( __( 'seit %s', 'vereins-plugin' ), mysql2date( 'd.m.Y', $poll['submitted_at'] ) ) : __( 'wartet auf Bestätigung', 'vereins-plugin' ) ) ],
+            4 => [ __( 'Bestätigt', 'vereins-plugin' ), $bestaetigt && ! empty( $poll['confirmed_at'] ) ? mysql2date( 'd.m.Y', $poll['confirmed_at'] ) : __( 'vom Veranstalter', 'vereins-plugin' ) ],
         ];
         ?>
         <style>
@@ -1051,6 +1057,7 @@ class PollsAdmin {
         .vp-flow__step span { font-size: 12px; }
         .vp-flow__step.is-done { background: #d1e7dd; color: #0a3622; }
         .vp-flow__step.is-current { background: #2271b1; color: #fff; }
+        .vp-flow__step.is-waiting { background: #fcf0d1; color: #6b4a00; }
         .vp-next { background: #fff; border: 1px solid #c3c4c7; border-left: 4px solid #2271b1; border-radius: 4px; padding: 4px 20px 16px; max-width: 1100px; margin: 0 0 20px; }
         .vp-next h2 { font-size: 16px; margin: 14px 0 8px; }
         .vp-next__cols { display: flex; flex-wrap: wrap; gap: 24px; }
@@ -1066,7 +1073,7 @@ class PollsAdmin {
 
         <ol class="vp-flow" aria-label="<?php esc_attr_e( 'Ablauf der Meldung', 'vereins-plugin' ); ?>">
             <?php foreach ( $stufen as $nr => [ $titel, $info ] ) : ?>
-                <li class="vp-flow__step<?php echo $nr < $stufe || ( $nr === 4 && $bestaetigt ) ? ' is-done' : ( $nr === $stufe ? ' is-current' : '' ); ?>"<?php echo $nr === $stufe ? ' aria-current="step"' : ''; ?>>
+                <li class="vp-flow__step<?php echo $nr < $stufe || ( $nr === 4 && $bestaetigt ) ? ' is-done' : ( $nr === $stufe ? ' is-current' : ( $nr === 3 && $warten ? ' is-waiting' : '' ) ); ?>"<?php echo $nr === $stufe ? ' aria-current="step"' : ''; ?>>
                     <strong><?php echo ( $nr < $stufe || ( $nr === 4 && $bestaetigt ) ? '✓ ' : $nr . '. ' ) . esc_html( $titel ); ?></strong>
                     <span><?php echo esc_html( $info ); ?></span>
                 </li>
@@ -1087,20 +1094,27 @@ class PollsAdmin {
                     <li><?php esc_html_e( 'Unten abhaken, wer gemeldet ist, und „Als gemeldet speichern und Melder informieren“. Die Leiste darunter zeigt vorher, wer eine Mail bekommt.', 'vereins-plugin' ); ?>
                         <a href="#vp-abhaken"><?php esc_html_e( 'Zur Liste', 'vereins-plugin' ); ?></a></li>
                 </ol>
-            <?php elseif ( ! $bestaetigt ) : ?>
-                <h2><?php esc_html_e( 'Nächster Schritt: auf die Bestätigung vom Veranstalter warten', 'vereins-plugin' ); ?></h2>
-                <p class="description"><?php esc_html_e( 'Kommt die Bestätigung (Mail, Teilnehmerliste oder Status in DokuMe), hier den Status setzen.', 'vereins-plugin' ); ?></p>
-                <?php $this->state_form( $poll, 'confirmed', __( 'Status auf „Bestätigt“ setzen', 'vereins-plugin' ), [
-                    __( 'Die Melder sehen auf der Website: „Der Veranstalter hat die Meldung bestätigt.“', 'vereins-plugin' ),
-                ], EntryMail::plan( $poll, 'confirmed', [], $absender ), __( 'Meldung bestätigt', 'vereins-plugin' ),
-                    __( 'Mail an alle Melder mit abgehakten Startern – mit der Liste dieser Starter.', 'vereins-plugin' ) ); ?>
             <?php else : ?>
-                <h2>✓ <?php echo esc_html( sprintf( __( 'Fertig – vom Veranstalter bestätigt am %s.', 'vereins-plugin' ), mysql2date( 'd.m.Y', $poll['confirmed_at'] ) ) ); ?></h2>
-            <?php endif; ?>
-            <?php if ( $gemeldet ) : ?>
                 <?php if ( $offen ) : ?>
-                    <p><strong><?php echo esc_html( sprintf( _n( '%d Starter ist noch nicht gemeldet (gelb, ohne Haken) – Nachmeldung: beim Veranstalter melden, unten abhaken und speichern.', '%d Starter sind noch nicht gemeldet (gelb, ohne Haken) – Nachmeldung: beim Veranstalter melden, unten abhaken und speichern.', count( $offen ), 'vereins-plugin' ), count( $offen ) ) ); ?></strong>
-                    <a href="#vp-abhaken"><?php esc_html_e( 'Zur Liste', 'vereins-plugin' ); ?></a></p>
+                    <h2><?php echo esc_html( sprintf( _n( 'Nachmeldung: %d Starter noch nicht gemeldet', 'Nachmeldung: %d Starter noch nicht gemeldet', count( $offen ), 'vereins-plugin' ), count( $offen ) ) ); ?></h2>
+                    <p><?php esc_html_e( 'Gelb und ohne Haken in der Liste. Beim Veranstalter nachmelden, dann abhaken und „Speichern und Melder informieren“. Danach braucht die Nachmeldung wieder eine Bestätigung.', 'vereins-plugin' ); ?>
+                        <a href="#vp-abhaken"><?php esc_html_e( 'Zur Liste', 'vereins-plugin' ); ?></a></p>
+                <?php endif; ?>
+                <?php if ( $warten ) : ?>
+                    <h2><?php echo esc_html( sprintf( _n( 'Bestätigung vom Veranstalter: %d Starter wartet', 'Bestätigung vom Veranstalter: %d Starter warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h2>
+                    <p class="description"><?php echo esc_html( implode( ', ', array_map( static fn( $z ) => $z['first_name'] . ' ' . $z['last_name'] . ' (' . $z['class_key'] . ')', $warten ) ) ); ?></p>
+                    <?php
+                    $melder = array_values( array_unique( array_map( static fn( $z ) => (int) $z['person_id'], $warten ) ) );
+                    $this->state_form( $poll, 'confirmed', empty( $poll['confirmed_at'] ) ? __( 'Als bestätigt vermerken', 'vereins-plugin' ) : __( 'Nachmeldung als bestätigt vermerken', 'vereins-plugin' ), [
+                        sprintf( _n( '%d wartender Starter wird als bestätigt vermerkt.', 'Die %d wartenden Starter werden als bestätigt vermerkt.', count( $warten ), 'vereins-plugin' ), count( $warten ) ),
+                        __( 'Die Melder sehen an ihren Startern „bestätigt“.', 'vereins-plugin' ),
+                    ], EntryMail::plan( $poll, 'confirmed', $melder, $absender ), __( 'Meldung bestätigt', 'vereins-plugin' ),
+                        __( 'Mail an die Melder dieser Starter – mit der Liste ihrer gemeldeten Starter.', 'vereins-plugin' ) );
+                    ?>
+                <?php endif; ?>
+                <?php if ( $bestaetigt ) : ?>
+                    <h2>✓ <?php esc_html_e( 'Fertig – alle Starter gemeldet und vom Veranstalter bestätigt.', 'vereins-plugin' ); ?></h2>
+                    <p class="description"><?php esc_html_e( 'Kommt noch jemand dazu, erscheint er hier als Nachmeldung.', 'vereins-plugin' ); ?></p>
                 <?php endif; ?>
                 <p><?php esc_html_e( 'Meldeliste:', 'vereins-plugin' ); ?>
                     <a class="button button-small" href="<?php echo esc_url( $xlsx ); ?>"><?php esc_html_e( 'BJV-Meldeliste (Excel)', 'vereins-plugin' ); ?></a>
@@ -1180,7 +1194,9 @@ class PollsAdmin {
             <?php foreach ( $zeilen as $z ) : ?>
                 <tr<?php echo empty( $z['submitted_at'] ) && ! empty( $this->current_poll['submitted_at'] ) ? ' class="vp-entry-new"' : ''; ?>>
                     <td style="text-align:center;"><input type="checkbox" name="gemeldet[]" value="<?php echo (int) $z['id']; ?>" data-person="<?php echo (int) $z['person_id']; ?>" data-first="<?php echo esc_attr( $z['first_name'] ); ?>" data-notified="<?php echo empty( $z['notified_at'] ) ? '0' : '1'; ?>" <?php checked( ! empty( $z['submitted_at'] ) ); ?> aria-label="<?php esc_attr_e( 'beim Veranstalter gemeldet', 'vereins-plugin' ); ?>"></td>
-                    <td><strong><?php echo esc_html( $z['last_name'] ); ?></strong>, <?php echo esc_html( $z['first_name'] ); ?></td>
+                    <td><strong><?php echo esc_html( $z['last_name'] ); ?></strong>, <?php echo esc_html( $z['first_name'] ); ?>
+                        <?php if ( ! empty( $z['confirmed_at'] ) ) : ?><br><span class="description" style="color:#00a32a;">✓ <?php esc_html_e( 'bestätigt', 'vereins-plugin' ); ?></span>
+                        <?php elseif ( ! empty( $z['submitted_at'] ) && ! empty( $this->current_poll['submitted_at'] ) ) : ?><br><span class="description"><?php esc_html_e( 'wartet auf Bestätigung', 'vereins-plugin' ); ?></span><?php endif; ?></td>
                     <td><?php echo (int) $z['birth_year']; ?></td>
                     <?php if ( ! $mit_melder ) : ?><td><?php echo esc_html( $z['class_key'] . ' ' . $z['sex'] ); ?></td><?php endif; ?>
                     <td><?php echo $z['weight'] !== '' ? esc_html( ClassTemplates::weight_label( $z['weight'] ) ) : '<span class="description">' . esc_html__( 'gewichtsnah', 'vereins-plugin' ) . '</span>'; ?></td>
@@ -1397,8 +1413,9 @@ class PollsAdmin {
         // „Gemeldet“ setzt die Abhakliste (handle_mark); hier nur „bestätigt“.
         $state = 'confirmed';
         $ich   = (string) wp_get_current_user()->display_name;
+        $melder = $this->model->confirm_entries( $id );
         $this->model->mark_poll( $id, 'confirmed_at' );
-        $mail = ! empty( $_POST['mail'] ) ? EntryMail::send( $poll, 'confirmed', [], $ich ) : null;
+        $mail = ! empty( $_POST['mail'] ) && $melder ? EntryMail::send( $poll, 'confirmed', $melder, $ich ) : null;
         $args = [ 'ergebnis' => $id, 'msg' => $state ];
         if ( $mail ) {
             $args['vp_sent']  = (int) $mail['sent'];

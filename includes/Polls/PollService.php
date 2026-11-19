@@ -296,6 +296,7 @@ class PollService {
             'entries'        => array_map( static fn( $e ) => [
                 'judopass'   => isset( $e['judopass'] ) && $e['judopass'] !== null ? (bool) (int) $e['judopass'] : null,
                 'submitted'  => ! empty( $e['submitted_at'] ),
+                'confirmed'  => ! empty( $e['confirmed_at'] ),
                 'first_name' => $e['first_name'],
                 'last_name'  => $e['last_name'],
                 'birth_year' => (int) $e['birth_year'],

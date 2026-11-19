@@ -220,12 +220,16 @@ class PollModel {
         // Klasse und Gewicht unverändert sind. Sonst ist es eine Nachmeldung.
         $gemeldet = [];
         $info     = [];
+        $best     = [];
         foreach ( $this->entries( $poll_id, $person_id ) as $alt ) {
             if ( ! empty( $alt['submitted_at'] ) ) {
                 $gemeldet[ self::entry_key( $alt ) ] = $alt['submitted_at'];
             }
             if ( ! empty( $alt['notified_at'] ) ) {
                 $info[ self::entry_key( $alt ) ] = $alt['notified_at'];
+            }
+            if ( ! empty( $alt['confirmed_at'] ) ) {
+                $best[ self::entry_key( $alt ) ] = $alt['confirmed_at'];
             }
         }
         $this->delete_entries( $poll_id, $person_id );
@@ -244,6 +248,7 @@ class PollModel {
                 'judopass'   => isset( $r['judopass'] ) && $r['judopass'] !== null ? (int) (bool) $r['judopass'] : null,
                 'submitted_at' => $gemeldet[ self::entry_key( $r ) ] ?? null,
                 'notified_at'  => $info[ self::entry_key( $r ) ] ?? null,
+                'confirmed_at' => $best[ self::entry_key( $r ) ] ?? null,
                 'created_at' => $jetzt,
             ] );
         }
@@ -273,7 +278,7 @@ class PollModel {
                 $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => $jetzt ], [ 'id' => (int) $e['id'] ] );
                 $melder[] = (int) $e['person_id'];
             } elseif ( ! $gemeldet && ! empty( $e['submitted_at'] ) ) {
-                $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => null ], [ 'id' => (int) $e['id'] ] );
+                $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => null, 'confirmed_at' => null ], [ 'id' => (int) $e['id'] ] );
             }
         }
         return array_values( array_unique( $melder ) );
@@ -305,6 +310,24 @@ class PollModel {
                 $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'notified_at' => $jetzt ], [ 'id' => (int) $e['id'] ] );
             }
         }
+    }
+
+    /**
+     * Alle gemeldeten, noch nicht bestätigten Starter als bestätigt vermerken.
+     *
+     * @return int[] Personen-IDs der Melder dieser Starter
+     */
+    public function confirm_entries( int $poll_id ): array {
+        global $wpdb;
+        $melder = [];
+        $jetzt  = current_time( 'mysql' );
+        foreach ( $this->entries( $poll_id ) as $e ) {
+            if ( ! empty( $e['submitted_at'] ) && empty( $e['confirmed_at'] ) ) {
+                $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'confirmed_at' => $jetzt ], [ 'id' => (int) $e['id'] ] );
+                $melder[] = (int) $e['person_id'];
+            }
+        }
+        return array_values( array_unique( $melder ) );
     }
 
     /** Meldung als abgeschickt bzw. bestätigt vermerken ('submitted_at' / 'confirmed_at'). */
