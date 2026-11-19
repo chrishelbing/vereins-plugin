@@ -6,7 +6,7 @@ use VereinsPlugin\Admin\AdminStyles;
 use VereinsPlugin\Support\Capabilities;
 
 /**
- * Backend: „Umfragen → Klassen-Vorlagen“ und der Klassen-Editor, den auch
+ * Backend: „Umfragen → Vorlagen“ (Abschnitt Wettkämpfe) und der Klassen-Editor, den auch
  * das Formular einer Wettkampfmeldung benutzt.
  *
  * Der Editor wird im Browser aus einer Klassenliste aufgebaut
@@ -27,7 +27,7 @@ class ClassesAdmin {
 
     public function add_menu(): void {
         add_submenu_page( 'vp-polls', __( 'Umfragen', 'vereins-plugin' ), __( 'Alle Umfragen', 'vereins-plugin' ), 'manage_options', 'vp-polls' );
-        add_submenu_page( 'vp-polls', __( 'Klassen-Vorlagen', 'vereins-plugin' ), __( 'Klassen-Vorlagen', 'vereins-plugin' ), 'manage_options', self::SLUG, [ $this, 'render' ] );
+        add_submenu_page( 'vp-polls', __( 'Vorlagen', 'vereins-plugin' ), __( 'Vorlagen', 'vereins-plugin' ), 'manage_options', self::SLUG, [ $this, 'render' ] );
     }
 
     private function url( array $args = [] ): string {
@@ -157,7 +157,8 @@ class ClassesAdmin {
     private function render_list(): void {
         $msg = sanitize_key( $_GET['msg'] ?? '' );
         ?>
-        <h1><?php esc_html_e( 'Klassen-Vorlagen', 'vereins-plugin' ); ?></h1>
+        <h1><?php esc_html_e( 'Vorlagen', 'vereins-plugin' ); ?></h1>
+        <h2 style="margin-bottom:4px;"><?php esc_html_e( 'Wettkämpfe: Alters- und Gewichtsklassen', 'vereins-plugin' ); ?></h2>
         <p class="description" style="max-width:70em;">
             <?php esc_html_e( 'Alters- und Gewichtsklassen für Wettkampfmeldungen. Beim Anlegen einer Meldung wird eine Vorlage kopiert und kann für das Turnier angepasst werden – Änderungen hier wirken nur auf neue Meldungen. Maßgeblich ist der Jahrgang: Alter = Wettkampfjahr minus Geburtsjahr.', 'vereins-plugin' ); ?>
         </p>
@@ -210,7 +211,7 @@ class ClassesAdmin {
 
     private function render_form( string $slug, array $t ): void {
         ?>
-        <h1><?php echo $slug ? esc_html__( 'Klassen-Vorlage bearbeiten', 'vereins-plugin' ) : esc_html__( 'Neue Klassen-Vorlage', 'vereins-plugin' ); ?></h1>
+        <h1><?php echo $slug ? esc_html__( 'Wettkampf-Vorlage bearbeiten', 'vereins-plugin' ) : esc_html__( 'Neue Wettkampf-Vorlage', 'vereins-plugin' ); ?></h1>
         <p><a href="<?php echo esc_url( $this->url() ); ?>">&larr; <?php esc_html_e( 'Zur Übersicht', 'vereins-plugin' ); ?></a></p>
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="vp-form-card" style="max-width:none;">
             <input type="hidden" name="action" value="vp_save_class_template">

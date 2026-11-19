@@ -40,7 +40,7 @@ Das Plugin besteht aus einer **gemeinsamen Basis** und **Modulen**
   unter **„Verein“** (Mitglieder, Einstellungen).
 - **Modul Termine.** Alles ab „Termine“ in dieser Datei. Backend: **„Termine“**
   (Termine, Termintypen, Vorlagen).
-- **Modul Umfragen.** Siehe „Umfragen“. Backend: **„Umfragen“** (Alle Umfragen, Klassen-Vorlagen).
+- **Modul Umfragen.** Siehe „Umfragen“. Backend: **„Umfragen“** (Alle Umfragen, Vorlagen).
 
 Module teilen nur die Basis und greifen nicht ineinander; `tools/check.php`
 wacht darüber. Bis 1.15.8 hing alles unter einem Menüpunkt „Verein“; die
@@ -870,7 +870,7 @@ CSS-Variablen (`--vp-poll-accent` usw.) anpassbar.
 Abfrage, wer bei einem Turnier startet – mit Alters- und Gewichtsklasse, so
 wie der Ausrichter die Meldung haben will.
 
-**Klassen-Vorlagen** (Backend „Umfragen → Klassen-Vorlagen“, `Polls\ClassTemplates`,
+**Klassen-Vorlagen** (Backend „Umfragen → Vorlagen“, Abschnitt „Wettkämpfe“ (bis 1.23.8 „Klassen-Vorlagen“), `Polls\ClassTemplates`,
 Option `vp_poll_class_templates`). Eine Klasse hat Kennung, Alter von–bis,
 Geschlecht (m + w / nur m / nur w), Gewichtsklassen je Geschlecht oder
 **gewichtsnah** (Einteilung beim Wiegen, keine Auswahl). Mitgeliefert:
@@ -959,25 +959,26 @@ darunter ein Kasten **„Nächster Schritt“**:
   passiert, Empfängern und Mail-Vorschau; noch nicht abgehakte Starter
   (Nachmeldungen) werden gezählt, Excel/CSV bleiben erreichbar.
 
-**Die Haken sind die einzige Quelle** („Wer ist beim Veranstalter gemeldet?“):
-Haken = gemeldet (`vp_poll_entries.submitted_at`); das Kopf-Häkchen markiert
-die ganze Klasse. Unter der Liste klebt eine Leiste,
-die **beim Abhaken live** zeigt: wie viele abgehakt sind, **wer namentlich
-eine Mail bekommt – mit den Vornamen seiner neu abgehakten Starter**, wer
-mangels Adresse nicht (selbst Bescheid geben), wer schon informiert ist, und
-ein Mail-Beispiel. Zwei Knöpfe:
-- **„Als gemeldet speichern und Melder informieren“** (später „Speichern und
-  Melder informieren“): speichert die Haken, setzt beim ersten Mal den Status
-  „Gemeldet“ (`vp_polls.submitted_at`) und mailt „Meldung abgeschickt“ an jeden
-  Melder mit abgehakten Startern, zu denen noch keine Mail rausging
-  (`notified_at`, `PollModel::melder_to_notify()`). Die Mail nennt nur seine
-  abgehakten Starter (`EntryMail::plan()`). Mail-Haken abgewählt: Status und
-  Vermerk ohne Mail.
-- **„Nur Haken speichern“** – Arbeitsstand, z. B. beim Eintragen in DokuMe:
-  keine Mail, Status bleibt.
-Nachmeldung = Starter ohne Haken nach „Gemeldet“ (gelb); abhaken und wieder
-„Speichern und Melder informieren“ – Mail nur an deren Melder. Unveränderte
-Starter behalten beim erneuten Speichern der Meldung Haken und Mail-Vermerk
+**Die Haken sind die einzige Quelle** („Abhakliste: Wen hast du schon
+gemeldet?“, mit Text zur Vorgehensweise): Haken = gemeldet
+(`vp_poll_entries.submitted_at`); das Kopf-Häkchen markiert die ganze Klasse.
+**Jeder Haken wird sofort gespeichert** (seit 1.23.9, `wp_ajax_vp_poll_entries_tick`,
+Anzeige „✓ Haken gespeichert“) – ohne Mail, ohne Statusänderung; ein
+Speichern-Knopf für Haken entfällt. Unter der Liste klebt eine Leiste, die
+**beim Abhaken live** zeigt: wie viele abgehakt sind, **wer namentlich eine
+Mail bekommt – mit den Vornamen seiner neu abgehakten Starter**, wer mangels
+Adresse nicht (selbst Bescheid geben), wer schon informiert ist, und ein
+Mail-Beispiel. Ein Knopf:
+**„Status ‚Gemeldet‘ setzen und Melder informieren“** (danach „Melder
+informieren“, nur sichtbar, wenn jemand Neues zu informieren ist): setzt beim
+ersten Mal den Status „Gemeldet“ (`vp_polls.submitted_at`) und mailt „Meldung
+abgeschickt“ an jeden Melder mit abgehakten Startern, zu denen noch keine
+Mail rausging (`notified_at`, `PollModel::melder_to_notify()`). Die Mail nennt
+nur seine abgehakten Starter (`EntryMail::plan()`). Mail-Haken abgewählt:
+Status und Vermerk ohne Mail.
+Nachmeldung = Starter ohne Haken nach „Gemeldet“ (gelb); abhaken und „Melder
+informieren“ – Mail nur an deren Melder. Unveränderte Starter behalten beim
+erneuten Speichern der Meldung Haken und Mail-Vermerk
 (`PollModel::entry_key()`: Name, Jahrgang, Klasse, Gewicht).
 **Bestätigt wird je Starter** (seit 1.23.4, `vp_poll_entries.confirmed_at`,
 `PollModel::confirm_entries()`): „Als bestätigt vermerken“ bestätigt alle

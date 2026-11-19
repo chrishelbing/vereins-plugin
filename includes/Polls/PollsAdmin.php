@@ -34,6 +34,7 @@ class PollsAdmin {
         add_action( 'admin_post_vp_poll_entries_csv', [ $this, 'handle_csv' ] );
         add_action( 'admin_post_vp_poll_entries_xlsx', [ $this, 'handle_xlsx' ] );
         add_action( 'admin_post_vp_poll_entries_mark', [ $this, 'handle_mark' ] );
+        add_action( 'wp_ajax_vp_poll_entries_tick', [ $this, 'ajax_tick' ] );
         add_action( 'admin_post_vp_poll_entries_state', [ $this, 'handle_state' ] );
         add_action( 'admin_post_vp_delete_poll_text', [ $this, 'handle_delete_text' ] );
         add_action( 'admin_post_vp_poll_to_choice',   [ $this, 'handle_to_choice' ] );
@@ -815,7 +816,7 @@ class PollsAdmin {
             <input type="hidden" name="id" value="<?php echo (int) $poll['id']; ?>">
             <?php wp_nonce_field( 'vp_poll_entries_mark_' . (int) $poll['id'] ); ?>
             <h2 id="vp-abhaken" style="margin-bottom:4px;"><?php esc_html_e( 'Abhakliste: Wen hast du schon gemeldet?', 'vereins-plugin' ); ?></h2>
-            <p style="margin-top:0;max-width:62em;"><?php esc_html_e( 'Das Plugin meldet nicht selbst beim Veranstalter. Du meldest dort (Excel per Mail oder DokuMe) und hakst hier ab, wen du gemeldet hast – einzeln oder mit dem Haken im Tabellenkopf die ganze Klasse. Die Haken sind dein Merkzettel; erst beim Speichern unten setzt du den Status, und auf Wunsch bekommen die Melder eine Mail. Die Leiste unten zeigt vorher, wer.', 'vereins-plugin' ); ?></p>
+            <p style="margin-top:0;max-width:62em;"><?php esc_html_e( 'Das Plugin meldet nicht selbst beim Veranstalter. Du meldest dort (Excel per Mail oder DokuMe) und hakst hier ab, wen du gemeldet hast – einzeln oder mit dem Haken im Tabellenkopf die ganze Klasse. Jeder Haken wird sofort gespeichert, ohne Mail und ohne Statusänderung. Bist du fertig, setzt du unten den Status und informierst die Melder; die Leiste zeigt vorher, wer eine Mail bekommt.', 'vereins-plugin' ); ?></p>
             <?php foreach ( $liste as $z ) : ?>
                 <input type="hidden" name="alle[]" value="<?php echo (int) $z['id']; ?>">
             <?php endforeach; ?>
@@ -885,10 +886,13 @@ class PollsAdmin {
             'noneTicked' => __( 'Noch kein Starter abgehakt – es geht keine E-Mail raus.', 'vereins-plugin' ),
             'informed'   => __( 'Schon informiert: %s', 'vereins-plugin' ),
             'mailOff'    => __( 'Ohne E-Mail: Die Melder gelten danach trotzdem als informiert.', 'vereins-plugin' ),
-            'btnFirst'   => __( 'Als gemeldet speichern und Melder informieren', 'vereins-plugin' ),
-            'btnFirstNo' => __( 'Als gemeldet speichern', 'vereins-plugin' ),
-            'btnMore'    => __( 'Speichern und Melder informieren', 'vereins-plugin' ),
-            'btnMoreNo'  => __( 'Speichern', 'vereins-plugin' ),
+            'btnFirst'   => __( 'Status „Gemeldet“ setzen und Melder informieren', 'vereins-plugin' ),
+            'btnFirstNo' => __( 'Status „Gemeldet“ setzen', 'vereins-plugin' ),
+            'btnMore'    => __( 'Melder informieren', 'vereins-plugin' ),
+            'btnMoreNo'  => __( 'Als informiert vermerken', 'vereins-plugin' ),
+            'saving'     => __( 'Haken wird gespeichert …', 'vereins-plugin' ),
+            'saved'      => __( 'Haken gespeichert', 'vereins-plugin' ),
+            'saveError'  => __( 'Haken konnte nicht gespeichert werden – Seite neu laden.', 'vereins-plugin' ),
         ];
         ?>
             <style>
@@ -921,7 +925,7 @@ class PollsAdmin {
                 <?php endif; ?>
                 <div class="vp-markbar__actions">
                     <button class="button button-primary button-large" name="inform" value="1" data-inform></button>
-                    <button class="button"><?php esc_html_e( 'Nur Haken speichern (keine Mail, Status bleibt)', 'vereins-plugin' ); ?></button>
+                    <span class="description" data-save-state aria-live="polite"></span>
                 </div>
             </div>
         </form>
@@ -932,6 +936,21 @@ class PollsAdmin {
             var M = <?php echo wp_json_encode( (object) $melder ); ?>;
             var T = <?php echo wp_json_encode( $texte ); ?>;
             var erst = bar.dataset.firstSubmit === '1';
+            var form = bar.closest('form');
+            // Haken sofort speichern – ohne Knopf, ohne Mail, ohne Status.
+            function speichern(boxen) {
+                var fd = new FormData();
+                fd.append('action', 'vp_poll_entries_tick');
+                fd.append('id', form.querySelector('[name="id"]').value);
+                fd.append('_wpnonce', form.querySelector('[name="_wpnonce"]').value);
+                boxen.forEach(function (b) { fd.append(b.checked ? 'on[]' : 'off[]', b.value); });
+                var st = q('[data-save-state]');
+                st.textContent = T.saving;
+                fetch(<?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>, { method: 'POST', body: fd, credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (j) { st.textContent = j && j.success ? '✓ ' + T.saved : T.saveError; })
+                    .catch(function () { st.textContent = T.saveError; });
+            }
             var q = function (s) { return bar.querySelector(s); };
             var fmt = function (t) { var a = [].slice.call(arguments, 1), i = 0; return t.replace(/%(\d\$)?[sd]/g, function () { return a[i++]; }); };
             function rechnen() {
@@ -962,12 +981,13 @@ class PollsAdmin {
                 var k = q('[data-inform]');
                 k.textContent = erst ? (mitMail ? T.btnFirst : T.btnFirstNo) : (mitMail ? T.btnMore : T.btnMoreNo);
                 k.disabled = !an || (!erst && !mit.length && !ohne.length);
+                k.hidden = !erst && !mit.length && !ohne.length;
             }
             document.querySelectorAll('.vp-check-all').forEach(function (alle) {
                 var boxen = function () { return alle.closest('table').querySelectorAll('tbody input[name="gemeldet[]"]'); };
                 var sync = function () { var b = boxen(), an = 0; b.forEach(function (x) { if (x.checked) { an++; } }); alle.checked = an === b.length; alle.indeterminate = an > 0 && an < b.length; };
-                alle.addEventListener('change', function () { boxen().forEach(function (x) { x.checked = alle.checked; }); rechnen(); });
-                boxen().forEach(function (x) { x.addEventListener('change', function () { sync(); rechnen(); }); });
+                alle.addEventListener('change', function () { var b = boxen(); b.forEach(function (x) { x.checked = alle.checked; }); rechnen(); speichern(Array.prototype.slice.call(b)); });
+                boxen().forEach(function (x) { x.addEventListener('change', function () { sync(); rechnen(); speichern([x]); }); });
                 sync();
             });
             q('[data-mail-toggle]').addEventListener('change', rechnen);
@@ -1054,12 +1074,12 @@ class PollsAdmin {
                         <a class="button button-primary" href="<?php echo esc_url( $xlsx ); ?>"><?php esc_html_e( 'BJV-Meldeliste (Excel)', 'vereins-plugin' ); ?></a>
                         <a class="button" href="<?php echo esc_url( $csv ); ?>"><?php esc_html_e( 'Alles als CSV', 'vereins-plugin' ); ?></a></li>
                     <li><?php esc_html_e( 'Excel (Kampfrichter ergänzen) an den Veranstalter schicken – oder die Starter in DokuMe eintragen.', 'vereins-plugin' ); ?></li>
-                    <li><?php esc_html_e( 'Unten abhaken, wer gemeldet ist, und „Als gemeldet speichern und Melder informieren“. Die Leiste darunter zeigt vorher, wer eine Mail bekommt.', 'vereins-plugin' ); ?></li>
+                    <li><?php esc_html_e( 'Unten abhaken, wen du gemeldet hast (wird sofort gespeichert), dann „Status ‚Gemeldet‘ setzen und Melder informieren“. Die Leiste zeigt vorher, wer eine Mail bekommt.', 'vereins-plugin' ); ?></li>
                 </ol>
             <?php else : ?>
                 <?php if ( $offen ) : ?>
                     <h2><?php echo esc_html( sprintf( _n( 'Nachmeldung: %d Starter noch nicht gemeldet', 'Nachmeldung: %d Starter noch nicht gemeldet', count( $offen ), 'vereins-plugin' ), count( $offen ) ) ); ?></h2>
-                    <p><?php esc_html_e( 'Gelb und ohne Haken in der Liste. Beim Veranstalter nachmelden, dann abhaken und „Speichern und Melder informieren“. Danach braucht die Nachmeldung wieder eine Bestätigung.', 'vereins-plugin' ); ?></p>
+                    <p><?php esc_html_e( 'Gelb und ohne Haken in der Liste. Beim Veranstalter nachmelden, dann abhaken und „Melder informieren“. Danach braucht die Nachmeldung wieder eine Bestätigung.', 'vereins-plugin' ); ?></p>
                 <?php endif; ?>
                 <?php if ( $warten ) : ?>
                     <h2><?php echo esc_html( sprintf( _n( 'Bestätigung vom Veranstalter: %d Starter wartet', 'Bestätigung vom Veranstalter: %d Starter warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h2>
@@ -1333,6 +1353,21 @@ class PollsAdmin {
         header( 'Content-Length: ' . strlen( $inhalt ) );
         echo $inhalt; // phpcs:ignore WordPress.Security.EscapeOutput
         exit;
+    }
+
+    /** Einzelne Haken sofort speichern (Abhakliste, per Script). */
+    public function ajax_tick(): void {
+        $id = (int) ( $_POST['id'] ?? 0 );
+        if ( ! check_ajax_referer( 'vp_poll_entries_mark_' . $id, '_wpnonce', false ) || ! Capabilities::is_admin_user() ) {
+            wp_send_json_error( null, 403 );
+        }
+        $poll = $this->model->find( $id );
+        if ( ! $poll || $poll['kind'] !== 'entry' ) {
+            wp_send_json_error( null, 404 );
+        }
+        $this->model->mark_entries_submitted( $id, array_map( 'intval', (array) ( $_POST['on'] ?? [] ) ), true );
+        $this->model->mark_entries_submitted( $id, array_map( 'intval', (array) ( $_POST['off'] ?? [] ) ), false );
+        wp_send_json_success();
     }
 
     /** Abhakliste speichern: angehakte gemeldet, abgehakte wieder offen. */
