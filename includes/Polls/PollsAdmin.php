@@ -814,8 +814,8 @@ class PollsAdmin {
             <input type="hidden" name="action" value="vp_poll_entries_mark">
             <input type="hidden" name="id" value="<?php echo (int) $poll['id']; ?>">
             <?php wp_nonce_field( 'vp_poll_entries_mark_' . (int) $poll['id'] ); ?>
-            <h2 id="vp-abhaken" style="margin-bottom:4px;"><?php esc_html_e( 'Wer ist beim Veranstalter gemeldet?', 'vereins-plugin' ); ?></h2>
-            <p class="description" style="margin-top:0;"><?php esc_html_e( 'Haken = gemeldet; der Haken im Tabellenkopf markiert die ganze Klasse. Unten siehst du vor dem Speichern, wer eine Mail bekommt.', 'vereins-plugin' ); ?></p>
+            <h2 id="vp-abhaken" style="margin-bottom:4px;"><?php esc_html_e( 'Abhakliste: Wen hast du schon gemeldet?', 'vereins-plugin' ); ?></h2>
+            <p style="margin-top:0;max-width:62em;"><?php esc_html_e( 'Das Plugin meldet nicht selbst beim Veranstalter. Du meldest dort (Excel per Mail oder DokuMe) und hakst hier ab, wen du gemeldet hast – einzeln oder mit dem Haken im Tabellenkopf die ganze Klasse. Die Haken sind dein Merkzettel; erst beim Speichern unten setzt du den Status, und auf Wunsch bekommen die Melder eine Mail. Die Leiste unten zeigt vorher, wer.', 'vereins-plugin' ); ?></p>
             <?php foreach ( $liste as $z ) : ?>
                 <input type="hidden" name="alle[]" value="<?php echo (int) $z['id']; ?>">
             <?php endforeach; ?>
