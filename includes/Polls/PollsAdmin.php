@@ -78,16 +78,59 @@ class PollsAdmin {
     // ------------------------------------------------------------------
 
     private function render_list(): void {
-        $umfragen = $this->model->all();
+        $alle    = $this->model->all();
+        $filter  = sanitize_key( $_GET['status'] ?? '' );
+        $filter  = in_array( $filter, PollModel::STATES, true ) ? $filter : '';
+        $zahl    = array_count_values( array_column( $alle, 'status' ) );
+        $umfragen = $filter ? array_values( array_filter( $alle, static fn( $p ) => $p['status'] === $filter ) ) : $alle;
+        $tab = function ( string $status, string $label, int $anzahl ) use ( $filter ): string {
+            $url = $this->url( $status ? [ 'status' => $status ] : [] );
+            return sprintf( '<a href="%s"%s>%s <span class="count">(%d)</span></a>', esc_url( $url ), $filter === $status ? ' class="current" aria-current="page"' : '', esc_html( $label ), $anzahl );
+        };
         ?>
         <h1><?php esc_html_e( 'Umfragen', 'vereins-plugin' ); ?></h1>
-        <p class="description" style="max-width:70em;">
-            <?php esc_html_e( 'Terminumfragen, Abstimmungen und Nominierungen, Ideensammlungen und Wettkampfmeldungen. Teilnehmen kann jede Person auch ohne Anmeldung – Gäste nennen einmal ihren Namen. Auf der Website erscheinen die Umfragen über den Shortcode [vp_umfragen]. Mitglieder und Anmeldung teilt das Modul mit den Terminen (Verein → Mitglieder).', 'vereins-plugin' ); ?>
-        </p>
         <?php $this->render_notices(); ?>
-        <?php $this->render_new_buttons(); ?>
+        <style>
+        /* Kopf wie bei „Termine“ (dort aus AdminModal) */
+        .vp-admin-wrap .vp-head { margin: 16px 0 14px; }
+        .vp-admin-wrap .vp-head__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .vp-admin-wrap .vp-head__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px; margin-top: 12px; }
+        .vp-admin-wrap .vp-head__meta .subsubsub { float: none; margin: 0; padding: 0; }
+        .vp-admin-wrap .vp-head__meta .subsubsub li a { padding: 0 2px; }
+        .vp-poll-list td { vertical-align: top; }
+        .vp-poll-list .row-title { font-size: 14px; text-decoration: none; }
+        .vp-poll-list .row-actions { padding-top: 4px; color: #a7aaad; }
+        .vp-poll-list .row-actions .button-link { font-size: 13px; vertical-align: baseline; text-decoration: none; }
+        .vp-poll-list .row-actions .button-link:hover { text-decoration: underline; }
+        .vp-poll-list .vp-kind-icon { color: #646970; margin-right: 4px; font-size: 18px; width: 18px; height: 18px; vertical-align: -3px; }
+        </style>
 
-        <table class="vp-table">
+        <div class="vp-head">
+            <div class="vp-head__actions">
+                <a class="button button-primary" href="<?php echo esc_url( $this->url( [ 'neu' => 1 ] ) ); ?>"><?php esc_html_e( 'Neue Umfrage', 'vereins-plugin' ); ?></a>
+            </div>
+            <?php if ( $alle ) : ?>
+            <div class="vp-head__meta">
+                <ul class="subsubsub vp-tabs">
+                    <li><?php echo $tab( '', __( 'Alle', 'vereins-plugin' ), count( $alle ) ); ?> |</li>
+                    <li><?php echo $tab( 'open', __( 'Offen', 'vereins-plugin' ), (int) ( $zahl['open'] ?? 0 ) ); ?> |</li>
+                    <li><?php echo $tab( 'draft', __( 'Entwürfe', 'vereins-plugin' ), (int) ( $zahl['draft'] ?? 0 ) ); ?> |</li>
+                    <li><?php echo $tab( 'closed', __( 'Beendet', 'vereins-plugin' ), (int) ( $zahl['closed'] ?? 0 ) ); ?></li>
+                </ul>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <?php if ( ! $alle ) : ?>
+            <div class="vp-poll-empty">
+                <h2><?php esc_html_e( 'Noch keine Umfrage', 'vereins-plugin' ); ?></h2>
+                <p><?php esc_html_e( 'Termin finden, abstimmen, Ideen sammeln oder für ein Turnier melden – womit möchtest du anfangen?', 'vereins-plugin' ); ?></p>
+                <?php $this->render_kind_cards(); ?>
+            </div>
+            <?php return; ?>
+        <?php endif; ?>
+
+        <table class="vp-table vp-poll-list">
             <thead>
                 <tr>
                     <th><?php esc_html_e( 'Titel', 'vereins-plugin' ); ?></th>
@@ -95,44 +138,61 @@ class PollsAdmin {
                     <th><?php esc_html_e( 'Status', 'vereins-plugin' ); ?></th>
                     <th><?php esc_html_e( 'Teilnahmen', 'vereins-plugin' ); ?></th>
                     <th><?php esc_html_e( 'Ende', 'vereins-plugin' ); ?></th>
-                    <th><?php esc_html_e( 'Shortcode', 'vereins-plugin' ); ?></th>
-                    <th><?php esc_html_e( 'Aktionen', 'vereins-plugin' ); ?></th>
                 </tr>
             </thead>
             <tbody>
             <?php if ( ! $umfragen ) : ?>
-                <tr><td colspan="7"><?php esc_html_e( 'Noch keine Umfrage angelegt.', 'vereins-plugin' ); ?></td></tr>
+                <tr><td colspan="5" class="description"><?php esc_html_e( 'Keine Umfragen in dieser Ansicht.', 'vereins-plugin' ); ?></td></tr>
             <?php endif; ?>
-            <?php foreach ( $umfragen as $p ) : ?>
+            <?php foreach ( $umfragen as $p ) :
+                $id = (int) $p['id'];
+                ?>
                 <tr>
-                    <td><strong><?php echo esc_html( $p['title'] ); ?></strong></td>
-                    <td><?php echo esc_html( self::kind_label( $p['kind'] ) ); ?></td>
-                    <td><?php $this->status_badge( $p ); ?></td>
-                    <td><?php echo (int) $this->model->voter_count( (int) $p['id'] ); ?></td>
-                    <td><?php echo $p['closes_at'] ? esc_html( mysql2date( 'd.m.Y H:i', $p['closes_at'] ) ) : '<span class="description">—</span>'; ?></td>
-                    <td><code style="user-select:all;">[vp_umfragen id="<?php echo (int) $p['id']; ?>"]</code></td>
-                    <td class="vp-actions">
-                        <a class="button button-small" href="<?php echo esc_url( $this->url( [ 'ergebnis' => $p['id'] ] ) ); ?>"><?php echo $p['kind'] === 'entry' ? esc_html__( 'Meldeliste', 'vereins-plugin' ) : ( $p['kind'] === 'text' ? esc_html__( 'Vorschläge', 'vereins-plugin' ) : esc_html__( 'Ergebnis', 'vereins-plugin' ) ); ?></a>
-                        <a class="button button-small" href="<?php echo esc_url( $this->url( [ 'edit' => $p['id'] ] ) ); ?>"><?php esc_html_e( 'Bearbeiten', 'vereins-plugin' ); ?></a>
-                        <?php
-                        if ( $p['status'] !== 'open' ) {
-                            $this->status_button( (int) $p['id'], 'open', __( 'Öffnen', 'vereins-plugin' ) );
-                        }
-                        if ( $p['status'] === 'open' ) {
-                            $this->status_button( (int) $p['id'], 'closed', __( 'Beenden', 'vereins-plugin' ) );
-                        }
-                        ?>
-                        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline" onsubmit="return confirm('<?php echo esc_js( __( 'Umfrage samt allen Antworten löschen?', 'vereins-plugin' ) ); ?>');">
-                            <input type="hidden" name="action" value="vp_delete_poll">
-                            <input type="hidden" name="id" value="<?php echo (int) $p['id']; ?>">
-                            <?php wp_nonce_field( 'vp_delete_poll_' . (int) $p['id'] ); ?>
-                            <button class="button button-small button-link-delete"><?php esc_html_e( 'Löschen', 'vereins-plugin' ); ?></button>
-                        </form>
+                    <td>
+                        <strong><a class="row-title" href="<?php echo esc_url( $this->url( [ 'edit' => $id ] ) ); ?>"><?php echo esc_html( $p['title'] ); ?></a></strong>
+                        <div class="row-actions visible">
+                            <span><a href="<?php echo esc_url( $this->url( [ 'ergebnis' => $id ] ) ); ?>"><?php echo $p['kind'] === 'entry' ? esc_html__( 'Meldeliste', 'vereins-plugin' ) : ( $p['kind'] === 'text' ? esc_html__( 'Vorschläge', 'vereins-plugin' ) : esc_html__( 'Ergebnis', 'vereins-plugin' ) ); ?></a> | </span>
+                            <span><a href="<?php echo esc_url( $this->url( [ 'edit' => $id ] ) ); ?>"><?php esc_html_e( 'Bearbeiten', 'vereins-plugin' ); ?></a> | </span>
+                            <span><?php
+                            if ( $p['status'] === 'open' ) {
+                                $this->status_button( $id, 'closed', __( 'Beenden', 'vereins-plugin' ), 'button-link' );
+                            } else {
+                                $this->status_button( $id, 'open', $p['status'] === 'draft' ? __( 'Veröffentlichen', 'vereins-plugin' ) : __( 'Wieder öffnen', 'vereins-plugin' ), 'button-link' );
+                            }
+                            ?> | </span>
+                            <span><button type="button" class="button-link vp-copy-code" data-code="<?php echo esc_attr( '[vp_umfragen id="' . $id . '"]' ); ?>" title="<?php esc_attr_e( 'Code für genau diese Umfrage kopieren – zum Einfügen auf einer eigenen Seite', 'vereins-plugin' ); ?>"><?php esc_html_e( 'Einbinden', 'vereins-plugin' ); ?></button> | </span>
+                            <span class="trash">
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline" onsubmit="return confirm('<?php echo esc_js( __( 'Umfrage samt allen Antworten löschen?', 'vereins-plugin' ) ); ?>');">
+                                    <input type="hidden" name="action" value="vp_delete_poll">
+                                    <input type="hidden" name="id" value="<?php echo $id; ?>">
+                                    <?php wp_nonce_field( 'vp_delete_poll_' . $id ); ?>
+                                    <button class="button-link button-link-delete"><?php esc_html_e( 'Löschen', 'vereins-plugin' ); ?></button>
+                                </form>
+                            </span>
+                        </div>
                     </td>
+                    <td><span class="dashicons <?php echo esc_attr( self::kind_icon( $p['kind'] ) ); ?> vp-kind-icon" aria-hidden="true"></span><?php echo esc_html( self::kind_label( $p['kind'] ) ); ?></td>
+                    <td><?php $this->status_badge( $p ); ?></td>
+                    <td><?php echo (int) $this->model->voter_count( $id ); ?></td>
+                    <td><?php echo $p['closes_at'] ? esc_html( mysql2date( 'd.m.Y H:i', $p['closes_at'] ) ) : '<span class="description">—</span>'; ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
         </table>
+
+        <p class="description" style="max-width:60em;">
+            <?php esc_html_e( 'Auf der Website erscheinen alle offenen und beendeten Umfragen dort, wo [vp_umfragen] steht. Mit „Einbinden“ kopierst du den Code für eine einzelne Umfrage, etwa für eine eigene Seite.', 'vereins-plugin' ); ?>
+        </p>
+        <script>
+        document.querySelectorAll('.vp-copy-code').forEach(function(b){
+            b.addEventListener('click', function(){
+                var text = b.getAttribute('data-code'), alt = b.textContent;
+                var fertig = function(){ b.textContent = <?php echo wp_json_encode( __( 'Kopiert ✓', 'vereins-plugin' ) ); ?>; setTimeout(function(){ b.textContent = alt; }, 1600); };
+                if (navigator.clipboard) { navigator.clipboard.writeText(text).then(fertig, function(){ window.prompt('', text); }); }
+                else { window.prompt('', text); }
+            });
+        });
+        </script>
         <?php
     }
 
@@ -150,14 +210,14 @@ class PollsAdmin {
         echo '<span class="vp-badge vp-badge--' . esc_attr( $klasse ) . '">' . esc_html( $text ) . '</span>';
     }
 
-    private function status_button( int $id, string $status, string $label ): void {
+    private function status_button( int $id, string $status, string $label, string $class = 'button button-small' ): void {
         ?>
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline">
             <input type="hidden" name="action" value="vp_poll_status">
             <input type="hidden" name="id" value="<?php echo $id; ?>">
             <input type="hidden" name="status" value="<?php echo esc_attr( $status ); ?>">
             <?php wp_nonce_field( 'vp_poll_status_' . $id ); ?>
-            <button class="button button-small"><?php echo esc_html( $label ); ?></button>
+            <button class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $label ); ?></button>
         </form>
         <?php
     }
@@ -416,28 +476,58 @@ class PollsAdmin {
         <?php
     }
 
-    /** „Neue Umfrage“ ohne Art: erst die Art wählen. */
+    /** Symbol je Art (Dashicons). */
+    public static function kind_icon( string $kind ): string {
+        return match ( $kind ) {
+            'date'  => 'dashicons-calendar-alt',
+            'text'  => 'dashicons-lightbulb',
+            'entry' => 'dashicons-awards',
+            default => 'dashicons-yes-alt',
+        };
+    }
+
+    /** „Neue Umfrage“: erst die Art wählen – als Kacheln. */
     private function render_kind_picker(): void {
         ?>
         <h1><?php esc_html_e( 'Neue Umfrage', 'vereins-plugin' ); ?></h1>
         <p><a href="<?php echo esc_url( $this->url() ); ?>">&larr; <?php esc_html_e( 'Zur Übersicht', 'vereins-plugin' ); ?></a></p>
-        <p><?php esc_html_e( 'Welche Art? Die Art lässt sich später nicht mehr ändern.', 'vereins-plugin' ); ?></p>
-        <?php $this->render_new_buttons(); ?>
+        <p style="font-size:14px;"><?php esc_html_e( 'Was möchtest du machen?', 'vereins-plugin' ); ?></p>
+        <?php $this->render_kind_cards(); ?>
         <?php
     }
 
-    /** Je Art ein Knopf „Neu“ mit kurzer Erklärung. */
-    private function render_new_buttons(): void {
-        echo '<div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 20px;">';
-        foreach ( self::NEW_KINDS as $art => $kind ) {
-            printf(
-                '<a class="button" style="height:auto;padding:8px 14px;line-height:1.4;max-width:240px;white-space:normal;text-align:left;" href="%s"><strong>%s</strong><br><span class="description">%s</span></a>',
-                esc_url( $this->url( [ 'neu' => 1, 'art' => $art ] ) ),
-                esc_html( '+ ' . self::kind_label( $kind ) ),
-                esc_html( self::kind_hint( $kind ) )
-            );
-        }
-        echo '</div>';
+    /** Vier Kacheln, je Art eine – Überschrift als Ziel, kein Fachbegriff. */
+    private function render_kind_cards(): void {
+        $kacheln = [
+            'termin'     => [ 'date',   __( 'Termin finden', 'vereins-plugin' ),       __( 'Ihr schlagt mehrere Termine vor, alle sagen, wann es passt – wie bei Doodle.', 'vereins-plugin' ) ],
+            'abstimmung' => [ 'choice', __( 'Abstimmen', 'vereins-plugin' ),           __( 'Antworten zur Auswahl – auch für Nominierungen wie den Nachwuchspreis.', 'vereins-plugin' ) ],
+            'ideen'      => [ 'text',   __( 'Ideen sammeln', 'vereins-plugin' ),       __( 'Mitglieder schreiben eigene Vorschläge, etwa Slogans fürs Vereinsshirt.', 'vereins-plugin' ) ],
+            'meldung'    => [ 'entry',  __( 'Zum Wettkampf melden', 'vereins-plugin' ), __( 'Wer startet beim Turnier? Eltern melden ihre Kinder mit Alters- und Gewichtsklasse.', 'vereins-plugin' ) ],
+        ];
+        ?>
+        <style>
+        .vp-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; max-width: 1100px; margin: 8px 0 24px; }
+        .vp-kind { display: flex; flex-direction: column; gap: 8px; padding: 20px; background: #fff; border: 1px solid #dcdcde; border-radius: 10px; text-decoration: none; color: #1d2327; transition: border-color .15s, box-shadow .15s; }
+        .vp-kind:hover, .vp-kind:focus { border-color: #2271b1; box-shadow: 0 4px 14px rgba(0,0,0,.07); color: #1d2327; }
+        .vp-kind__icon { width: 40px; height: 40px; border-radius: 50%; background: #f0f6fc; color: #2271b1; display: flex; align-items: center; justify-content: center; }
+        .vp-kind__icon .dashicons { font-size: 22px; width: 22px; height: 22px; }
+        .vp-kind__title { font-size: 15px; font-weight: 600; margin: 4px 0 0; }
+        .vp-kind__text { margin: 0; color: #50575e; line-height: 1.5; }
+        .vp-kind__type { margin-top: auto; padding-top: 6px; font-size: 12px; color: #8c8f94; }
+        .vp-poll-empty { max-width: 1100px; padding: 8px 0; }
+        .vp-poll-empty h2 { margin-bottom: 4px; }
+        </style>
+        <div class="vp-kinds">
+            <?php foreach ( $kacheln as $art => [ $kind, $titel, $text ] ) : ?>
+                <a class="vp-kind" href="<?php echo esc_url( $this->url( [ 'neu' => 1, 'art' => $art ] ) ); ?>">
+                    <span class="vp-kind__icon"><span class="dashicons <?php echo esc_attr( self::kind_icon( $kind ) ); ?>" aria-hidden="true"></span></span>
+                    <span class="vp-kind__title"><?php echo esc_html( $titel ); ?></span>
+                    <span class="vp-kind__text"><?php echo esc_html( $text ); ?></span>
+                    <span class="vp-kind__type"><?php echo esc_html( self::kind_label( $kind ) ); ?></span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+        <?php
     }
 
     public function handle_save(): void {

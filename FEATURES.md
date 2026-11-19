@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.20.3
+> Stand: Version 1.20.4
 
 ---
 
@@ -760,8 +760,17 @@ ausgewertet im Backend unter **„Umfragen“**, auf der Website über
   bei Stimmen (`POST /polls/{id}/vote` mit `texts: [...]`).
 - **Wettkampfmeldung** (`kind = entry`, seit 1.17.0): siehe unten.
 
-**Anlegen.** Die Art wird beim Anlegen gewählt (je Art ein Knopf „+ …“ mit
-kurzer Erklärung) und steht danach fest – das Formular zeigt nur die Felder
+**Übersicht im Backend** (seit 1.20.4) wie bei Beiträgen: Knopf „Neue
+Umfrage“, Filter Alle / Offen / Entwürfe / Beendet, je Zeile Titel mit
+Linkzeile „Ergebnis bzw. Meldeliste/Vorschläge | Bearbeiten | Beenden bzw.
+Veröffentlichen/Wieder öffnen | Einbinden | Löschen“, dazu Art mit Symbol,
+Status, Teilnahmen, Ende. „Einbinden“ kopiert `[vp_umfragen id="…"]` in die
+Zwischenablage. Ohne Umfragen zeigt die Seite gleich die vier Kacheln zum
+Anfangen.
+
+**Anlegen.** Nach „Neue Umfrage“ wählt man die Art aus vier Kacheln mit
+Ziel statt Fachbegriff – „Termin finden“, „Abstimmen“, „Ideen sammeln“, „Zum
+Wettkampf melden“ – je mit einem erklärenden Satz. Die Art steht danach fest – das Formular zeigt nur die Felder
 dieser Art, und der Server übernimmt beim Speichern die gespeicherte Art,
 nicht einen Formularwert (seit 1.19.0).
 
