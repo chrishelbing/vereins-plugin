@@ -81,3 +81,14 @@
 @media (max-width: 782px), (pointer: coarse) {
     .vp-form input, .vp-form textarea, .vp-form select { font-size: 16px !important; }
 }
+
+/* Häkchen-Felder (Tags, Wochentage, Einzel-Häkchen) – absichtlich mit
+   höherer Spezifität: Seiten-CSS wie „.jvl-termine .vp-form label
+   { display:block }“ und „… input { width:100% }“ darf Häkchen und
+   Beschriftung nicht untereinander stellen oder das Kästchen aufblähen. */
+.vp-form .vp-tags .vp-tags__btn,
+.vp-form .vp-weekdays .vp-weekdays__btn,
+.vp-form .vp-form__check label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: .85rem; font-weight: 400; color: inherit; cursor: pointer; }
+.vp-form .vp-tags input[type="checkbox"],
+.vp-form .vp-weekdays input[type="checkbox"],
+.vp-form .vp-form__check input[type="checkbox"] { width: auto; height: auto; margin: 0; padding: 0; border: 0; box-shadow: none; flex: none; }

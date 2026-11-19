@@ -56,3 +56,46 @@
     --vp-c-accent-40:     color-mix(in srgb, var(--vp-c-accent) 40%, var(--vp-c-bg));
     --vp-c-accent-55:     color-mix(in srgb, var(--vp-c-accent) 55%, var(--vp-c-bg));
 }
+
+/* Häkchen, Auswahlknöpfe und Schieberegler in der Akzentfarbe statt Browser-Blau. */
+.vp-events, .vp-modal, .vp-form, .vp-form-wrap, .vp-polls, .vp-poll-who, .vp-login, .vp-banners {
+    accent-color: var(--vp-c-accent);
+}
+
+/* ----------------------------------------------------------------------
+ * Schutz gegen Knopf-Stile des Themes.
+ *
+ * Viele Themes (Astra: „button:hover, button:focus“) färben JEDEN Knopf
+ * beim Überfahren und nach dem Antippen um – bei Astra schwarz mit weißer
+ * Schrift. Plugin-Knöpfe, deren eigene :hover-Regel nur den Rahmen ändert
+ * oder die keine :focus-Regel haben, wurden so zu schwarzen Kästen (z. B.
+ * das × im Termin-Dialog). Hier behält jeder Plugin-Knopf beim Überfahren
+ * und im Fokus zunächst seine Grundfarben; die eigenen :hover-Effekte in
+ * events.css/form.css/polls.css stehen danach und gewinnen weiter.
+ * Die Werte entsprechen der jeweiligen Grundregel – bei einem neuen Knopf
+ * hier eine Zeile ergänzen (tools/check.php erinnert daran).
+ * ---------------------------------------------------------------------- */
+.vp-btn:hover, .vp-btn:focus { background-color: var(--vp-c-accent, #3b82f6); color: #fff; border-color: transparent; }
+.vp-bring__addbtn:hover, .vp-bring__addbtn:focus { background-color: var(--vp-c-accent, #3b82f6); color: #fff; border-color: var(--vp-c-accent, #3b82f6); }
+.vp-bring__btn:hover, .vp-bring__btn:focus { background-color: var(--vp-c-bg, #fff); color: var(--vp-c-body, #374151); border-color: var(--vp-c-line-strong, #d1d5db); }
+.vp-bring__pen:hover, .vp-bring__pen:focus { background-color: transparent; color: var(--vp-c-faint, #9ca3af); border-color: transparent; }
+.vp-chip:hover, .vp-chip:focus { background-color: var(--vp-c-bg, #fff); color: var(--vp-c-body, #374151); border-color: var(--vp-c-line-strong, #d1d5db); }
+.vp-chip--photos:hover, .vp-chip--photos:focus { background-color: var(--vp-c-tint, #eff6ff); color: var(--vp-c-accent-strong, #1e40af); border-color: var(--vp-c-accent-25, #bfdbfe); }
+.vp-edit__delete:hover, .vp-edit__delete:focus { background-color: transparent; color: var(--vp-c-muted, #6b7280); border-color: transparent; }
+.vp-events__more:hover, .vp-events__more:focus { background-color: transparent; color: var(--vp-c-accent, #2563eb); border-color: transparent; }
+.vp-modal__close:hover, .vp-modal__close:focus { background-color: transparent; color: var(--vp-c-muted, #6b7280); border-color: transparent; }
+.vp-person__forget:hover, .vp-person__forget:focus { background-color: transparent; color: var(--vp-c-faint, #9ca3af); border-color: transparent; }
+.vp-person__link:hover, .vp-person__link:focus { background-color: transparent; color: var(--vp-c-muted, #6b7280); border-color: transparent; }
+.vp-photo__del:hover, .vp-photo__del:focus { background-color: rgba(17,24,39,.65); color: #fff; border-color: transparent; }
+.vp-rsvp__btn:hover, .vp-rsvp__btn:focus { background-color: var(--vp-c-bg, #fff); color: var(--vp-c-body, #374151); border-color: var(--vp-c-line-strong, #d1d5db); }
+.vp-rsvp__toggle:hover, .vp-rsvp__toggle:focus { background-color: transparent; color: var(--vp-c-body, #4b5563); border-color: transparent; }
+.vp-tile__coverbtn:hover, .vp-tile__coverbtn:focus { background-color: rgba(17,24,39,.6); color: #fff; border-color: transparent; }
+.vp-entry__add:hover, .vp-entry__add:focus { background-color: transparent; color: inherit; border-color: var(--vp-poll-border); }
+.vp-entry__chipforget:hover, .vp-entry__chipforget:focus { background-color: transparent; color: var(--vp-poll-accent); border-color: transparent; }
+.vp-entry__chipname:hover, .vp-entry__chipname:focus { background-color: transparent; color: var(--vp-poll-accent); border-color: transparent; }
+.vp-entry__remove:hover, .vp-entry__remove:focus { background-color: transparent; color: inherit; border-color: var(--vp-poll-border); }
+.vp-entry__second:hover, .vp-entry__second:focus { background-color: transparent; color: var(--vp-poll-accent); border-color: var(--vp-poll-accent); }
+.vp-poll__pick:hover, .vp-poll__pick:focus { background-color: var(--vp-poll-bg); color: inherit; border-color: var(--vp-poll-border); }
+.vp-poll__save:hover, .vp-poll__save:focus { background-color: var(--vp-poll-accent); color: #fff; border-color: transparent; }
+.vp-poll__undo:hover, .vp-poll__undo:focus { background-color: transparent; color: inherit; border-color: var(--vp-poll-border); }
+.vp-pollcard__head:hover, .vp-pollcard__head:focus { background-color: transparent; color: var(--vp-poll-ink); border-color: transparent; }

@@ -394,7 +394,31 @@ foreach ( $quellen as $datei ) {
         $css_fehler[] = basename( $datei ) . " verwendet {$name}, das in theme.css fehlt";
     }
 }
-$fehler += melde( 'Stylesheets', $css_fehler, count( $css_dateien ) . ' Dateien ohne Selbstbezug, ' . count( $definiert ) . ' Theme-Farben' );
+// Jeder Knopf, den das Plugin auf der Website anlegt, braucht eine Zeile im
+// Schutzblock von theme.css – sonst färbt ein Theme ihn beim Überfahren um
+// (Astra: schwarzer Kasten). Gesucht wird die erste Klasse von
+// el('button', '…'), <button class="…"> und createElement('button') … className.
+$knoepfe = [];
+$frontend = array_merge(
+    glob( $root . '/assets/js/*.js' ) ?: [], glob( $root . '/assets/js/events/*.js' ) ?: [],
+    glob( $root . '/includes/Frontend/*.php' ) ?: [], glob( $root . '/includes/Polls/PollsShortcode.php' ) ?: []
+);
+foreach ( $frontend as $datei ) {
+    $code = (string) file_get_contents( $datei );
+    preg_match_all( "/el\(\s*'button'\s*,\s*'(vp-[\w-]+)/", $code, $m1 );
+    preg_match_all( '/<button[^>]*class="(vp-[\w-]+)/', $code, $m2 );
+    preg_match_all( "/createElement\('button'\);(?:[^;]*;){0,3}?\s*\w+\.className\s*=\s*'(vp-[\w-]+)/", $code, $m3 );
+    foreach ( array_merge( $m1[1], $m2[1], $m3[1] ) as $klasse ) {
+        $knoepfe[ $klasse ] = basename( $datei );
+    }
+}
+foreach ( $knoepfe as $klasse => $datei ) {
+    if ( ! str_contains( $theme_css, '.' . $klasse . ':hover' ) ) {
+        $css_fehler[] = "Knopf .{$klasse} ({$datei}) fehlt im Schutzblock von theme.css";
+    }
+}
+
+$fehler += melde( 'Stylesheets', $css_fehler, count( $css_dateien ) . ' Dateien ohne Selbstbezug, ' . count( $definiert ) . ' Theme-Farben, ' . count( $knoepfe ) . ' Knöpfe geschützt' );
 
 // ---------------------------------------------------------------------
 // 8. Versionsnummer: Schemaänderungen greifen nur bei erhöhter Version
