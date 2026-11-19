@@ -39,6 +39,17 @@ class MemberService {
      *
      * @return array<string, string> Tabelle (ohne Präfix) => Spalte
      */
+    /**
+     * Ersatzadresse für Mitglieder ohne E-Mail. WordPress verlangt eine;
+     * an diese Domain geht nie etwas (RFC 6761 reserviert „invalid“). Wer sie
+     * hat, kann sich nicht anmelden – der Einmalcode käme nie an.
+     */
+    public const PLACEHOLDER_DOMAIN = '@invalid.local';
+
+    public static function is_placeholder_email( string $email ): bool {
+        return $email === '' || str_ends_with( strtolower( $email ), self::PLACEHOLDER_DOMAIN );
+    }
+
     public static function person_tables(): array {
         $tabellen = apply_filters( 'vp_person_tables', self::PERSON_TABLES );
         return is_array( $tabellen ) ? $tabellen : self::PERSON_TABLES;
@@ -136,9 +147,13 @@ class MemberService {
      * Wer als Gast zum Sommerfest zugesagt hat, findet die Zusage nach der
      * Aufnahme unverändert vor.
      *
+     * Hat die Person keine E-Mail, kann sie beim Aufnehmen mitgegeben werden
+     * ($email) – sonst bekommt das Konto eine Ersatzadresse und die Person
+     * kann sich nicht anmelden.
+     *
      * @return array{member: array, wp_user_id: int}|WP_Error
      */
-    public function accept_person( int $person_id ): array|WP_Error {
+    public function accept_person( int $person_id, string $email_neu = '' ): array|WP_Error {
         if ( ! Person::is_guest( $person_id ) ) {
             return new WP_Error( 'not_a_person', __( 'Dieser Eintrag ist bereits ein Mitglied.', 'vereins-plugin' ) );
         }
@@ -151,12 +166,23 @@ class MemberService {
         }
 
         $email = (string) ( $person['email'] ?? '' );
+        if ( $email === '' && $email_neu !== '' ) {
+            $email_neu = sanitize_email( $email_neu );
+            if ( ! is_email( $email_neu ) ) {
+                return new WP_Error( 'invalid_email', __( 'Bitte gib eine gültige E-Mail-Adresse an.', 'vereins-plugin' ) );
+            }
+            $andere = $people->find_by_email( $email_neu );
+            if ( $andere && (int) $andere['id'] !== Person::guest_id( $person_id ) ) {
+                return new WP_Error( 'email_exists', __( 'Diese E-Mail-Adresse gehört schon zu einer anderen offenen Person – bitte zuerst dort klären.', 'vereins-plugin' ) );
+            }
+            $email = $email_neu;
+        }
 
         // Ohne E-Mail braucht WordPress trotzdem eine. Die Platzhalteradresse
         // wird nie angeschrieben; sie fällt weg, sobald jemand eine echte
         // Adresse nachträgt.
         $login = $email ?: 'vp-' . wp_generate_password( 12, false, false );
-        $mail  = $email ?: $login . '@invalid.local';
+        $mail  = $email ?: $login . self::PLACEHOLDER_DOMAIN;
 
         // Gibt es zu der Adresse längst einen WordPress-Nutzer – etwa den
         // Redakteur der Vereinsseite –, wird er verknüpft statt ein zweites

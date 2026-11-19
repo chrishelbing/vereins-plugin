@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.20.4
+> Stand: Version 1.21.0
 
 ---
 
@@ -207,6 +207,40 @@ welche Begleitperson), wobei sie hilft (übernommene Helferaufgaben oder
 bleiben als „(Termin gelöscht)“ stehen. Anlass: ein Mitglied, das dreimal
 als Gast ohne E-Mail zugesagt hatte und dreimal aufgenommen wurde – welches
 Konto „das richtige“ ist, zeigt erst, woran jedes hängt.
+
+**Mitglieder ohne E-Mail** (seit 1.21.0). Wer ohne E-Mail aufgenommen wird,
+bekommt eine Ersatzadresse auf `@invalid.local`
+(`MemberService::PLACEHOLDER_DOMAIN`, `is_placeholder_email()`), weil
+WordPress eine verlangt. Damit kann sich die Person nicht anmelden (der
+Einmalcode käme nie an) und wird über Terminlinks nicht wiedererkannt – so
+entstehen Doppelte. Deshalb:
+- Die Mitgliederliste zeigt statt der Ersatzadresse „keine E-Mail – kann sich
+  nicht anmelden“; im Bearbeiten-Dialog ist das Feld leer, mit Hinweis, und
+  eine eingetragene Adresse ersetzt die Ersatzadresse.
+- Beim **Aufnehmen einer offenen Person ohne E-Mail** steht ein Feld für die
+  Adresse daneben (`accept_person( $id, $email )`); ohne Adresse fragt das
+  Formular nach, ob wirklich ohne aufgenommen werden soll. Gehört die Adresse
+  schon zu einem WordPress-Nutzer, wird wie bisher verknüpft.
+- **„doppelt?“** steht unter Namen, die es bei Mitgliedern oder offenen
+  Personen noch einmal gibt – gleich (ohne Groß-/Kleinschreibung) oder nur
+  Vorname zu vollem Namen („Julia“/„Julia Melzer“).
+
+**Zusammenführen** (seit 1.21.0, `Members\PersonMerge`). Im Bearbeiten-Dialog
+eines Mitglieds: „Doppelten Eintrag übernehmen“ – Auswahl aus anderen
+Mitgliedern (nicht Administratoren, nicht das eigene Konto) und offenen
+Personen, ähnliche Namen oben, je mit Kontakt und Zahl der Zusagen. Das
+Mitglied bleibt, der andere Eintrag geht darin auf:
+- Alle Personentabellen samt Modulen (`person_tables()`, Filter
+  `vp_person_tables`) und Fotos ziehen um – Zeile für Zeile: Gibt es beim
+  behaltenen Mitglied schon dieselbe Zusage (eindeutiger Schlüssel), gilt
+  dessen Antwort und die doppelte Zeile fällt weg.
+- Gemerkte Begleitpersonen mit gleichem Namen werden eins; Zusagen und
+  Mitbringposten der wegfallenden zeigen danach auf die behaltene.
+- Ergänzt, nie überschrieben: echte E-Mail (wenn das behaltene Konto nur die
+  Ersatzadresse hat), Telefon, Orgateam-Rolle.
+- Der andere Eintrag verschwindet wie beim Löschen bzw. Ablehnen (Konto mit
+  Beiträgen oder fremden Rollen bleibt ohne Vereinsrollen stehen).
+Nicht rückgängig zu machen; das Formular fragt nach.
 
 **Recht auf Löschung.** Ein aufgenommenes Mitglied lässt sich in der
 Mitgliederverwaltung vollständig löschen (`MemberService::erase_member()`):

@@ -62,7 +62,7 @@ class PeopleMigration {
 
             $email = (string) $user->user_email;
             // Platzhalteradressen aus der alten Gastanlage nicht mitnehmen.
-            if ( str_ends_with( $email, '@invalid.local' ) ) {
+            if ( MemberService::is_placeholder_email( $email ) ) {
                 $email = '';
             }
 

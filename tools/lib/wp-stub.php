@@ -56,6 +56,25 @@ class StubDb {
      */
     public array $defaults = [];
 
+    /**
+     * Eindeutige Schlüssel je Tabelle, die der Ersatz prüfen soll – Liste
+     * von Spaltenlisten, etwa [ ['event_id','instance_date','person_id'] ].
+     * Ein UPDATE, das eine Dublette erzeugen würde, schlägt dann wie in
+     * MySQL fehl (Rückgabe false) und ändert nichts. Ohne Eintrag: keine
+     * Prüfung, wie bisher.
+     *
+     * @var array<string, array<int, string[]>>
+     */
+    public array $uniques = [];
+
+    private bool $leise = false;
+
+    public function suppress_errors( $an = true ) {
+        $vorher      = $this->leise;
+        $this->leise = (bool) $an;
+        return $vorher;
+    }
+
     private array $auto = [];
 
     public function insert( $table, $data, $fmt = null ) {
@@ -80,7 +99,25 @@ class StubDb {
                     continue 2;
                 }
             }
-            $this->t[ $table ][ $i ] = array_merge( $row, $data );
+            $neu = array_merge( $row, $data );
+            foreach ( $this->uniques[ $table ] ?? [] as $spalten ) {
+                foreach ( $this->t[ $table ] as $j => $andere ) {
+                    if ( $j === $i ) {
+                        continue;
+                    }
+                    $gleich = true;
+                    foreach ( $spalten as $sp ) {
+                        if ( ( $andere[ $sp ] ?? null ) != ( $neu[ $sp ] ?? null ) ) {
+                            $gleich = false;
+                            break;
+                        }
+                    }
+                    if ( $gleich ) {
+                        return false; // Duplicate entry – wie MySQL
+                    }
+                }
+            }
+            $this->t[ $table ][ $i ] = $neu;
             $n++;
         }
         return $n;

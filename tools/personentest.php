@@ -38,6 +38,7 @@ stub_load( [
     'Members/PersonActivity.php',
     'Auth/OtpModel.php',
     'Privacy/PersonalData.php',
+    'Members/PersonMerge.php',
 ] );
 
 use VereinsPlugin\Core\Activator;
@@ -48,6 +49,7 @@ use VereinsPlugin\Members\PeopleCleanup;
 use VereinsPlugin\Members\PeopleMigration;
 use VereinsPlugin\Members\Person;
 use VereinsPlugin\Members\PeopleModel;
+use VereinsPlugin\Members\PersonMerge;
 use VereinsPlugin\Photos\PhotoService;
 use VereinsPlugin\Privacy\PersonalData;
 
@@ -423,5 +425,72 @@ Pruefung::ok( 'angelegtes Mitglied ohne Ausrufezeichen', ! Person::unconfirmed_m
 $neugast = $gast->identify( [ 'name' => 'Nina Neu', 'email' => 'nina@example.test' ], 'https://verein.test/termine' );
 $nina_id = (int) ( $neugast['person_id'] ?? 0 );
 Pruefung::ok( 'Gast ohne Bestätigung mit Ausrufezeichen', $nina_id < 0 && ! empty( Person::unconfirmed_map( [ $nina_id ] )[ $nina_id ] ) );
+
+// =====================================================================
+echo "\nOhne E-Mail aufnehmen und Doppelte zusammenführen\n";
+// Gäste ohne E-Mail werden über den Terminlink nicht wiedererkannt; wer sie
+// aufnimmt, hat dieselbe Person bald zweimal. Zusammenführen muss alles
+// mitnehmen, ohne doppelt zu zählen.
+$wpdb->uniques['wp_vp_event_attendance']  = [ [ 'event_id', 'instance_date', 'person_id' ] ];
+$wpdb->uniques['wp_vp_member_companions'] = [ [ 'person_id', 'name' ] ];
+
+Pruefung::ok( 'Ersatzadresse erkannt', MemberService::is_placeholder_email( 'vp-abc' . MemberService::PLACEHOLDER_DOMAIN ) && ! MemberService::is_placeholder_email( 'a@example.test' ) );
+
+$f1 = $gast->identify( [ 'name' => 'Franzi' ], 'https://verein.test/termine' );
+$f1_id = (int) $f1['person_id'];
+$a1 = $service->accept_person( $f1_id );
+$franzi = (int) $a1['wp_user_id'];
+Pruefung::ok( 'ohne E-Mail aufgenommen: Ersatzadresse', MemberService::is_placeholder_email( get_userdata( $franzi )->user_email ) );
+
+$f2 = $gast->identify( [ 'name' => 'Franzi' ], 'https://verein.test/termine' );
+$f2_id = (int) $f2['person_id'];
+Pruefung::ok( 'beim nächsten Terminlink ein neuer Gast', $f2_id < 0 && $f2_id !== $f1_id );
+$a2 = $service->accept_person( $f2_id, 'franzi@example.test' );
+$franzi2 = (int) $a2['wp_user_id'];
+Pruefung::gleich( 'beim Aufnehmen E-Mail mitgegeben', get_userdata( $franzi2 )->user_email, 'franzi@example.test' );
+$f3 = $gast->identify( [ 'name' => 'Ohne Adresse' ], 'https://verein.test/termine' );
+Pruefung::ok( 'falsche E-Mail beim Aufnehmen abgelehnt', is_wp_error( $service->accept_person( (int) $f3['person_id'], 'kein-at-zeichen' ) ) );
+
+// Beide Franzis haben Spuren: gleicher Termin doppelt, je eigener Termin,
+// gleiche und verschiedene Begleitpersonen, ein Mitbringposten.
+$wpdb->insert( 'wp_vp_event_attendance', [ 'event_id' => 40, 'instance_date' => '2026-12-12', 'person_id' => $franzi,  'response' => 'yes' ] );
+$wpdb->insert( 'wp_vp_event_attendance', [ 'event_id' => 40, 'instance_date' => '2026-12-12', 'person_id' => $franzi2, 'response' => 'no' ] );
+$wpdb->insert( 'wp_vp_event_attendance', [ 'event_id' => 41, 'instance_date' => '2026-12-19', 'person_id' => $franzi2, 'response' => 'yes' ] );
+$wpdb->insert( 'wp_vp_member_companions', [ 'person_id' => $franzi,  'name' => 'Mia' ] );
+$mia_alt = (int) $wpdb->insert_id;
+$wpdb->insert( 'wp_vp_member_companions', [ 'person_id' => $franzi2, 'name' => 'mia' ] );
+$mia_weg = (int) $wpdb->insert_id;
+$wpdb->insert( 'wp_vp_member_companions', [ 'person_id' => $franzi2, 'name' => 'Tom' ] );
+$wpdb->insert( 'wp_vp_event_companions', [ 'event_id' => 41, 'instance_date' => '2026-12-19', 'person_id' => $franzi2, 'companion_id' => $mia_weg ] );
+$wpdb->insert( 'wp_vp_event_item_claims', [ 'item_id' => 333, 'person_id' => $franzi2, 'companion_id' => 0, 'quantity' => 1 ] );
+$wpdb->update( 'wp_vp_members', [ 'phone' => '0171 123' ], [ 'wp_user_id' => $franzi2 ] );
+get_userdata( $franzi2 )->add_role( Activator::ROLE_ORGA );
+
+$merge = new PersonMerge( $service );
+Pruefung::ok( 'nicht mit sich selbst', is_wp_error( $merge->merge( $franzi, $franzi ) ) );
+Pruefung::ok( 'behalten wird nur ein Mitglied', is_wp_error( $merge->merge( (int) $f3['person_id'], $franzi ) ) );
+
+$r = $merge->merge( $franzi, $franzi2 );
+Pruefung::ok( 'zusammengeführt', ! is_wp_error( $r ) );
+$zeilen = array_values( array_filter( $wpdb->t['wp_vp_event_attendance'], fn( $z ) => in_array( (int) $z['event_id'], [ 40, 41 ], true ) ) );
+Pruefung::gleich( 'gleicher Termin nicht doppelt – behaltene Antwort gilt', array_map( fn( $z ) => $z['event_id'] . ':' . $z['response'] . ':' . $z['person_id'], $zeilen ), [ "40:yes:$franzi", "41:yes:$franzi" ] );
+Pruefung::gleich( 'Begleitpersonen: gleicher Name einmal, neuer dazu', array_column( array_filter( $wpdb->t['wp_vp_member_companions'], fn( $z ) => (int) $z['person_id'] === $franzi ), 'name' ), [ 'Mia', 'Tom' ] );
+$am_termin = array_values( array_filter( $wpdb->t['wp_vp_event_companions'], fn( $z ) => (int) $z['event_id'] === 41 ) );
+Pruefung::gleich( 'Begleitung am Termin zeigt auf die behaltene „Mia“', [ (int) $am_termin[0]['person_id'], (int) $am_termin[0]['companion_id'] ], [ $franzi, $mia_alt ] );
+Pruefung::gleich( 'Mitbringposten umgezogen', (int) array_values( array_filter( $wpdb->t['wp_vp_event_item_claims'], fn( $z ) => (int) $z['item_id'] === 333 ) )[0]['person_id'], $franzi );
+Pruefung::gleich( 'echte E-Mail übernommen', get_userdata( $franzi )->user_email, 'franzi@example.test' );
+Pruefung::gleich( 'Telefon ergänzt', (string) ( new \VereinsPlugin\Members\MemberModel() )->find_by_user_id( $franzi )['phone'], '0171 123' );
+Pruefung::ok( 'Orgateam übernommen', in_array( Activator::ROLE_ORGA, get_userdata( $franzi )->roles, true ) && $r['orga'] );
+Pruefung::ok( 'anderes Konto weg', ! get_userdata( $franzi2 ) && ! ( new \VereinsPlugin\Members\MemberModel() )->find_by_user_id( $franzi2 ) );
+
+// Offene Person in ein Mitglied übernehmen
+$g = $gast->identify( [ 'name' => 'Franzi B.', 'phone' => '0300' ], 'https://verein.test/termine' );
+$gid = (int) $g['person_id'];
+$wpdb->insert( 'wp_vp_event_attendance', [ 'event_id' => 42, 'instance_date' => '2027-01-09', 'person_id' => $gid, 'response' => 'yes' ] );
+$r2 = $merge->merge( $franzi, $gid );
+Pruefung::ok( 'offene Person übernommen', ! is_wp_error( $r2 ) && ! Person::find( $gid ) );
+Pruefung::gleich( 'ihre Zusage hängt am Mitglied', (int) array_values( array_filter( $wpdb->t['wp_vp_event_attendance'], fn( $z ) => (int) $z['event_id'] === 42 ) )[0]['person_id'], $franzi );
+Pruefung::ok( 'Administrator kann nicht aufgehen', is_wp_error( $merge->merge( $franzi, $admin_id ) ) );
+unset( $wpdb->uniques['wp_vp_event_attendance'], $wpdb->uniques['wp_vp_member_companions'] );
 
 Pruefung::abschluss( 'Personen' );

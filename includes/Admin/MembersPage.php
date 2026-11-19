@@ -8,6 +8,7 @@ use VereinsPlugin\Members\PeopleModel;
 use VereinsPlugin\Members\Person;
 use VereinsPlugin\Members\MemberService;
 use VereinsPlugin\Members\PersonActivity;
+use VereinsPlugin\Members\PersonMerge;
 use VereinsPlugin\Support\Capabilities;
 
 /**
@@ -18,6 +19,9 @@ class MembersPage {
 
     private MemberModel   $model;
     private MemberService $service;
+
+    /** @var array<int, string>|null Personen-ID => Name, für „doppelt?“ */
+    private ?array $name_index = null;
 
     public function __construct() {
         $this->model   = new MemberModel();
@@ -32,6 +36,7 @@ class MembersPage {
         add_action( 'admin_post_vp_member_add_existing',[ $this, 'handle_add_existing' ] );
         add_action( 'admin_post_vp_member_erase',       [ $this, 'handle_erase' ] );
         add_action( 'admin_post_vp_member_update',      [ $this, 'handle_update' ] );
+        add_action( 'admin_post_vp_member_merge',       [ $this, 'handle_merge' ] );
     }
 
     public function render(): void {
@@ -203,6 +208,7 @@ class MembersPage {
                             <?php if ( empty( $person['confirmed_at'] ) ) : ?>
                                 <span class="vp-badge vp-badge--pending"><?php esc_html_e( 'unbestätigt', 'vereins-plugin' ); ?></span>
                             <?php endif; ?>
+                            <?php $this->render_duplicate_hint( Person::from_guest( (int) $person['id'] ), (string) $person['display_name'] ); ?>
                             <?php $this->render_activity_line( $aktivitaet[ Person::from_guest( (int) $person['id'] ) ] ?? null ); ?>
                         </td>
                         <td>
@@ -219,7 +225,11 @@ class MembersPage {
                         <td><?php echo esc_html( $quelle[ $person['source'] ] ?? $person['source'] ); ?></td>
                         <td><?php echo esc_html( mysql2date( 'd.m.Y', $person['created_at'] ) ); ?></td>
                         <td class="vp-actions">
-                            <?php $this->person_button( (int) $person['id'], 'accept', __( 'Aufnehmen', 'vereins-plugin' ), 'button-primary' ); ?>
+                            <?php if ( $person['email'] ) : ?>
+                                <?php $this->person_button( (int) $person['id'], 'accept', __( 'Aufnehmen', 'vereins-plugin' ), 'button-primary' ); ?>
+                            <?php else : ?>
+                                <?php $this->accept_without_email_form( (int) $person['id'] ); ?>
+                            <?php endif; ?>
                             <?php $this->person_button( (int) $person['id'], 'reject', __( 'Ablehnen', 'vereins-plugin' ), 'button-link-delete' ); ?>
                         </td>
                     </tr>
@@ -260,9 +270,17 @@ class MembersPage {
                 <tr<?php echo (int) ( $_GET['edit'] ?? 0 ) === (int) $m['id'] ? ' class="is-editing"' : ''; ?>>
                     <td>
                         <?php echo esc_html( $m['display_name'] ?: $m['user_login'] ); ?>
+                        <?php $this->render_duplicate_hint( (int) $m['wp_user_id'], $m['display_name'] ?: $m['user_login'] ); ?>
                         <?php $this->render_activity_line( $aktivitaet[ (int) $m['wp_user_id'] ] ?? null ); ?>
                     </td>
-                    <td><?php echo esc_html( $m['user_email'] ); ?></td>
+                    <td>
+                        <?php if ( MemberService::is_placeholder_email( (string) $m['user_email'] ) ) : ?>
+                            <span class="vp-badge vp-badge--pending"><?php esc_html_e( 'keine E-Mail', 'vereins-plugin' ); ?></span>
+                            <br><span class="description"><?php esc_html_e( 'kann sich nicht anmelden', 'vereins-plugin' ); ?></span>
+                        <?php else : ?>
+                            <?php echo esc_html( $m['user_email'] ); ?>
+                        <?php endif; ?>
+                    </td>
                     <td><?php echo esc_html( $m['phone'] ?: '—' ); ?></td>
                     <td><?php $this->render_roles_cell( $m ); ?></td>
                     <td><span class="vp-badge vp-badge--<?php echo esc_attr( $m['status'] ); ?>"><?php echo esc_html( $this->status_label( $m['status'] ) ); ?></span></td>
@@ -309,7 +327,11 @@ class MembersPage {
                     </div>
                     <div class="vp-field">
                         <label for="vp-me-email"><?php esc_html_e( 'E-Mail', 'vereins-plugin' ); ?></label>
-                        <input type="email" <?php echo AdminForms::NO_AUTOFILL; ?> id="vp-me-email" name="email" value="<?php echo esc_attr( $m['user_email'] ); ?>" <?php echo $email_frei ? 'required' : 'readonly'; ?>>
+                        <?php $ersatz = MemberService::is_placeholder_email( (string) $m['user_email'] ); ?>
+                        <input type="email" <?php echo AdminForms::NO_AUTOFILL; ?> id="vp-me-email" name="email"
+                               value="<?php echo esc_attr( $ersatz ? '' : $m['user_email'] ); ?>"
+                               <?php echo $ersatz ? 'placeholder="' . esc_attr__( 'keine – bitte nachtragen', 'vereins-plugin' ) . '"' : ''; ?>
+                               <?php echo $email_frei ? ( $ersatz ? '' : 'required' ) : 'readonly'; ?>>
                     </div>
                 </div>
                 <div class="vp-row">
@@ -320,7 +342,10 @@ class MembersPage {
                 </div>
 
                 <p class="description">
-                    <?php if ( $email_frei ) : ?>
+                    <?php if ( $email_frei && $ersatz ) : ?>
+                        <strong><?php esc_html_e( 'Ohne E-Mail kann sich diese Person nicht anmelden', 'vereins-plugin' ); ?></strong> –
+                        <?php esc_html_e( 'der Einmalcode käme nirgends an, und über einen Terminlink wird sie nicht wiedererkannt. Mit eingetragener Adresse geht beides.', 'vereins-plugin' ); ?>
+                    <?php elseif ( $email_frei ) : ?>
                         <?php esc_html_e( 'Die E-Mail ist zugleich die Anmeldeadresse – nach einer Änderung meldet sich die Person mit der neuen Adresse an.', 'vereins-plugin' ); ?>
                     <?php else : ?>
                         <?php esc_html_e( 'Die E-Mail von Administratoren und des eigenen Kontos wird im WordPress-Profil geändert.', 'vereins-plugin' ); ?>
@@ -334,8 +359,169 @@ class MembersPage {
             </form>
         </div>
         <?php
+        $this->render_merge_form( $m );
         $this->render_activity( (int) $m['wp_user_id'] );
         AdminModal::close();
+    }
+
+    /**
+     * „Doppelten Eintrag übernehmen“: Ein anderer Eintrag derselben Person –
+     * Mitglied oder offene Person – geht in diesem Mitglied auf.
+     */
+    private function render_merge_form( array $m ): void {
+        $ich       = (int) $m['wp_user_id'];
+        $name      = (string) ( $m['display_name'] ?: $m['user_login'] );
+        $kandidaten = $this->merge_candidates( $ich, $name );
+        if ( ! $kandidaten ) {
+            return;
+        }
+        ?>
+        <div class="vp-form-card" style="margin-top:16px;">
+            <h3 style="margin-top:0;"><?php esc_html_e( 'Doppelten Eintrag übernehmen', 'vereins-plugin' ); ?></h3>
+            <p class="description" style="margin-top:0;">
+                <?php printf( esc_html__( 'Gibt es dieselbe Person noch einmal? Dann wähle den anderen Eintrag: Seine Zusagen, Mitbringsachen, Helferaufgaben, Begleitpersonen, Fotos, Stimmen und Meldungen gehen an %s über, eine echte E-Mail-Adresse und das Telefon werden ergänzt, wo hier nichts steht. Der andere Eintrag verschwindet danach.', 'vereins-plugin' ), '<strong>' . esc_html( $name ) . '</strong>' ); ?>
+            </p>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+                  onsubmit="var s=this.querySelector('select');return s.value!=='' &amp;&amp; confirm(<?php echo esc_attr( wp_json_encode( sprintf( __( '„%%s“ in „%s“ übernehmen? Das lässt sich nicht rückgängig machen.', 'vereins-plugin' ), $name ) ) ); ?>.replace('%s', s.options[s.selectedIndex].text.split(' – ')[0]));">
+                <?php wp_nonce_field( 'vp_member_merge_' . $ich ); ?>
+                <input type="hidden" name="action" value="vp_member_merge">
+                <input type="hidden" name="keep" value="<?php echo esc_attr( $ich ); ?>">
+                <select name="drop" style="max-width:100%;min-width:320px;">
+                    <option value=""><?php esc_html_e( '– anderen Eintrag wählen –', 'vereins-plugin' ); ?></option>
+                    <?php foreach ( [ 'aehnlich' => __( 'Ähnlicher Name', 'vereins-plugin' ), 'rest' => __( 'Alle anderen', 'vereins-plugin' ) ] as $gruppe => $titel ) :
+                        $liste = array_filter( $kandidaten, static fn( $k ) => $k['group'] === $gruppe );
+                        if ( ! $liste ) {
+                            continue;
+                        }
+                        ?>
+                        <optgroup label="<?php echo esc_attr( $titel ); ?>">
+                            <?php foreach ( $liste as $k ) : ?>
+                                <option value="<?php echo esc_attr( $k['id'] ); ?>"><?php echo esc_html( $k['label'] ); ?></option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                    <?php endforeach; ?>
+                </select>
+                <button type="submit" class="button"><?php esc_html_e( 'Übernehmen', 'vereins-plugin' ); ?></button>
+            </form>
+        </div>
+        <?php
+    }
+
+    /**
+     * Wer kommt als Doppel infrage? Andere Mitglieder (außer Administratoren
+     * und das eigene Konto – die können nicht aufgehen) und offene Personen.
+     * Ähnliche Namen zuerst.
+     *
+     * @return array<int, array{id:int, label:string, group:string}>
+     */
+    private function merge_candidates( int $ich, string $name ): array {
+        $aktiv = new PersonActivity();
+        $liste = [];
+        foreach ( $this->model->all() as $o ) {
+            $pid = (int) $o['wp_user_id'];
+            if ( $pid === $ich || ! $this->service->role_is_changeable( $pid ) ) {
+                continue;
+            }
+            $mail    = MemberService::is_placeholder_email( (string) $o['user_email'] ) ? __( 'keine E-Mail', 'vereins-plugin' ) : (string) $o['user_email'];
+            $liste[] = [ 'id' => $pid, 'name' => (string) ( $o['display_name'] ?: $o['user_login'] ), 'info' => __( 'Mitglied', 'vereins-plugin' ) . ', ' . $mail ];
+        }
+        foreach ( ( new PeopleModel() )->all() as $g ) {
+            $liste[] = [ 'id' => Person::from_guest( (int) $g['id'] ), 'name' => (string) $g['display_name'], 'info' => __( 'offene Person', 'vereins-plugin' ) . ', ' . ( $g['email'] ?: __( 'keine E-Mail', 'vereins-plugin' ) ) ];
+        }
+        $summen = $aktiv->summaries( array_column( $liste, 'id' ) );
+        foreach ( $liste as &$k ) {
+            $s = $summen[ $k['id'] ] ?? null;
+            $zusagen  = $s ? (int) $s['yes'] : 0;
+            $k['label'] = $k['name'] . ' – ' . $k['info'] . ' – ' . sprintf( _n( '%d Zusage', '%d Zusagen', $zusagen, 'vereins-plugin' ), $zusagen );
+            $k['group'] = self::similar_names( $name, $k['name'] ) ? 'aehnlich' : 'rest';
+        }
+        unset( $k );
+        usort( $liste, static fn( $a, $b ) => strcasecmp( $a['name'], $b['name'] ) );
+        return $liste;
+    }
+
+    /**
+     * Gleicher Name (ohne Groß/klein) oder ein Name ist nur der Vorname des
+     * anderen – „Julia“ und „Julia Melzer“.
+     */
+    public static function similar_names( string $a, string $b ): bool {
+        $norm = static fn( $t ) => mb_strtolower( trim( preg_replace( '/\s+/u', ' ', $t ) ) );
+        $a = $norm( $a );
+        $b = $norm( $b );
+        if ( $a === '' || $b === '' ) {
+            return false;
+        }
+        if ( $a === $b ) {
+            return true;
+        }
+        $erst = static fn( $t ) => explode( ' ', $t )[0];
+        return ( ! str_contains( $a, ' ' ) && $erst( $b ) === $a ) || ( ! str_contains( $b, ' ' ) && $erst( $a ) === $b );
+    }
+
+    /** Hinweis „vielleicht doppelt“ unter dem Namen – Mitglieder und offene Personen zusammen betrachtet. */
+    private function render_duplicate_hint( int $person_id, string $name ): void {
+        if ( $this->name_index === null ) {
+            $this->name_index = [];
+            foreach ( $this->model->all() as $o ) {
+                $this->name_index[ (int) $o['wp_user_id'] ] = (string) ( $o['display_name'] ?: $o['user_login'] );
+            }
+            foreach ( ( new PeopleModel() )->all() as $g ) {
+                $this->name_index[ Person::from_guest( (int) $g['id'] ) ] = (string) $g['display_name'];
+            }
+        }
+        $treffer = [];
+        foreach ( $this->name_index as $pid => $anderer ) {
+            if ( $pid !== $person_id && self::similar_names( $name, $anderer ) ) {
+                $treffer[] = $anderer;
+            }
+        }
+        if ( $treffer ) {
+            printf(
+                ' <span class="vp-badge vp-badge--pending" title="%s">%s</span>',
+                esc_attr( sprintf( __( 'Ähnlicher Eintrag: %s – über „Bearbeiten → Doppelten Eintrag übernehmen“ zusammenführen.', 'vereins-plugin' ), implode( ', ', array_unique( $treffer ) ) ) ),
+                esc_html__( 'doppelt?', 'vereins-plugin' )
+            );
+        }
+    }
+
+    /** Aufnehmen einer offenen Person ohne E-Mail: Adresse gleich mitgeben – oder bewusst ohne. */
+    private function accept_without_email_form( int $id ): void {
+        $frage = __( 'Ohne E-Mail aufnehmen? Die Person kann sich dann nicht anmelden und wird über Terminlinks nicht wiedererkannt – es entstehen leicht doppelte Einträge.', 'vereins-plugin' );
+        ?>
+        <form method="post" <?php echo AdminForms::NO_AUTOFILL_FORM; ?> action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+              style="display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap;"
+              onsubmit="return this.email.value.trim() !== '' || confirm(<?php echo esc_attr( wp_json_encode( $frage ) ); ?>);">
+            <?php wp_nonce_field( 'vp_person_decide_' . $id ); ?>
+            <input type="hidden" name="action" value="vp_person_decide">
+            <input type="hidden" name="id" value="<?php echo esc_attr( $id ); ?>">
+            <input type="hidden" name="decision" value="accept">
+            <input type="email" name="email" <?php echo AdminForms::NO_AUTOFILL; ?> placeholder="<?php esc_attr_e( 'E-Mail (empfohlen)', 'vereins-plugin' ); ?>" style="width:190px;">
+            <button type="submit" class="button button-small button-primary"><?php esc_html_e( 'Aufnehmen', 'vereins-plugin' ); ?></button>
+        </form>
+        <?php
+    }
+
+    public function handle_merge(): void {
+        $keep = (int) ( $_POST['keep'] ?? 0 );
+        check_admin_referer( 'vp_member_merge_' . $keep );
+        if ( ! Capabilities::is_admin_user() ) {
+            wp_die( esc_html__( 'Keine Berechtigung.', 'vereins-plugin' ) );
+        }
+        $drop   = (int) ( $_POST['drop'] ?? 0 );
+        $result = ( new PersonMerge( $this->service ) )->merge( $keep, $drop );
+
+        $member = $this->model->find_by_user_id( $keep );
+        $args   = [ 'page' => 'vp-members', 'edit' => $member ? (int) $member['id'] : 0 ];
+        if ( is_wp_error( $result ) ) {
+            $args['vp_notice'] = 'merge_failed';
+            $args['vp_msg']    = rawurlencode( $result->get_error_message() );
+        } else {
+            $args['vp_notice'] = 'merged';
+            $args['vp_n']      = (int) $result['moved'];
+            $args['vp_extra']  = implode( ',', array_keys( array_filter( [ 'email' => $result['email'], 'phone' => $result['phone'], 'orga' => $result['orga'] ] ) ) );
+        }
+        wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
+        exit;
     }
 
     /**
@@ -673,8 +859,10 @@ class MembersPage {
         $service   = new MemberService();
 
         if ( sanitize_text_field( $_POST['decision'] ?? '' ) === 'accept' ) {
-            $result = $service->accept_person( $person_id );
-            $notice = is_wp_error( $result ) ? 'person_failed' : 'person_accepted';
+            $result = $service->accept_person( $person_id, sanitize_email( wp_unslash( $_POST['email'] ?? '' ) ) );
+            $notice = is_wp_error( $result )
+                ? ( in_array( $result->get_error_code(), [ 'invalid_email', 'email_exists' ], true ) ? 'accept_' . $result->get_error_code() : 'person_failed' )
+                : 'person_accepted';
         } else {
             $notice = $service->reject_person( $person_id ) ? 'person_rejected' : 'person_failed';
         }
@@ -802,7 +990,28 @@ class MembersPage {
             'erased'          => [ 'success', __( 'Mitglied vollständig gelöscht, inklusive WordPress-Konto.', 'vereins-plugin' ) ],
             'erased_data_only'=> [ 'success', __( 'Vereinsdaten gelöscht. Das WordPress-Konto bleibt bestehen, da es eine Rolle der Website oder eigene Beiträge trägt – die Vereinsrollen wurden entzogen.', 'vereins-plugin' ) ],
             'erase_error'     => [ 'error',   __( 'Konnte nicht gelöscht werden (eigenes Konto oder Administrator?).', 'vereins-plugin' ) ],
+            'accept_invalid_email' => [ 'error', __( 'Nicht aufgenommen: Die E-Mail-Adresse sieht nicht richtig aus.', 'vereins-plugin' ) ],
+            'accept_email_exists'  => [ 'error', __( 'Nicht aufgenommen: Diese E-Mail-Adresse gehört schon zu einer anderen offenen Person.', 'vereins-plugin' ) ],
         ];
+        if ( $notice === 'merged' ) {
+            $teile = [ sprintf( _n( '%d Eintrag übernommen', '%d Einträge übernommen', (int) ( $_GET['vp_n'] ?? 0 ), 'vereins-plugin' ), (int) ( $_GET['vp_n'] ?? 0 ) ) ];
+            $extra = explode( ',', sanitize_text_field( $_GET['vp_extra'] ?? '' ) );
+            if ( in_array( 'email', $extra, true ) ) {
+                $teile[] = __( 'E-Mail-Adresse ergänzt – die Person kann sich jetzt anmelden', 'vereins-plugin' );
+            }
+            if ( in_array( 'phone', $extra, true ) ) {
+                $teile[] = __( 'Telefon ergänzt', 'vereins-plugin' );
+            }
+            if ( in_array( 'orga', $extra, true ) ) {
+                $teile[] = __( 'Orgateam-Rolle übernommen', 'vereins-plugin' );
+            }
+            printf( '<div class="notice notice-success is-dismissible"><p><strong>%s</strong> %s.</p></div>', esc_html__( 'Zusammengeführt.', 'vereins-plugin' ), esc_html( implode( ' · ', $teile ) ) );
+            return;
+        }
+        if ( $notice === 'merge_failed' ) {
+            printf( '<div class="notice notice-error"><p>%s %s</p></div>', esc_html__( 'Nicht zusammengeführt:', 'vereins-plugin' ), esc_html( sanitize_text_field( rawurldecode( (string) ( $_GET['vp_msg'] ?? '' ) ) ) ) );
+            return;
+        }
         if ( ! isset( $map[ $notice ] ) ) {
             return;
         }
