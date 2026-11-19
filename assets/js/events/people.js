@@ -314,16 +314,25 @@
      * eingetragen. „Mia, Tom“ zerlegt der Server in zwei Personen
      * (CompanionModel::split_names()); jede bekommt eine eigene Zeile.
      */
+    function norm(t) { return String(t).toLowerCase().replace(/\s+/g, ' ').trim(); }
+
     function addPerson() {
         var raw = peNew.value.trim();
         if (!raw) { return; }
         peNew.value = '';
         // Vormerken; „Mia, Tom“ wie der Server in zwei Personen teilen.
+        // Den eigenen Namen nicht – man ist über „Ich“ dabei (der Server
+        // weist ihn ebenso ab, CompanionModel::remember()).
+        var eigen = norm(VP.cfg.guestName || VP.cfg.selfName || '');
+        var selbst = false;
         raw.split(',').forEach(function(n){
             n = n.trim();
-            if (n) { peState.pending.push(n); }
+            if (!n) { return; }
+            if (eigen && norm(n) === eigen) { selbst = true; return; }
+            peState.pending.push(n);
         });
         renderPeople();
+        if (selbst) { peopleError(T.selfNotGuest); }
         peNew.focus();
     }
 

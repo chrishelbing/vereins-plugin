@@ -26,6 +26,7 @@ stub_load( [
     'Members/MemberModel.php',
     'Members/PeopleModel.php',
     'Members/Person.php',
+    'Members/SavedNames.php',
     'Members/MemberService.php',
     'Admin/Settings.php',
     'Events/CompanionModel.php',

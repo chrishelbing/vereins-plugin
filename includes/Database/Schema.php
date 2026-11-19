@@ -400,6 +400,11 @@ class Schema {
         }
         \VereinsPlugin\Polls\PollSchema::migrate( $wpdb->prefix );
 
+        // Eigene Namen gehören nicht in die Namensliste (1.22.0) – Altbestand räumen.
+        if ( version_compare( (string) get_option( 'vp_db_version', '0' ), '1.22.0', '<' ) ) {
+            \VereinsPlugin\Members\SavedNames::remove_own_names();
+        }
+
         update_option( 'vp_db_version', VP_VERSION );
     }
 

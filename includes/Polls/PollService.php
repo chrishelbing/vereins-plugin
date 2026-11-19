@@ -300,6 +300,8 @@ class PollService {
                 'note'       => $e['note'],
             ], $meine ),
             'saved_names'    => SavedNames::for_person( $person_id ),
+            // Für „Mich selbst melden“ – nie Teil der gemerkten Namen.
+            'self_name'      => $person_id ? (string) Person::name( $person_id ) : '',
             'max_rows'       => EntryService::MAX_ROWS,
             'results'        => null,
         ];

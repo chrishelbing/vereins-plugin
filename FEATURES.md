@@ -6,7 +6,7 @@
 > sie hier nach – sonst veraltet sie innerhalb weniger Sitzungen und ist
 > schlimmer als keine Dokumentation, weil man ihr dann noch glaubt.
 >
-> Stand: Version 1.21.0
+> Stand: Version 1.22.0
 
 ---
 
@@ -922,6 +922,19 @@ Meldeschluss. Jeder Melder sieht nur seine eigenen Starter.
   Jahrgang, kein Gewicht. Mit „×“ am Namen fliegt er aus der Liste
   (`DELETE /polls/saved-names`, seit 1.19.0) – auch bei den Terminen, wo
   dieselbe Liste schon immer ein „×“ hatte. Abgegebene Meldungen bleiben.
+- **„Mich selbst melden“** (seit 1.22.0) – für Jugendliche und Erwachsene,
+  die selbst starten: füllt eine freie Zeile mit dem eigenen Namen (Konto
+  bzw. Gastname, `self_name` im Payload); Jahrgang, Geschlecht und Gewicht wie
+  bei jedem Starter, am Konto wird nichts gespeichert. In Meldeliste und CSV
+  steht als Melder „selbst“ (`is_self`: Startername = Name des Melders).
+- **Der eigene Name kommt nie in die gemerkten Namen** (seit 1.22.0,
+  `SavedNames::is_own_name()`) – weder über Wettkampfmeldungen noch über
+  Termine (`CompanionModel::remember()`). Sonst stand man bei Terminen als
+  seine eigene Begleitung da. Tippt man bei einem Termin den eigenen Namen
+  als Begleitung ein, kommt der Hinweis, dass man über „Ich“ dabei ist.
+  Das Update auf 1.22.0 räumt den Altbestand einmalig auf
+  (`SavedNames::remove_own_names()`): Die Begleitung am Termin fällt weg,
+  Mitbringposten für diese „Begleitung“ zählen als eigene.
 
 **Meldeliste fürs Orgateam** (Backend, „Meldeliste“): nach Klasse und
 Geschlecht gruppiert, nach Gewicht sortiert, je Starter „gemeldet von“ mit

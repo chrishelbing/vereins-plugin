@@ -223,6 +223,8 @@ class EntryService {
             $z['reporter']       = $m['name'];
             $z['reporter_guest'] = Person::is_guest( (int) $z['person_id'] );
             $z['contact']        = trim( implode( ' · ', array_filter( [ $m['email'], $m['phone'] ] ) ) );
+            // Hat sich der Melder selbst gemeldet?
+            $z['is_self']        = SavedNames::normalize( $z['first_name'] . ' ' . $z['last_name'] ) === SavedNames::normalize( (string) $m['name'] );
         }
         unset( $z );
 
@@ -253,7 +255,7 @@ class EntryService {
             $out .= self::csv_line( [
                 $z['last_name'], $z['first_name'], $z['birth_year'], $z['sex'] === 'w' ? 'w' : 'm',
                 $z['class_key'], $z['weight'] !== '' ? ClassTemplates::weight_label( $z['weight'] ) : 'gewichtsnah',
-                $verein, $z['reporter'], $z['contact'], $z['note'],
+                $verein, $z['is_self'] ? 'selbst' : $z['reporter'], $z['contact'], $z['note'],
             ] );
         }
         return $out;

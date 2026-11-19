@@ -547,23 +547,33 @@
         // Gemerkte Namen: antippen trägt ein, × nimmt den Namen aus der Liste
         // (dieselbe Liste wie die Begleitpersonen bei Terminen).
         var chips = el('div', 'vp-entry__saved');
+        var eigen = (p.self_name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        function inFreieZeile(n) {
+            var leer = Array.prototype.filter.call(rows.children, function (r) { return r._empty(); })[0];
+            if (!leer) {
+                if (rows.children.length >= p.max_rows) { return; }
+                leer = addRow();
+            }
+            leer._fill(n);
+        }
         function renderChips(namen) {
             chips.textContent = '';
-            chips.hidden = !namen.length;
-            if (!namen.length) { return; }
+            // Der eigene Name gehört nicht zu den gemerkten Namen.
+            namen = namen.filter(function (n) { return n.toLowerCase().replace(/\s+/g, ' ').trim() !== eigen; });
+            chips.hidden = !namen.length && !eigen;
+            if (chips.hidden) { return; }
             chips.appendChild(el('span', 'vp-entry__savedlabel', T.savedNames));
+            if (eigen) {
+                var ich = el('button', 'vp-entry__self', T.selfEntry);
+                ich.type = 'button';
+                ich.addEventListener('click', function () { inFreieZeile(p.self_name); });
+                chips.appendChild(ich);
+            }
             namen.forEach(function (n) {
                 var chip = el('span', 'vp-entry__chip');
                 var b = el('button', 'vp-entry__chipname', n);
                 b.type = 'button';
-                b.addEventListener('click', function () {
-                    var leer = Array.prototype.filter.call(rows.children, function (r) { return r._empty(); })[0];
-                    if (!leer) {
-                        if (rows.children.length >= p.max_rows) { return; }
-                        leer = addRow();
-                    }
-                    leer._fill(n);
-                });
+                b.addEventListener('click', function () { inFreieZeile(n); });
                 var x = el('button', 'vp-entry__chipforget', '×');
                 x.type = 'button';
                 x.title = fmt(T.forgetName, n);

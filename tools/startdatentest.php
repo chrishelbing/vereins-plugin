@@ -28,6 +28,7 @@ stub_load( [
     'Members/Person.php',
     'Admin/Settings.php',
     'Events/EventModel.php',
+    'Members/SavedNames.php',
     'Events/CompanionModel.php',
     'Events/TemplateModel.php',
     'Events/EventTypeModel.php',

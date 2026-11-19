@@ -26,7 +26,7 @@ Umgebung nicht, sind die zwölf Dateien einzeln aufzurufen.
 |---|---|
 | `tools/check.php` | Syntax, Autoloader-Pfade, Symbole, Shortcode-Registry, Modultrennung, Texte der Umfrage-Skripte, Frontend-Skript, Einstellungen, Versionsnummer, Mindestversionen (Kopfzeile = `VP_MIN_WP`/`VP_MIN_PHP`), „keine WordPress-Profile für Unbestätigte" |
 | `tools/zugriffstest.php` | Wer sich anmelden darf, wer in den Mitgliederbereich kommt, wer ins Backend – dazu Aussperrschutz und die Kopplung von Status und Vereinsrolle |
-| `tools/personentest.php` | Der Weg einer Person: Zusage über Terminlink, Wiedererkennung, Bestätigung, Aufnahme (auch mit nachgetragener E-Mail), Ablehnung, Übernahme von Altbeständen, Zusammenführen Doppelter |
+| `tools/personentest.php` | Der Weg einer Person: Zusage über Terminlink, Wiedererkennung, Bestätigung, Aufnahme (auch mit nachgetragener E-Mail), Ablehnung, Übernahme von Altbeständen, Zusammenführen Doppelter, eigener Name nie als Begleitperson |
 | `tools/apitest.php` | Die Schnittstelle aus Sicht der App: Lebensdauer, Verlängerung und Widerruf von Sitzungen, die Form von `GET /me`, die Erkennung nicht angeschlossener Versandwege |
 | `tools/startdatentest.php` | Startdaten: einmalig bei der Aktivierung, Nachlegen auf Anforderung ohne Dubletten, Wirksamkeit der Vorlagen am Termin |
 | `tools/qrtest.php` | Der selbstgebaute QR-Encoder gegen hinterlegte Sollwerte |

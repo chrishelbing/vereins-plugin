@@ -85,6 +85,11 @@ class CompanionModel {
         }
         $name = mb_substr( $name, 0, 100 );
 
+        // Der eigene Name ist keine Begleitperson – man ist über „Ich“ dabei.
+        if ( \VereinsPlugin\Members\SavedNames::is_own_name( $person_id, $name ) ) {
+            return 0;
+        }
+
         $existing = $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT id FROM {$this->saved} WHERE person_id = %d AND name = %s",

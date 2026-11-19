@@ -1135,6 +1135,8 @@ class EventsShortcode {
             // mit „Nicht du?“ auf einem geteilten Gerät neu ansetzt.
             'guestName'      => ( $is_public && $user_id ) ? \VereinsPlugin\Members\Person::name( (int) $user_id ) : '',
             'guestRenamable' => $is_public && (int) $user_id < 0,
+            // Eigener Name – wird als Begleitperson abgewiesen (man ist über „Ich“ dabei).
+            'selfName'       => $user_id ? \VereinsPlugin\Members\Person::name( (int) $user_id ) : '',
             'iconAlert' => Icons::svg( 'alert' ),
             'identify'  => [
                 'id'           => (int) ( $upcoming[0]['event_id'] ?? 0 ),
@@ -1281,6 +1283,7 @@ class EventsShortcode {
             'codeNeeded'    => __( 'Bitte gib den sechsstelligen Code aus der E-Mail ein.', 'vereins-plugin' ),
             'guestRename'   => __( 'Name ändern', 'vereins-plugin' ),
             'guestNotYou'   => __( 'Nicht du?', 'vereins-plugin' ),
+            'selfNotGuest'  => __( 'Dich selbst brauchst du nicht als Begleitung einzutragen – du bist über „Ich“ dabei.', 'vereins-plugin' ),
             'dropReady'     => __( 'oder hierher ziehen', 'vereins-plugin' ),
             'dropLocked'    => __( 'Bitte zuerst der Nutzung zustimmen', 'vereins-plugin' ),
             'consentNeeded' => __( 'Bitte bestätige zuerst, dass das Foto auf der Website und in sozialen Medien verwendet werden kann.', 'vereins-plugin' ),

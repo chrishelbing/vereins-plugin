@@ -247,6 +247,14 @@ Pruefung::gleich( 'zwei Melder', $model->voter_count( $wid ), 2 );
 
 $liste = $entry->list_for_orga( $w );
 Pruefung::gleich( 'Orga-Liste nach Klassen (Reihenfolge der Ausschreibung)', array_column( $liste, 'class_key' ), [ 'U9', 'U11', 'U15' ] );
+Pruefung::ok( 'Kind ist nicht „selbst“ gemeldet', $liste[0]['is_self'] === false );
+$selbst_id = $model->save( [ 'kind' => 'entry', 'title' => 'Ü30', 'status' => 'open', 'event_date' => '2027-03-01', 'classes' => [ [ 'key' => 'Erw', 'from' => 17, 'to' => 99, 'sex' => 'mw', 'near' => true, 'm' => [], 'w' => [] ] ] ] );
+$selbst_poll = $model->find( $selbst_id );
+$entry->submit( $selbst_poll, $gerd, [ [ 'first_name' => 'Gerd', 'last_name' => 'Gast', 'birth_year' => 1980, 'sex' => 'm', 'class_key' => 'Erw', 'weight' => '' ] ] );
+Pruefung::ok( 'Selbstmeldung als „selbst“ erkannt', $entry->list_for_orga( $selbst_poll )[0]['is_self'] === true );
+Pruefung::ok( 'CSV: Melder „selbst“', str_contains( $entry->csv( $selbst_poll, 'JVL' ), '"Gast";"Gerd";"1980";"m";"Erw";"gewichtsnah";"JVL";"selbst"' ) );
+Pruefung::gleich( 'Website: eigener Name für „Mich selbst melden“', $service->payload( $selbst_poll, $gerd, false )['self_name'], 'Gerd Gast' );
+$model->delete( $selbst_id );
 Pruefung::gleich( 'Melder mit Kontakt an jedem Starter', [ $liste[0]['reporter'], $liste[0]['contact'] ], [ 'Gerd Gast', 'gerd@example.test' ] );
 $csv = $entry->csv( $w, 'JVL' );
 Pruefung::ok( 'CSV mit BOM, Semikolon und Kopfzeile', str_starts_with( $csv, "\xEF\xBB\xBF\"Nachname\";\"Vorname\";\"Jahrgang\"" ) );

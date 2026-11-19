@@ -26,6 +26,7 @@ stub_load( [
     'Members/MemberModel.php',
     'Members/PeopleModel.php',
     'Members/Person.php',
+    'Members/SavedNames.php',
     'Members/MemberService.php',
     'Members/PeopleMigration.php',
     'Members/PeopleCleanup.php',
@@ -492,5 +493,28 @@ Pruefung::ok( 'offene Person übernommen', ! is_wp_error( $r2 ) && ! Person::fin
 Pruefung::gleich( 'ihre Zusage hängt am Mitglied', (int) array_values( array_filter( $wpdb->t['wp_vp_event_attendance'], fn( $z ) => (int) $z['event_id'] === 42 ) )[0]['person_id'], $franzi );
 Pruefung::ok( 'Administrator kann nicht aufgehen', is_wp_error( $merge->merge( $franzi, $admin_id ) ) );
 unset( $wpdb->uniques['wp_vp_event_attendance'], $wpdb->uniques['wp_vp_member_companions'] );
+
+// =====================================================================
+echo "\nEigener Name ist keine Begleitperson\n";
+// Wer sich bei einem Wettkampf selbst einträgt, stand danach bei Terminen
+// als seine eigene Begleitung da. Der eigene Name kommt nie in die Liste.
+$selbst = stub_user( 'Chris Helbing', [ Activator::ROLE_MEMBER ], 'chris-h@example.test' );
+$liste  = new CompanionModel();
+Pruefung::gleich( 'Termine: eigener Name wird nicht gemerkt', $liste->remember( $selbst, ' chris  HELBING ' ), 0 );
+\VereinsPlugin\Members\SavedNames::remember( $selbst, 'Chris Helbing' );
+\VereinsPlugin\Members\SavedNames::remember( $selbst, 'Mia Helbing' );
+Pruefung::gleich( 'Meldung: nur das Kind gemerkt', \VereinsPlugin\Members\SavedNames::for_person( $selbst ), [ 'Mia Helbing' ] );
+$dabei = $liste->set_for_attendance( 50, '2027-01-01', $selbst, [], [ 'Chris Helbing, Mia Helbing' ] );
+Pruefung::gleich( 'am Termin nur die echte Begleitung', array_column( $dabei, 'name' ), [ 'Mia Helbing' ] );
+
+// Altbestand: eigener Name steht schon in der Liste und hängt an Terminen.
+$wpdb->insert( 'wp_vp_member_companions', [ 'person_id' => $selbst, 'name' => 'Chris Helbing' ] );
+$alt_id = (int) $wpdb->insert_id;
+$wpdb->insert( 'wp_vp_event_companions', [ 'event_id' => 51, 'instance_date' => '2027-02-01', 'person_id' => $selbst, 'companion_id' => $alt_id, 'name' => 'Chris Helbing' ] );
+$wpdb->insert( 'wp_vp_event_item_claims', [ 'item_id' => 444, 'person_id' => $selbst, 'companion_id' => $alt_id, 'quantity' => 1 ] );
+Pruefung::gleich( 'Aufräumen beim Update: ein Name entfernt', \VereinsPlugin\Members\SavedNames::remove_own_names(), 1 );
+Pruefung::ok( 'als Begleitung am Termin weg', ! array_filter( $wpdb->t['wp_vp_event_companions'], fn( $z ) => (int) $z['companion_id'] === $alt_id ) );
+Pruefung::gleich( 'Mitbringposten zählt als eigener', (int) array_values( array_filter( $wpdb->t['wp_vp_event_item_claims'], fn( $z ) => (int) $z['item_id'] === 444 ) )[0]['companion_id'], 0 );
+Pruefung::gleich( 'Kind bleibt in der Liste', \VereinsPlugin\Members\SavedNames::for_person( $selbst ), [ 'Mia Helbing' ] );
 
 Pruefung::abschluss( 'Personen' );

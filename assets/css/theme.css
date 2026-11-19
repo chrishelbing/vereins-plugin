@@ -99,3 +99,4 @@
 .vp-poll__save:hover, .vp-poll__save:focus { background-color: var(--vp-poll-accent); color: #fff; border-color: transparent; }
 .vp-poll__undo:hover, .vp-poll__undo:focus { background-color: transparent; color: inherit; border-color: var(--vp-poll-border); }
 .vp-pollcard__head:hover, .vp-pollcard__head:focus { background-color: transparent; color: var(--vp-poll-ink); border-color: transparent; }
+.vp-entry__self:hover, .vp-entry__self:focus { background-color: var(--vp-poll-accent); color: #fff; border-color: var(--vp-poll-accent); }

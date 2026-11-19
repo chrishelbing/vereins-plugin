@@ -148,6 +148,7 @@ class PollsShortcode {
             'dupClass'         => __( '%1$s steht schon in der Klasse %2$s.', 'vereins-plugin' ),
             'removeStarter'    => __( 'Starter entfernen', 'vereins-plugin' ),
             'addStarter'       => __( '+ Weiteren Starter melden', 'vereins-plugin' ),
+            'selfEntry'        => __( 'Mich selbst melden', 'vereins-plugin' ),
             'savedNames'       => __( 'Schnell eintragen:', 'vereins-plugin' ),
             'entrySave'        => __( 'Meldung abschicken', 'vereins-plugin' ),
             'entryUpdate'      => __( 'Meldung aktualisieren', 'vereins-plugin' ),

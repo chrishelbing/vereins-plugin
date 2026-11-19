@@ -33,6 +33,58 @@ class SavedNames {
         return $namen;
     }
 
+    /** Namen vergleichbar machen: Groß/klein und Leerzeichen zählen nicht. */
+    public static function normalize( string $name ): string {
+        return mb_strtolower( trim( preg_replace( '/\s+/u', ' ', $name ) ) );
+    }
+
+    /**
+     * Ist das der eigene Name der Person? Der gehört nie in die Liste: Man
+     * ist bei Terminen über „Ich“ dabei und meldet sich bei Wettkämpfen über
+     * „Mich selbst melden“ – als gemerkter Name tauchte man sonst als seine
+     * eigene Begleitung auf.
+     */
+    public static function is_own_name( int $person_id, string $name ): bool {
+        if ( ! $person_id ) {
+            return false;
+        }
+        $eigen = self::normalize( (string) Person::name( $person_id ) );
+        return $eigen !== '' && $eigen === self::normalize( $name );
+    }
+
+    /**
+     * Einmalig beim Update (1.22.0): eigene Namen aus den Listen nehmen.
+     * Wo eine solche „Begleitperson“ schon an Terminen hing, fällt die
+     * Begleitung weg (man ist ja selbst über die eigene Zusage dabei);
+     * Mitbringposten für sie zählen danach als eigene.
+     *
+     * @return int Zahl entfernter Namen
+     */
+    public static function remove_own_names(): int {
+        global $wpdb;
+        $t      = self::table();
+        $zeilen = $wpdb->get_results( "SELECT id, person_id, name FROM {$t}", ARRAY_A ) ?: [];
+        $weg    = 0;
+        $leise  = $wpdb->suppress_errors( true );
+        foreach ( $zeilen as $z ) {
+            if ( ! self::is_own_name( (int) $z['person_id'], (string) $z['name'] ) ) {
+                continue;
+            }
+            $id = (int) $z['id'];
+            $wpdb->delete( $wpdb->prefix . 'vp_event_companions', [ 'companion_id' => $id ] );
+            foreach ( $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}vp_event_item_claims WHERE companion_id = %d", $id ) ) ?: [] as $claim ) {
+                // Gibt es denselben Posten schon als eigenen, bleibt der.
+                if ( $wpdb->update( $wpdb->prefix . 'vp_event_item_claims', [ 'companion_id' => 0 ], [ 'id' => (int) $claim ] ) === false ) {
+                    $wpdb->delete( $wpdb->prefix . 'vp_event_item_claims', [ 'id' => (int) $claim ] );
+                }
+            }
+            $wpdb->delete( $t, [ 'id' => $id ] );
+            $weg++;
+        }
+        $wpdb->suppress_errors( $leise );
+        return $weg;
+    }
+
     /** Einen gemerkten Namen vergessen – bei Terminen und Meldungen gleichermaßen. */
     public static function forget( int $person_id, string $name ): void {
         global $wpdb;
@@ -46,7 +98,7 @@ class SavedNames {
     public static function remember( int $person_id, string $name ): void {
         global $wpdb;
         $name = mb_substr( trim( sanitize_text_field( $name ) ), 0, 100 );
-        if ( $person_id <= 0 || $name === '' ) {
+        if ( $person_id <= 0 || $name === '' || self::is_own_name( $person_id, $name ) ) {
             return;
         }
         $da = $wpdb->get_var( $wpdb->prepare(
