@@ -1190,7 +1190,15 @@ Eine stets aktuelle Übersicht steht im Backend unter *Verein → Einstellungen*
 ### Backend
 
 *Verein* (Basis) → Mitglieder (inkl. offener Personen und Rollen),
-Einstellungen (inkl. Startdaten und Shortcode-Übersicht).
+Einstellungen (inkl. Startdaten und Shortcode-Übersicht). Seit 1.23.2 mit
+Seitenleiste: *Einstellen* – Allgemein (Vereinsname, Absender,
+Benachrichtigung, Freischaltung), Aushänge und Flyer, Fotos,
+Wettkampfmeldung (Mail-Vorlagen als Klappkästen), Datenschutz;
+*Nachschlagen* – Shortcodes, Text formatieren. Es ist ein Bereich zu sehen,
+der Anker in der Adresse wählt ihn (`#wettkampf`, auch nach dem Speichern;
+`SettingsPage::sections()`), „Einstellungen speichern“ unten klebt und
+speichert alle Bereiche. Ohne Script stehen alle Bereiche untereinander; auf
+dem Handy wird die Seitenleiste zur waagerechten Reiterleiste.
 *Termine* → Termine (inkl. Freigabe, Teilnehmerlisten, CSV-Export, Flyer),
 Termintypen, Vorlagen.
 *Umfragen* → Liste, Anlegen/Bearbeiten, Ergebnis.

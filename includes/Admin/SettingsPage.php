@@ -42,10 +42,31 @@ class SettingsPage {
             <?php $this->render_notices(); ?>
             <?php $this->render_seed_card(); ?>
 
-            <div class="vp-form-card">
-                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <?php $this->render_layout_styles(); ?>
+            <div class="vp-settings">
+            <nav class="vp-settings__nav" aria-label="<?php esc_attr_e( 'Bereiche der Einstellungen', 'vereins-plugin' ); ?>">
+                <?php foreach ( self::sections() as $gruppe => $eintraege ) : ?>
+                    <p class="vp-settings__group"><?php echo esc_html( $gruppe ); ?></p>
+                    <?php foreach ( $eintraege as $slug => [ $titel, $icon ] ) : ?>
+                        <a href="#<?php echo esc_attr( $slug ); ?>" data-tab="<?php echo esc_attr( $slug ); ?>"><span class="dashicons <?php echo esc_attr( $icon ); ?>" aria-hidden="true"></span><?php echo esc_html( $titel ); ?></a>
+                    <?php endforeach; ?>
+                <?php endforeach; ?>
+            </nav>
+            <div class="vp-settings__main">
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="vp-settings__form">
                     <?php wp_nonce_field( 'vp_save_settings' ); ?>
                     <input type="hidden" name="action" value="vp_save_settings">
+                    <input type="hidden" name="vp_tab" value="allgemein" data-tab-field>
+
+                    <section class="vp-panel" id="allgemein">
+                    <h2><?php esc_html_e( 'Allgemein', 'vereins-plugin' ); ?></h2>
+                    <p class="description"><?php esc_html_e( 'Verein, Absender der E-Mails und wie neue Mitglieder dazukommen.', 'vereins-plugin' ); ?></p>
+
+                    <div class="vp-field">
+                        <label for="vp-club-name"><?php esc_html_e( 'Vereinsname', 'vereins-plugin' ); ?></label>
+                        <input type="text" id="vp-club-name" name="club_name" value="<?php echo esc_attr( $settings['club_name'] ); ?>">
+                        <p class="description"><?php esc_html_e( 'Steht auf Flyern, in Meldelisten (CSV, BJV-Excel) und in E-Mails.', 'vereins-plugin' ); ?></p>
+                    </div>
 
                     <div class="vp-field">
                         <label for="vp-sender-name"><?php esc_html_e( 'Absendername (für E-Mails)', 'vereins-plugin' ); ?></label>
@@ -64,18 +85,15 @@ class SettingsPage {
                         </label>
                         <p class="description"><?php esc_html_e( 'Wenn deaktiviert, sind neue Anmeldungen über [vp_register] sofort aktiv.', 'vereins-plugin' ); ?></p>
                     </div>
+                    </section>
 
-                    <hr>
+                    <section class="vp-panel" id="flyer">
                     <h2><?php esc_html_e( 'Aushänge und Flyer', 'vereins-plugin' ); ?></h2>
                     <p class="description">
                         <?php esc_html_e( 'Diese Angaben erscheinen auf den erzeugten Flyern. Ein Aushang ohne Absender wirkt anonym – wer nachfragen möchte, braucht einen Anhaltspunkt.', 'vereins-plugin' ); ?>
                     </p>
 
                     <div class="vp-row">
-                        <div class="vp-field">
-                            <label for="vp-club-name"><?php esc_html_e( 'Vereinsname', 'vereins-plugin' ); ?></label>
-                            <input type="text" id="vp-club-name" name="club_name" value="<?php echo esc_attr( $settings['club_name'] ); ?>">
-                        </div>
                         <div class="vp-field">
                             <label for="vp-flyer-contact"><?php esc_html_e( 'Ansprechperson', 'vereins-plugin' ); ?></label>
                             <input type="text" id="vp-flyer-contact" name="flyer_contact"
@@ -111,7 +129,9 @@ class SettingsPage {
                         </div>
                     </div>
 
-                    <hr>
+                    </section>
+
+                    <section class="vp-panel" id="fotos">
                     <h2><?php esc_html_e( 'Fotos', 'vereins-plugin' ); ?></h2>
                     <p class="description">
                         <?php esc_html_e( 'Fotos werden beim Hochladen automatisch verkleinert und von Standortdaten befreit. Das spart den meisten Speicherplatz.', 'vereins-plugin' ); ?>
@@ -162,7 +182,11 @@ class SettingsPage {
                         <p class="description"><?php esc_html_e( '2000 px reichen für Bildschirm und Fotoabzüge bis etwa 15 × 20 cm.', 'vereins-plugin' ); ?></p>
                     </div>
 
+                    </section>
+
+                    <section class="vp-panel" id="datenschutz">
                     <h2><?php esc_html_e( 'Datenschutz', 'vereins-plugin' ); ?></h2>
+                    <p class="description"><?php esc_html_e( 'Wann das Plugin Daten von sich aus löscht. Fotos: siehe „Fotos“. Wettkampfmeldungen: an jeder Meldung („Meldungen löschen … Tage nach dem Wettkampf“).', 'vereins-plugin' ); ?></p>
                     <div class="vp-field">
                         <label for="vp-people-retention"><?php esc_html_e( 'Offene Gast-Kontakte aufbewahren (Tage ohne Zusage/Aktivität)', 'vereins-plugin' ); ?></label>
                         <input type="number" id="vp-people-retention" name="people_retention_days" min="0" max="3650"
@@ -170,6 +194,9 @@ class SettingsPage {
                         <p class="description"><?php esc_html_e( 'Betrifft nur Gäste über Terminlink und wartende Registrierungen (vp_people), nie aufgenommene Mitglieder. 0 = nie automatisch löschen.', 'vereins-plugin' ); ?></p>
                     </div>
 
+                    </section>
+
+                    <section class="vp-panel" id="wettkampf">
                     <h2 id="vp-entry-mails"><?php esc_html_e( 'Wettkampfmeldung: E-Mails an die Melder', 'vereins-plugin' ); ?></h2>
                     <p class="description" style="max-width:60em;">
                         <?php esc_html_e( 'Diese Mails verschickt das Orgateam von der Meldeliste aus, wenn die Meldung an den Veranstalter abgeschickt bzw. vom Veranstalter bestätigt wurde. Jeder Melder bekommt nur seine eigenen Starter.', 'vereins-plugin' ); ?>
@@ -183,10 +210,11 @@ class SettingsPage {
                         <?php esc_html_e( 'Ein leeres Feld setzt den Standardtext wieder ein.', 'vereins-plugin' ); ?>
                     </p>
                     <?php foreach ( [
-                        'sent'      => __( 'Meldung abgeschickt', 'vereins-plugin' ),
-                        'confirmed' => __( 'Meldung bestätigt', 'vereins-plugin' ),
-                    ] as $art => $titel ) : ?>
-                        <h3 style="margin-bottom:6px;"><?php echo esc_html( $titel ); ?></h3>
+                        'sent'      => [ __( 'Mail „Meldung abgeschickt“', 'vereins-plugin' ), __( 'geht raus bei „Status auf ‚Gemeldet‘ setzen“', 'vereins-plugin' ) ],
+                        'confirmed' => [ __( 'Mail „Meldung bestätigt“', 'vereins-plugin' ), __( 'geht raus bei „Status auf ‚Bestätigt‘ setzen“', 'vereins-plugin' ) ],
+                    ] as $art => [ $titel, $wann ] ) : ?>
+                        <details class="vp-fold" <?php echo $art === 'sent' ? 'open' : ''; ?>>
+                        <summary><strong><?php echo esc_html( $titel ); ?></strong> <span class="description">– <?php echo esc_html( $wann ); ?></span></summary>
                         <div class="vp-field">
                             <label for="vp-mail-<?php echo esc_attr( $art ); ?>-subject"><?php esc_html_e( 'Betreff', 'vereins-plugin' ); ?></label>
                             <input type="text" class="large-text" id="vp-mail-<?php echo esc_attr( $art ); ?>-subject" name="entry_mail_<?php echo esc_attr( $art ); ?>_subject"
@@ -194,19 +222,121 @@ class SettingsPage {
                         </div>
                         <div class="vp-field">
                             <label for="vp-mail-<?php echo esc_attr( $art ); ?>-body"><?php esc_html_e( 'Text', 'vereins-plugin' ); ?></label>
-                            <textarea class="large-text" rows="9" id="vp-mail-<?php echo esc_attr( $art ); ?>-body" name="entry_mail_<?php echo esc_attr( $art ); ?>_body"><?php echo esc_textarea( $settings[ "entry_mail_{$art}_body" ] ); ?></textarea>
+                            <textarea class="large-text" rows="12" id="vp-mail-<?php echo esc_attr( $art ); ?>-body" name="entry_mail_<?php echo esc_attr( $art ); ?>_body"><?php echo esc_textarea( $settings[ "entry_mail_{$art}_body" ] ); ?></textarea>
                         </div>
+                        </details>
                     <?php endforeach; ?>
+                    </section>
 
-                    <p class="submit">
-                        <button type="submit" class="button button-primary"><?php esc_html_e( 'Speichern', 'vereins-plugin' ); ?></button>
-                    </p>
+                    <div class="vp-settings__save">
+                        <button type="submit" class="button button-primary button-large"><?php esc_html_e( 'Einstellungen speichern', 'vereins-plugin' ); ?></button>
+                        <span class="description"><?php esc_html_e( 'Speichert alle Bereiche auf einmal.', 'vereins-plugin' ); ?></span>
+                    </div>
                 </form>
-            </div>
 
-            <?php $this->render_shortcodes(); ?>
-            <?php $this->render_formatting(); ?>
+                <section class="vp-panel vp-panel--ref" id="shortcodes">
+                    <?php $this->render_shortcodes(); ?>
+                </section>
+                <section class="vp-panel vp-panel--ref" id="formatierung">
+                    <?php $this->render_formatting(); ?>
+                </section>
+            </div>
+            </div>
+            <?php $this->render_layout_script(); ?>
         </div>
+        <?php
+    }
+
+    /**
+     * Bereiche der Einstellungen für die Seitenleiste: Gruppe → [Slug → [Titel, Dashicon]].
+     * Slugs sind zugleich die Anker (#wettkampf) – Links von anderen Seiten zielen darauf.
+     */
+    public static function sections(): array {
+        return [
+            __( 'Einstellen', 'vereins-plugin' )   => [
+                'allgemein'   => [ __( 'Allgemein', 'vereins-plugin' ), 'dashicons-admin-generic' ],
+                'flyer'       => [ __( 'Aushänge und Flyer', 'vereins-plugin' ), 'dashicons-media-document' ],
+                'fotos'       => [ __( 'Fotos', 'vereins-plugin' ), 'dashicons-format-gallery' ],
+                'wettkampf'   => [ __( 'Wettkampfmeldung', 'vereins-plugin' ), 'dashicons-awards' ],
+                'datenschutz' => [ __( 'Datenschutz', 'vereins-plugin' ), 'dashicons-shield' ],
+            ],
+            __( 'Nachschlagen', 'vereins-plugin' ) => [
+                'shortcodes'   => [ __( 'Shortcodes', 'vereins-plugin' ), 'dashicons-shortcode' ],
+                'formatierung' => [ __( 'Text formatieren', 'vereins-plugin' ), 'dashicons-editor-bold' ],
+            ],
+        ];
+    }
+
+    private function render_layout_styles(): void {
+        ?>
+        <style>
+        .vp-settings { display: flex; gap: 24px; align-items: flex-start; margin-top: 16px; }
+        .vp-settings__nav { flex: 0 0 210px; position: sticky; top: 46px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 0; }
+        .vp-settings__group { margin: 10px 16px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #646970; }
+        .vp-settings__nav a { display: flex; align-items: center; gap: 8px; padding: 8px 16px; color: #1d2327; text-decoration: none; border-left: 3px solid transparent; }
+        .vp-settings__nav a:hover, .vp-settings__nav a:focus { background: #f6f7f7; color: #2271b1; box-shadow: none; }
+        .vp-settings__nav a.is-active { border-left-color: #2271b1; background: #f0f6fc; color: #2271b1; font-weight: 600; }
+        .vp-settings__nav .dashicons { font-size: 18px; width: 18px; height: 18px; }
+        .vp-settings__main { flex: 1 1 auto; min-width: 0; max-width: 900px; }
+        .vp-settings .vp-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px 24px 20px; margin-bottom: 16px; }
+        .vp-settings .vp-panel > h2:first-child { margin-top: 16px; }
+        .vp-settings .vp-panel--ref h2 { margin-top: 16px !important; }
+        .vp-settings__save { position: sticky; bottom: 0; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px 24px; display: flex; gap: 12px; align-items: center; box-shadow: 0 -2px 8px rgba(0,0,0,.04); }
+        .vp-fold { border: 1px solid #e5e7eb; border-radius: 6px; margin: 12px 0; padding: 0 16px; }
+        .vp-fold > summary { cursor: pointer; padding: 12px 0; }
+        .vp-admin-wrap .vp-fold .vp-field input[type=text], .vp-admin-wrap .vp-fold .vp-field textarea { max-width: none; }
+        .vp-fold[open] > summary { border-bottom: 1px solid #f0f0f1; margin-bottom: 8px; }
+        /* Mit Script: nur der gewählte Bereich ist zu sehen. */
+        .vp-settings.is-tabbed .vp-panel { display: none; }
+        .vp-settings.is-tabbed .vp-panel.is-active { display: block; }
+        .vp-settings.is-tabbed.is-ref .vp-settings__save { display: none; }
+        @media (max-width: 782px) {
+            .vp-settings { flex-direction: column; }
+            .vp-settings__nav { position: static; flex: none; width: 100%; display: flex; overflow-x: auto; padding: 0; }
+            .vp-settings__group { display: none; }
+            .vp-settings__nav a { border-left: 0; border-bottom: 3px solid transparent; white-space: nowrap; }
+            .vp-settings__nav a.is-active { border-bottom-color: #2271b1; }
+            .vp-settings__main { width: 100%; }
+        }
+        </style>
+        <?php
+    }
+
+    /**
+     * Ohne Script stehen alle Bereiche untereinander, die Seitenleiste springt
+     * per Anker. Mit Script zeigt sie je einen Bereich; der Anker in der
+     * Adresse (#fotos) wählt ihn, auch nach dem Speichern.
+     */
+    private function render_layout_script(): void {
+        ?>
+        <script>
+        (function () {
+            var box = document.querySelector('.vp-settings');
+            if (!box) { return; }
+            var feld = box.querySelector('[data-tab-field]');
+            var links = box.querySelectorAll('.vp-settings__nav a');
+            function zeige(slug, scroll) {
+                var ziel = slug ? document.getElementById(slug) : null;
+                var panel = ziel ? ziel.closest('.vp-panel') : null;
+                if (!panel) { panel = box.querySelector('.vp-panel'); }
+                box.classList.add('is-tabbed');
+                box.querySelectorAll('.vp-panel').forEach(function (p) { p.classList.toggle('is-active', p === panel); });
+                box.classList.toggle('is-ref', panel.classList.contains('vp-panel--ref'));
+                links.forEach(function (a) { a.classList.toggle('is-active', a.dataset.tab === panel.id); });
+                if (feld && !panel.classList.contains('vp-panel--ref')) { feld.value = panel.id; }
+                if (scroll && ziel !== panel && ziel) { ziel.scrollIntoView(); }
+            }
+            links.forEach(function (a) {
+                a.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    history.replaceState(null, '', '#' + a.dataset.tab);
+                    zeige(a.dataset.tab, false);
+                });
+            });
+            window.addEventListener('hashchange', function () { zeige(location.hash.slice(1), true); });
+            zeige(location.hash.slice(1), true);
+        })();
+        </script>
         <?php
     }
 
@@ -521,7 +651,9 @@ class SettingsPage {
             'flyer_footnote' => sanitize_text_field( $_POST['flyer_footnote'] ?? '' ),
         ] );
 
-        wp_safe_redirect( add_query_arg( [ 'page' => 'vp-settings', 'vp_notice' => 'saved' ], admin_url( 'admin.php' ) ) );
+        $tab = sanitize_key( $_POST['vp_tab'] ?? '' );
+        $tab = array_key_exists( $tab, array_merge( ...array_values( self::sections() ) ) ) ? '#' . $tab : '';
+        wp_safe_redirect( add_query_arg( [ 'page' => 'vp-settings', 'vp_notice' => 'saved' ], admin_url( 'admin.php' ) ) . $tab );
         exit;
     }
 

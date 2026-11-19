@@ -1062,7 +1062,7 @@ class PollsAdmin {
 
 <?php echo esc_html( $erste['body'] ); ?></pre>
                             <?php if ( current_user_can( 'manage_options' ) ) : ?>
-                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-settings#vp-entry-mails' ) ); ?>"><?php esc_html_e( 'Vorlage in den Einstellungen ändern', 'vereins-plugin' ); ?></a>
+                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-settings#wettkampf' ) ); ?>"><?php esc_html_e( 'Vorlage in den Einstellungen ändern', 'vereins-plugin' ); ?></a>
                             <?php endif; ?>
                         </details>
                     <?php endif; ?>
