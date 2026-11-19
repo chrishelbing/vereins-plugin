@@ -170,7 +170,7 @@ class SettingsPage {
                         <p class="description"><?php esc_html_e( 'Betrifft nur Gäste über Terminlink und wartende Registrierungen (vp_people), nie aufgenommene Mitglieder. 0 = nie automatisch löschen.', 'vereins-plugin' ); ?></p>
                     </div>
 
-                    <h2><?php esc_html_e( 'Wettkampfmeldung: E-Mails an die Melder', 'vereins-plugin' ); ?></h2>
+                    <h2 id="vp-entry-mails"><?php esc_html_e( 'Wettkampfmeldung: E-Mails an die Melder', 'vereins-plugin' ); ?></h2>
                     <p class="description" style="max-width:60em;">
                         <?php esc_html_e( 'Diese Mails verschickt das Orgateam von der Meldeliste aus, wenn die Meldung an den Veranstalter abgeschickt bzw. vom Veranstalter bestätigt wurde. Jeder Melder bekommt nur seine eigenen Starter.', 'vereins-plugin' ); ?>
                         <br><?php esc_html_e( 'Platzhalter:', 'vereins-plugin' ); ?>

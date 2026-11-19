@@ -943,30 +943,37 @@ UTF-8 mit BOM für Excel): Nachname, Vorname, Jahrgang, Geschlecht,
 Altersklasse, Gewichtsklasse, Verein (aus Einstellungen → Vereinsname),
 Melder, Kontakt, Hinweis.
 
-**Meldung beim Veranstalter** (seit 1.23.0) – drei Schritte oben auf der
-Meldeliste:
-1. **Meldeliste holen.** „BJV-Meldeliste (Excel)“ (`Polls\BjvExport`, ohne
-   Fremdbibliothek per `ZipArchive`) baut das offizielle BJV-„Meldeformular
-   für alle Wettkämpfe“ nach: Blatt „Meldung“, Kopf (Veranstaltung, Datum,
-   meldender Verein, Ansprechpartner = angemeldeter Orga, Kontakt-Mail,
-   Kampfrichter Samstag/Sonntag – **die Kampfrichter bleiben leer**), Tabelle
-   Nr. | Name | Vorname | Jahrgang | Geschlecht | AK | Gewichtsklasse, mindestens
-   40 nummerierte Zeilen. Fehlt die PHP-Erweiterung zip, kommt ein Hinweis auf
-   die CSV. Dazu weiter die CSV (jetzt mit Spalte „Beim Veranstalter gemeldet“).
-2. **Beim Veranstalter melden** – Excel per Mail schicken oder in DokuMe
-   eintragen (DokuMe hat keinen Import). **Abhakliste**: in der Meldeliste hat
-   jeder Starter ein Häkchen „Gemeldet“ (speichern mit „Häkchen speichern“) –
-   zum Abarbeiten in DokuMe. „Meldung ist abgeschickt“ hakt alle offenen
-   Starter ab, vermerkt `vp_polls.submitted_at` und schickt (abwählbar) den
-   betroffenen Meldern die Mail „Meldung abgeschickt“ mit ihren Startern.
-   Kommt danach jemand dazu oder ändert Klasse/Gewicht, ist der Starter
-   **Nachmeldung** (gelb, Zähler, Knopf „Nachmeldung ist abgeschickt“ – Mail
-   nur an die Melder der Nachmeldung). Unveränderte Starter behalten beim
-   erneuten Speichern ihren Haken (`PollModel::entry_key()`: Name, Jahrgang,
-   Klasse, Gewicht).
-3. **Bestätigung vom Veranstalter** – „Meldung ist bestätigt“ vermerkt
-   `confirmed_at` und schickt (abwählbar) allen Meldern die Mail „Meldung
-   bestätigt“.
+**Meldung beim Veranstalter** (seit 1.23.0, als Ablauf seit 1.23.1). Oben auf
+der Meldeliste ein Prozessband **Meldungen sammeln → Beim Veranstalter melden →
+Gemeldet (wartet auf Bestätigung) → Bestätigt** (erledigt grün, aktuell blau)
+und darunter genau ein Kasten **„Nächster Schritt“**:
+- **Beim Veranstalter melden:** a) außerhalb der Website melden –
+  „BJV-Meldeliste (Excel)“ (`Polls\BjvExport`, per `ZipArchive`) baut das
+  offizielle BJV-„Meldeformular für alle Wettkämpfe“ nach: Blatt „Meldung“, Kopf
+  (Veranstaltung, Datum, meldender Verein, Ansprechpartner = angemeldeter Orga,
+  Kontakt-Mail, Kampfrichter Samstag/Sonntag – **die Kampfrichter bleiben
+  leer**), Tabelle Nr. | Name | Vorname | Jahrgang | Geschlecht | AK |
+  Gewichtsklasse, mindestens 40 Zeilen; dazu die CSV (mit Spalte „Beim
+  Veranstalter gemeldet“). b) dann **„Status auf ‚Gemeldet' setzen“**. Vor dem
+  Klick steht da, was passiert: wie viele Starter abgehakt werden, was die
+  Melder auf der Website sehen, **welche Melder namentlich eine Mail
+  bekommen** (abwählbar), wer mangels Adresse nicht (selbst Bescheid geben),
+  und „Mail ansehen“ mit dem fertig gefüllten Text (`EntryMail::plan()`).
+- **Mail „abgeschickt“ geht an jeden Melder, zu dessen gemeldeten Startern
+  noch keine Mail rausging** (`vp_poll_entries.notified_at`,
+  `PollModel::melder_to_notify()`) – egal, ob der Haken über die Abhakliste
+  oder den Statusknopf kam. Bei Nachmeldungen also nur an deren Melder.
+- **Abhakliste:** Spalte „Gemeldet“ je Starter, Kopf-Häkchen markiert die
+  ganze Klasse, „Alle abhaken“ / „Alle Haken entfernen“ für die ganze Liste,
+  speichern mit „Häkchen speichern“. Speichern verschickt **keine** Mail und
+  ändert den Status nicht – nur Arbeitsstand, etwa beim Eintragen in DokuMe.
+- **Nachmeldungen:** Kommt nach „Gemeldet“ jemand dazu oder ändert Klasse/
+  Gewicht, ist der Starter offen (gelb), der Kasten „Nächster Schritt: …
+  Nachmeldung“ erscheint wieder. Unveränderte Starter behalten beim erneuten
+  Speichern Haken und Mail-Vermerk (`PollModel::entry_key()`: Name, Jahrgang,
+  Klasse, Gewicht).
+- **Bestätigt:** „Status auf ‚Bestätigt' setzen“ vermerkt `confirmed_at`, Mail
+  „Meldung bestätigt“ (abwählbar) an alle Melder der Meldung.
 Melder ohne echte E-Mail (Platzhalter `@invalid.local` oder keine) bekommen
 nichts; die Rückmeldung nennt sie zum selbst Bescheid geben
 (`Polls\EntryMail`). Auf der Website sehen Melder „Die Meldung ging am … an
@@ -997,7 +1004,7 @@ sie zum Mitglied.
 
 **Technik.** Tabelle `vp_poll_entries`; Spalten `event_date`, `classes`,
 `purge_days`, `purged_at`, `dokume`, `submitted_at`, `confirmed_at` an `vp_polls`;
-`judopass`, `submitted_at` an `vp_poll_entries`. Backend-Aktionen
+`judopass`, `submitted_at`, `notified_at` an `vp_poll_entries`. Backend-Aktionen
 `vp_poll_entries_xlsx`, `vp_poll_entries_mark`, `vp_poll_entries_state`. Schnittstelle
 `POST|DELETE /polls/{id}/entries` (`starters: [...]`). Klassen-Editor im
 Backend `assets/js/poll-classes.js` (Texte aus `ClassesAdmin::texts()`).

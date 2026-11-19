@@ -292,6 +292,14 @@ Pruefung::ok( 'unverändert: bleibt gemeldet', ! empty( $g['Mia']['submitted_at'
 Pruefung::ok( 'neuer Starter: Nachmeldung', empty( $g['Lea']['submitted_at'] ) );
 Pruefung::gleich( 'nur die Nachmeldung meldet den Melder neu', $model->mark_entries_submitted( $wid, [ (int) $g['Lea']['id'] ] ), [ $gerd ] );
 $g = array_values( $g );
+$model->mark_notified( $wid, [ $anna ] );
+Pruefung::gleich( 'Mail fällig nur für Melder mit gemeldeten, noch nicht informierten Startern', $model->melder_to_notify( $wid ), [ $gerd ] );
+$model->mark_notified( $wid, [ $gerd ] );
+Pruefung::gleich( 'nach der Mail: niemand mehr fällig', $model->melder_to_notify( $wid ), [] );
+$entry->submit( $model->find( $wid ), $gerd, [ $mia, $tom, $lea13 ] );
+Pruefung::gleich( 'unverändert neu gespeichert: bleibt informiert', $model->melder_to_notify( $wid ), [] );
+Pruefung::gleich( 'Mail-Vorschau: Empfänger mit Adresse und Text', array_map( fn( $m ) => $m['email'], EntryMail::plan( $model->find( $wid ), 'sent', [ $gerd ] ) ), [ $gerd => 'gerd@example.test' ] );
+$g = $model->entries( $wid, $gerd );
 $model->mark_entries_submitted( $wid, [ (int) $g[0]['id'] ], false );
 Pruefung::ok( 'Haken wieder lösen', empty( $model->entries( $wid, $gerd )[0]['submitted_at'] ) );
 Pruefung::ok( 'CSV: Spalte „Beim Veranstalter gemeldet“', str_contains( $entry->csv( $model->find( $wid ), 'JVL' ), 'Beim Veranstalter gemeldet' ) );

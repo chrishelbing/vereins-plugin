@@ -219,9 +219,13 @@ class PollModel {
         // Was schon beim Veranstalter gemeldet ist, bleibt es – sofern Starter,
         // Klasse und Gewicht unverändert sind. Sonst ist es eine Nachmeldung.
         $gemeldet = [];
+        $info     = [];
         foreach ( $this->entries( $poll_id, $person_id ) as $alt ) {
             if ( ! empty( $alt['submitted_at'] ) ) {
                 $gemeldet[ self::entry_key( $alt ) ] = $alt['submitted_at'];
+            }
+            if ( ! empty( $alt['notified_at'] ) ) {
+                $info[ self::entry_key( $alt ) ] = $alt['notified_at'];
             }
         }
         $this->delete_entries( $poll_id, $person_id );
@@ -239,6 +243,7 @@ class PollModel {
                 'note'       => (string) ( $r['note'] ?? '' ),
                 'judopass'   => isset( $r['judopass'] ) && $r['judopass'] !== null ? (int) (bool) $r['judopass'] : null,
                 'submitted_at' => $gemeldet[ self::entry_key( $r ) ] ?? null,
+                'notified_at'  => $info[ self::entry_key( $r ) ] ?? null,
                 'created_at' => $jetzt,
             ] );
         }
@@ -272,6 +277,34 @@ class PollModel {
             }
         }
         return array_values( array_unique( $melder ) );
+    }
+
+    /**
+     * Melder, die zu mindestens einem gemeldeten Starter noch keine Mail
+     * „Meldung abgeschickt“ bekommen haben – egal, ob der Haken über die
+     * Abhakliste oder über „Gemeldet“ kam.
+     *
+     * @return int[] Personen-IDs
+     */
+    public function melder_to_notify( int $poll_id ): array {
+        $ids = [];
+        foreach ( $this->entries( $poll_id ) as $e ) {
+            if ( ! empty( $e['submitted_at'] ) && empty( $e['notified_at'] ) ) {
+                $ids[] = (int) $e['person_id'];
+            }
+        }
+        return array_values( array_unique( $ids ) );
+    }
+
+    /** Gemeldete Starter dieser Melder als „Mail bekommen“ vermerken. */
+    public function mark_notified( int $poll_id, array $melder ): void {
+        global $wpdb;
+        $jetzt = current_time( 'mysql' );
+        foreach ( $this->entries( $poll_id ) as $e ) {
+            if ( in_array( (int) $e['person_id'], $melder, true ) && ! empty( $e['submitted_at'] ) && empty( $e['notified_at'] ) ) {
+                $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'notified_at' => $jetzt ], [ 'id' => (int) $e['id'] ] );
+            }
+        }
     }
 
     /** Meldung als abgeschickt bzw. bestätigt vermerken ('submitted_at' / 'confirmed_at'). */

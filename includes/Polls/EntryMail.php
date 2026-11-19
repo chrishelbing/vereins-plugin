@@ -33,12 +33,13 @@ class EntryMail {
     }
 
     /**
-     * Mails verschicken.
+     * Wer bekäme welche Mail? Für die Vorschau im Backend und fürs Verschicken.
      *
      * @param int[] $melder Personen-IDs; leer = alle Melder dieser Meldung
-     * @return array{sent:int, skipped:string[]} Anzahl verschickter Mails, Namen ohne E-Mail
+     * @return array<int, array{name:string, email:string, subject:string, body:string}>
+     *         email = '' bei Platzhalter-Adresse oder ohne Adresse
      */
-    public static function send( array $poll, string $art, array $melder = [], string $absender = '' ): array {
+    public static function plan( array $poll, string $art, array $melder = [], string $absender = '' ): array {
         $art     = $art === 'confirmed' ? 'confirmed' : 'sent';
         $betreff = (string) Settings::get( "entry_mail_{$art}_subject", self::defaults()[ "entry_mail_{$art}_subject" ] );
         $text    = (string) Settings::get( "entry_mail_{$art}_body", self::defaults()[ "entry_mail_{$art}_body" ] );
@@ -51,20 +52,36 @@ class EntryMail {
             $je_melder = array_intersect_key( $je_melder, array_flip( $melder ) );
         }
 
+        $plan = [];
+        foreach ( $je_melder as $pid => $starter ) {
+            $p     = Person::find( $pid );
+            $name  = (string) ( $p['name'] ?? __( 'Unbekannt', 'vereins-plugin' ) );
+            $mail  = (string) ( $p['email'] ?? '' );
+            $werte = self::values( $poll, $name, $starter, $absender );
+            $plan[ $pid ] = [
+                'name'    => $name,
+                'email'   => $p && ! MemberService::is_placeholder_email( $mail ) && is_email( $mail ) ? $mail : '',
+                'subject' => self::fill( $betreff, $werte ),
+                'body'    => self::fill( $text, $werte ),
+            ];
+        }
+        return $plan;
+    }
+
+    /**
+     * Mails verschicken.
+     *
+     * @param int[] $melder Personen-IDs; leer = alle Melder dieser Meldung
+     * @return array{sent:int, skipped:string[]} Anzahl verschickter Mails, Namen ohne E-Mail
+     */
+    public static function send( array $poll, string $art, array $melder = [], string $absender = '' ): array {
         $gesendet = 0;
         $ohne     = [];
-        foreach ( $je_melder as $pid => $starter ) {
-            $p    = Person::find( $pid );
-            $mail = (string) ( $p['email'] ?? '' );
-            if ( ! $p || MemberService::is_placeholder_email( $mail ) || ! is_email( $mail ) ) {
-                $ohne[] = (string) ( $p['name'] ?? __( 'Unbekannt', 'vereins-plugin' ) );
-                continue;
-            }
-            $werte = self::values( $poll, (string) $p['name'], $starter, $absender );
-            if ( wp_mail( $mail, self::fill( $betreff, $werte ), self::fill( $text, $werte ) ) ) {
+        foreach ( self::plan( $poll, $art, $melder, $absender ) as $m ) {
+            if ( $m['email'] !== '' && wp_mail( $m['email'], $m['subject'], $m['body'] ) ) {
                 $gesendet++;
             } else {
-                $ohne[] = (string) $p['name'];
+                $ohne[] = $m['name'];
             }
         }
         return [ 'sent' => $gesendet, 'skipped' => $ohne ];

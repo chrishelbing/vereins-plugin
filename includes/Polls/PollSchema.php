@@ -99,6 +99,7 @@ class PollSchema {
         // weight leer = gewichtsnahe Gruppe, Einteilung beim Wiegen.
         // judopass: 1/0 laut Melder (nur bei DokuMe-Meldungen), NULL = nicht gefragt.
         // submitted_at: dieser Starter ist beim Veranstalter gemeldet (Abhakliste).
+        // notified_at: der Melder hat zu diesem Starter die Mail „abgeschickt“ bekommen.
         $entries = "CREATE TABLE {$prefix}vp_poll_entries (
             id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             poll_id     BIGINT UNSIGNED NOT NULL,
@@ -112,6 +113,7 @@ class PollSchema {
             note        VARCHAR(255)    NOT NULL DEFAULT '',
             judopass    TINYINT(1)      DEFAULT NULL,
             submitted_at DATETIME       DEFAULT NULL,
+            notified_at  DATETIME       DEFAULT NULL,
             created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
             KEY          poll_person (poll_id, person_id)
