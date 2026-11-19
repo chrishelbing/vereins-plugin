@@ -64,6 +64,7 @@ class PollModel {
             'classes'        => isset( $data['classes'] ) ? wp_json_encode( array_values( (array) $data['classes'] ) ) : null,
             'purge_days'     => max( 0, min( 365, (int) ( $data['purge_days'] ?? 30 ) ) ),
             'max_texts'      => max( 1, min( 10, (int) ( $data['max_texts'] ?? 3 ) ) ),
+            'dokume'         => ! empty( $data['dokume'] ) ? 1 : 0,
         ];
 
         if ( ! empty( $data['id'] ) ) {
@@ -215,6 +216,14 @@ class PollModel {
      */
     public function replace_entries( int $poll_id, int $person_id, array $rows ): void {
         global $wpdb;
+        // Was schon beim Veranstalter gemeldet ist, bleibt es – sofern Starter,
+        // Klasse und Gewicht unverändert sind. Sonst ist es eine Nachmeldung.
+        $gemeldet = [];
+        foreach ( $this->entries( $poll_id, $person_id ) as $alt ) {
+            if ( ! empty( $alt['submitted_at'] ) ) {
+                $gemeldet[ self::entry_key( $alt ) ] = $alt['submitted_at'];
+            }
+        }
         $this->delete_entries( $poll_id, $person_id );
         $jetzt = current_time( 'mysql' );
         foreach ( $rows as $r ) {
@@ -228,8 +237,48 @@ class PollModel {
                 'class_key'  => (string) $r['class_key'],
                 'weight'     => (string) $r['weight'],
                 'note'       => (string) ( $r['note'] ?? '' ),
+                'judopass'   => isset( $r['judopass'] ) && $r['judopass'] !== null ? (int) (bool) $r['judopass'] : null,
+                'submitted_at' => $gemeldet[ self::entry_key( $r ) ] ?? null,
                 'created_at' => $jetzt,
             ] );
+        }
+    }
+
+    /** Starter + Klasse + Gewicht – was beim Veranstalter als „dieselbe Meldung“ gilt. */
+    public static function entry_key( array $e ): string {
+        $n = static fn( $t ) => mb_strtolower( trim( preg_replace( '/\s+/u', ' ', (string) $t ) ) );
+        return $n( $e['first_name'] ) . '|' . $n( $e['last_name'] ) . '|' . (int) $e['birth_year'] . '|' . $n( $e['class_key'] ) . '|' . $n( $e['weight'] );
+    }
+
+    /**
+     * Starter als beim Veranstalter gemeldet abhaken (oder wieder lösen).
+     *
+     * @param int[] $ids
+     * @return int[] Personen-IDs der Melder, deren Starter neu abgehakt wurden
+     */
+    public function mark_entries_submitted( int $poll_id, array $ids, bool $gemeldet = true ): array {
+        global $wpdb;
+        $melder = [];
+        $jetzt  = current_time( 'mysql' );
+        foreach ( $this->entries( $poll_id ) as $e ) {
+            if ( ! in_array( (int) $e['id'], $ids, true ) ) {
+                continue;
+            }
+            if ( $gemeldet && empty( $e['submitted_at'] ) ) {
+                $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => $jetzt ], [ 'id' => (int) $e['id'] ] );
+                $melder[] = (int) $e['person_id'];
+            } elseif ( ! $gemeldet && ! empty( $e['submitted_at'] ) ) {
+                $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => null ], [ 'id' => (int) $e['id'] ] );
+            }
+        }
+        return array_values( array_unique( $melder ) );
+    }
+
+    /** Meldung als abgeschickt bzw. bestätigt vermerken ('submitted_at' / 'confirmed_at'). */
+    public function mark_poll( int $poll_id, string $feld ): void {
+        global $wpdb;
+        if ( in_array( $feld, [ 'submitted_at', 'confirmed_at' ], true ) ) {
+            $wpdb->update( $this->t( 'vp_polls' ), [ $feld => current_time( 'mysql' ) ], [ 'id' => $poll_id ] );
         }
     }
 

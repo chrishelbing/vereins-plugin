@@ -290,7 +290,12 @@ class PollService {
             'voters'         => $this->model->voter_count( (int) $poll['id'] ),
             'starters'       => count( $this->model->entries( (int) $poll['id'] ) ),
             'classes'        => EntryService::classes_payload( $poll ),
+            'dokume'         => ! empty( $poll['dokume'] ),
+            'submitted_at'   => ! empty( $poll['submitted_at'] ) ? $poll['submitted_at'] : null,
+            'confirmed_at'   => ! empty( $poll['confirmed_at'] ) ? $poll['confirmed_at'] : null,
             'entries'        => array_map( static fn( $e ) => [
+                'judopass'   => isset( $e['judopass'] ) && $e['judopass'] !== null ? (bool) (int) $e['judopass'] : null,
+                'submitted'  => ! empty( $e['submitted_at'] ),
                 'first_name' => $e['first_name'],
                 'last_name'  => $e['last_name'],
                 'birth_year' => (int) $e['birth_year'],

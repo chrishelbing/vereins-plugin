@@ -31,6 +31,9 @@ class PollSchema {
         //               Turnier angepasst; siehe ClassTemplates)
         //   purge_days  Meldungen so viele Tage nach dem Wettkampf löschen
         //   purged_at   wann das geschehen ist
+        //   dokume      Meldung läuft über DokuMe – Judopass wird abgefragt
+        //   submitted_at  Meldung an den Veranstalter abgeschickt (von Hand)
+        //   confirmed_at  vom Veranstalter bestätigt (von Hand)
         $polls = "CREATE TABLE {$prefix}vp_polls (
             id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             kind            ENUM('date','choice','entry','text') NOT NULL DEFAULT 'choice',
@@ -48,6 +51,9 @@ class PollSchema {
             classes         LONGTEXT        DEFAULT NULL,
             purge_days      SMALLINT UNSIGNED NOT NULL DEFAULT 30,
             purged_at       DATETIME        DEFAULT NULL,
+            dokume          TINYINT(1)      NOT NULL DEFAULT 0,
+            submitted_at    DATETIME        DEFAULT NULL,
+            confirmed_at    DATETIME        DEFAULT NULL,
             created_by      BIGINT          NOT NULL DEFAULT 0,
             created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
@@ -91,6 +97,8 @@ class PollSchema {
         // Geschlecht und Gewichtsklasse stehen nur hier, nie am Profil, und
         // werden nach dem Wettkampf gelöscht (EntryCleanup).
         // weight leer = gewichtsnahe Gruppe, Einteilung beim Wiegen.
+        // judopass: 1/0 laut Melder (nur bei DokuMe-Meldungen), NULL = nicht gefragt.
+        // submitted_at: dieser Starter ist beim Veranstalter gemeldet (Abhakliste).
         $entries = "CREATE TABLE {$prefix}vp_poll_entries (
             id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             poll_id     BIGINT UNSIGNED NOT NULL,
@@ -102,6 +110,8 @@ class PollSchema {
             class_key   VARCHAR(20)     NOT NULL,
             weight      VARCHAR(10)     NOT NULL DEFAULT '',
             note        VARCHAR(255)    NOT NULL DEFAULT '',
+            judopass    TINYINT(1)      DEFAULT NULL,
+            submitted_at DATETIME       DEFAULT NULL,
             created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
             KEY          poll_person (poll_id, person_id)

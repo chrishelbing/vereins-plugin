@@ -107,6 +107,7 @@ class EntryService {
             $key   = (string) ( $r['class_key'] ?? '' );
             $gew   = trim( (string) ( $r['weight'] ?? '' ) );
             $notiz = mb_substr( trim( sanitize_text_field( (string) ( $r['note'] ?? '' ) ) ), 0, 255 );
+            $pass  = $r['judopass'] ?? null;
 
             if ( $vor === '' || $nach === '' ) {
                 return self::row_error( $nr, __( 'Bitte Vor- und Nachnamen angeben.', 'vereins-plugin' ) );
@@ -152,6 +153,16 @@ class EntryService {
             }
             $doppelt[ $schluessel ] = true;
 
+            // Meldung über DokuMe: dort kann nur gemeldet werden, wer einen
+            // digitalen Judopass hat – lieber jetzt fragen als beim Eintragen merken.
+            $judopass = null;
+            if ( ! empty( $poll['dokume'] ) ) {
+                if ( ! in_array( (string) $pass, [ '1', '0', 'true', 'false' ], true ) && ! is_bool( $pass ) ) {
+                    return self::row_error( $nr, __( 'Bitte angeben, ob ein digitaler Judopass vorhanden ist.', 'vereins-plugin' ) );
+                }
+                $judopass = in_array( (string) $pass, [ '1', 'true' ], true ) || $pass === true ? 1 : 0;
+            }
+
             $sauber[] = [
                 'first_name' => $vor,
                 'last_name'  => $nach,
@@ -160,6 +171,7 @@ class EntryService {
                 'class_key'  => $klasse['key'],
                 'weight'     => $gew,
                 'note'       => $notiz,
+                'judopass'   => $judopass,
             ];
         }
 
@@ -250,13 +262,23 @@ class EntryService {
      */
     public function csv( array $poll, string $verein ): string {
         $kopf = [ 'Nachname', 'Vorname', 'Jahrgang', 'Geschlecht', 'Altersklasse', 'Gewichtsklasse', 'Verein', 'Melder', 'Kontakt', 'Hinweis' ];
+        $dokume = ! empty( $poll['dokume'] );
+        if ( $dokume ) {
+            $kopf[] = 'Judopass';
+        }
+        $kopf[] = 'Beim Veranstalter gemeldet';
         $out  = "\xEF\xBB\xBF" . self::csv_line( $kopf );
         foreach ( $this->list_for_orga( $poll ) as $z ) {
-            $out .= self::csv_line( [
+            $zeile = [
                 $z['last_name'], $z['first_name'], $z['birth_year'], $z['sex'] === 'w' ? 'w' : 'm',
                 $z['class_key'], $z['weight'] !== '' ? ClassTemplates::weight_label( $z['weight'] ) : 'gewichtsnah',
                 $verein, $z['is_self'] ? 'selbst' : $z['reporter'], $z['contact'], $z['note'],
-            ] );
+            ];
+            if ( $dokume ) {
+                $zeile[] = $z['judopass'] === null ? '' : ( (int) $z['judopass'] ? 'ja' : 'nein' );
+            }
+            $zeile[] = ! empty( $z['submitted_at'] ) ? mysql2date( 'd.m.Y', $z['submitted_at'] ) : '';
+            $out .= self::csv_line( $zeile );
         }
         return $out;
     }

@@ -17,6 +17,7 @@ require_once __DIR__ . '/lib/wp-stub.php';
 if ( ! function_exists( 'wp_unslash' ) )              { function wp_unslash( $v ) { return $v; } }
 if ( ! function_exists( 'sanitize_textarea_field' ) ) { function sanitize_textarea_field( $v ) { return trim( (string) $v ); } }
 if ( ! function_exists( 'wp_json_encode' ) )          { function wp_json_encode( $v ) { return json_encode( $v ); } }
+if ( ! function_exists( 'wp_tempnam' ) )             { function wp_tempnam( $n = '' ) { return tempnam( sys_get_temp_dir(), 'vp' ); } }
 
 stub_load( [
     'Core/Activator.php',
@@ -34,6 +35,8 @@ stub_load( [
     'Polls/ClassesAdmin.php',
     'Polls/EntryService.php',
     'Polls/EntryCleanup.php',
+    'Polls/BjvExport.php',
+    'Polls/EntryMail.php',
 ] );
 
 use VereinsPlugin\Core\Activator;
@@ -44,6 +47,8 @@ use VereinsPlugin\Polls\ClassTemplates;
 use VereinsPlugin\Polls\ClassesAdmin;
 use VereinsPlugin\Polls\EntryService;
 use VereinsPlugin\Polls\EntryCleanup;
+use VereinsPlugin\Polls\BjvExport;
+use VereinsPlugin\Polls\EntryMail;
 use VereinsPlugin\Members\SavedNames;
 
 stub_default_roles();
@@ -266,6 +271,78 @@ Pruefung::gleich( 'Website: Jahrgänge je Klasse', $pay['classes'][2]['years'], 
 Pruefung::ok( 'Website: keine fremden Ergebnisse', $pay['results'] === null );
 Pruefung::ok( 'Stimmen an einer Meldung abgelehnt', is_wp_error( $service->vote( $w, $anna, [ 'choices' => [ 1 ] ] ) ) );
 
+// --- Meldung beim Veranstalter: Abhakliste, abgeschickt, bestätigt ------
+echo "\nMeldung beim Veranstalter\n";
+$ids = array_map( fn( $e ) => (int) $e['id'], $model->entries( $wid ) );
+$neu = $model->mark_entries_submitted( $wid, $ids );
+sort( $neu );
+$erw = [ $gerd, $anna ];
+sort( $erw );
+Pruefung::gleich( 'Abhaken liefert die betroffenen Melder', $neu, $erw );
+Pruefung::gleich( 'zweites Abhaken: niemand neu', $model->mark_entries_submitted( $wid, $ids ), [] );
+$model->mark_poll( $wid, 'submitted_at' );
+$model->mark_poll( $wid, 'kaputt' );
+Pruefung::ok( 'Umfrage als abgeschickt vermerkt', ! empty( $model->find( $wid )['submitted_at'] ) && empty( $model->find( $wid )['confirmed_at'] ) );
+$pay = $service->payload( $model->find( $wid ), $gerd, false );
+Pruefung::ok( 'Website: Starter als gemeldet markiert', $pay['entries'][0]['submitted'] === true && ! empty( $pay['submitted_at'] ) );
+
+Pruefung::ok( 'Meldung mit neuem Starter erneut gespeichert', $entry->submit( $model->find( $wid ), $gerd, [ $mia, $tom, $lea13 ] ) === true );
+$g = array_column( $model->entries( $wid, $gerd ), null, 'first_name' );
+Pruefung::ok( 'unverändert: bleibt gemeldet', ! empty( $g['Mia']['submitted_at'] ) && ! empty( $g['Tom']['submitted_at'] ) );
+Pruefung::ok( 'neuer Starter: Nachmeldung', empty( $g['Lea']['submitted_at'] ) );
+Pruefung::gleich( 'nur die Nachmeldung meldet den Melder neu', $model->mark_entries_submitted( $wid, [ (int) $g['Lea']['id'] ] ), [ $gerd ] );
+$g = array_values( $g );
+$model->mark_entries_submitted( $wid, [ (int) $g[0]['id'] ], false );
+Pruefung::ok( 'Haken wieder lösen', empty( $model->entries( $wid, $gerd )[0]['submitted_at'] ) );
+Pruefung::ok( 'CSV: Spalte „Beim Veranstalter gemeldet“', str_contains( $entry->csv( $model->find( $wid ), 'JVL' ), 'Beim Veranstalter gemeldet' ) );
+
+// DokuMe: Judopass je Starter
+$dok = $model->find( $model->save( [ 'kind' => 'entry', 'title' => 'DokuMe-Turnier', 'status' => 'open', 'event_date' => '2027-02-06', 'classes' => PollModel::classes( $w ), 'dokume' => true ] ) );
+Pruefung::ok( 'DokuMe-Häkchen gespeichert', (int) $dok['dokume'] === 1 );
+Pruefung::ok( 'DokuMe: ohne Judopass-Angabe abgelehnt', ( $r = $entry->submit( $dok, $gerd, [ $mia ] ) ) instanceof WP_Error && str_contains( $r->get_error_message(), 'Judopass' ) );
+Pruefung::ok( 'DokuMe: mit Angabe gespeichert', $entry->submit( $dok, $gerd, [ $mia + [ 'judopass' => '1' ], array_merge( $tom, [ 'weight' => '', 'judopass' => '0' ] ) ] ) === true );
+Pruefung::gleich( 'Judopass ja/nein gespeichert', array_map( 'intval', array_column( $model->entries( $dok['id'], $gerd ), 'judopass' ) ), [ 1, 0 ] );
+Pruefung::ok( 'CSV: Spalte Judopass', str_contains( $entry->csv( $dok, 'JVL' ), '"Judopass"' ) );
+Pruefung::ok( 'ohne DokuMe: keine Spalte Judopass', ! str_contains( $entry->csv( $model->find( $wid ), 'JVL' ), 'Judopass' ) );
+Pruefung::ok( 'Website: Judopass als ja/nein', $service->payload( $dok, $gerd, false )['entries'][1]['judopass'] === false );
+$model->delete( (int) $dok['id'] );
+
+// BJV-Meldeliste als Excel
+Pruefung::gleich( 'BJV-Zeile: Name, Jahrgang, Geschlecht, AK, Gewicht', BjvExport::row_values( array_merge( $mia, [ 'class_key' => 'U11' ] ) ), [ 'Muster', 'Mia', 2017, 'w', 'U11', '-28 kg' ] );
+Pruefung::gleich( 'BJV-Zeile: gewichtsnah', BjvExport::row_values( array_merge( $tom, [ 'class_key' => 'U9', 'weight' => '' ] ) )[5], 'gewichtsnah' );
+if ( class_exists( 'ZipArchive' ) ) {
+    $xlsx = BjvExport::build( [ 'name' => 'Bezirkseinzel & Co', 'date' => '06.02.2027', 'club' => 'JVL', 'contact_person' => 'Olaf Orga', 'contact_mail' => 'olaf@example.test' ], $entry->list_for_orga( $model->find( $wid ) ) );
+    $datei = tempnam( sys_get_temp_dir(), 'bjv' );
+    file_put_contents( $datei, (string) $xlsx );
+    $zip = new ZipArchive();
+    $auf = $zip->open( $datei ) === true;
+    $blatt = $auf ? (string) $zip->getFromName( 'xl/worksheets/sheet1.xml' ) : '';
+    $mappe = $auf ? (string) $zip->getFromName( 'xl/workbook.xml' ) : '';
+    if ( $auf ) { $zip->close(); }
+    unlink( $datei );
+    Pruefung::ok( 'Excel: gültiges xlsx mit Blatt „Meldung“', $auf && str_contains( $mappe, 'name="Meldung"' ) );
+    Pruefung::ok( 'Excel: Kopf wie das BJV-Formular', str_contains( $blatt, 'Name der Veranstaltung:' ) && str_contains( $blatt, 'Kampfrichter Sonntag:' ) && str_contains( $blatt, 'Gewichtsklasse' ) );
+    Pruefung::ok( 'Excel: Veranstaltung maskiert eingetragen', str_contains( $blatt, 'Bezirkseinzel &amp; Co' ) );
+    Pruefung::ok( 'Excel: Starter eingetragen', str_contains( $blatt, '>Muster<' ) && str_contains( $blatt, '>Aktiv<' ) );
+    Pruefung::ok( 'Excel: 40 nummerierte Zeilen', str_contains( $blatt, 'r="A50"' ) );
+    $xml = new DOMDocument();
+    Pruefung::ok( 'Excel: Blatt ist wohlgeformtes XML', @$xml->loadXML( $blatt ) );
+} else {
+    echo "  (ZipArchive fehlt – Excel-Test übersprungen)\n";
+}
+
+// E-Mails an die Melder
+$werte = EntryMail::values( $model->find( $wid ), 'Gerd Gast', $model->entries( $wid, $gerd ), 'Olaf Orga' );
+Pruefung::ok( 'Mail: Platzhalter gefüllt', str_contains( EntryMail::fill( 'Hallo {name}, {wettkampf} am {datum}: {starter} – {absender}', $werte ), 'Hallo Gerd Gast, Bezirkseinzel am 06.02.2027: – Mia Muster (2017)' ) );
+Pruefung::ok( 'Mail: Vorlagen aus den Einstellungen', str_contains( EntryMail::defaults()['entry_mail_sent_body'], '{starter}' ) && str_contains( EntryMail::defaults()['entry_mail_confirmed_subject'], '{wettkampf}' ) );
+$wpdb->insert( 'wp_vp_people', [ 'display_name' => 'Ohne Mail', 'source' => 'link' ] );
+$ohne = -(int) end( $wpdb->t['wp_vp_people'] )['id'];
+$model->replace_entries( $wid, $ohne, [ array_merge( $tom, [ 'first_name' => 'Kai', 'weight' => '' ] ) ] );
+$ergebnis = EntryMail::send( $model->find( $wid ), 'sent', [ $gerd, $ohne ], 'Olaf Orga' );
+Pruefung::gleich( 'Mail „abgeschickt“: an Melder mit Adresse, ohne Adresse genannt', [ $ergebnis['sent'], implode( ',', $ergebnis['skipped'] ) ], [ 1, 'Ohne Mail' ] );
+Pruefung::gleich( 'Mail „bestätigt“: an alle Melder', EntryMail::send( $model->find( $wid ), 'confirmed' )['sent'], 2 );
+$model->delete_entries( $wid, $ohne );
+
 $model->set_status( $wid, 'closed' );
 Pruefung::ok( 'nach Meldeschluss nichts mehr', is_wp_error( $entry->submit( $model->find( $wid ), $gerd, [ $mia ] ) ) );
 
@@ -273,7 +350,7 @@ Pruefung::gleich( 'Löschtermin = Wettkampf + 30 Tage', EntryCleanup::due_date( 
 $alt = $model->save( [ 'kind' => 'entry', 'title' => 'vorbei', 'status' => 'closed', 'event_date' => '2026-06-01', 'classes' => $bjv['classes'], 'purge_days' => 30 ] );
 $model->replace_entries( $alt, $gerd, [ $mia + [ 'class_key' => 'U11' ] ] );
 Pruefung::gleich( 'Aufräumjob löscht fällige Meldungen', ( new EntryCleanup() )->run(), 1 );
-Pruefung::ok( 'vergangene Meldung leer, kommende unberührt', ! $model->entries( $alt ) && count( $model->entries( $wid ) ) === 3 );
+Pruefung::ok( 'vergangene Meldung leer, kommende unberührt', ! $model->entries( $alt ) && count( $model->entries( $wid ) ) === 4 );
 Pruefung::ok( 'als gelöscht vermerkt', ! empty( $model->find( $alt )['purged_at'] ) );
 
 $model->delete( $wid );

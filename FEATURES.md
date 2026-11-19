@@ -943,6 +943,47 @@ UTF-8 mit BOM für Excel): Nachname, Vorname, Jahrgang, Geschlecht,
 Altersklasse, Gewichtsklasse, Verein (aus Einstellungen → Vereinsname),
 Melder, Kontakt, Hinweis.
 
+**Meldung beim Veranstalter** (seit 1.23.0) – drei Schritte oben auf der
+Meldeliste:
+1. **Meldeliste holen.** „BJV-Meldeliste (Excel)“ (`Polls\BjvExport`, ohne
+   Fremdbibliothek per `ZipArchive`) baut das offizielle BJV-„Meldeformular
+   für alle Wettkämpfe“ nach: Blatt „Meldung“, Kopf (Veranstaltung, Datum,
+   meldender Verein, Ansprechpartner = angemeldeter Orga, Kontakt-Mail,
+   Kampfrichter Samstag/Sonntag – **die Kampfrichter bleiben leer**), Tabelle
+   Nr. | Name | Vorname | Jahrgang | Geschlecht | AK | Gewichtsklasse, mindestens
+   40 nummerierte Zeilen. Fehlt die PHP-Erweiterung zip, kommt ein Hinweis auf
+   die CSV. Dazu weiter die CSV (jetzt mit Spalte „Beim Veranstalter gemeldet“).
+2. **Beim Veranstalter melden** – Excel per Mail schicken oder in DokuMe
+   eintragen (DokuMe hat keinen Import). **Abhakliste**: in der Meldeliste hat
+   jeder Starter ein Häkchen „Gemeldet“ (speichern mit „Häkchen speichern“) –
+   zum Abarbeiten in DokuMe. „Meldung ist abgeschickt“ hakt alle offenen
+   Starter ab, vermerkt `vp_polls.submitted_at` und schickt (abwählbar) den
+   betroffenen Meldern die Mail „Meldung abgeschickt“ mit ihren Startern.
+   Kommt danach jemand dazu oder ändert Klasse/Gewicht, ist der Starter
+   **Nachmeldung** (gelb, Zähler, Knopf „Nachmeldung ist abgeschickt“ – Mail
+   nur an die Melder der Nachmeldung). Unveränderte Starter behalten beim
+   erneuten Speichern ihren Haken (`PollModel::entry_key()`: Name, Jahrgang,
+   Klasse, Gewicht).
+3. **Bestätigung vom Veranstalter** – „Meldung ist bestätigt“ vermerkt
+   `confirmed_at` und schickt (abwählbar) allen Meldern die Mail „Meldung
+   bestätigt“.
+Melder ohne echte E-Mail (Platzhalter `@invalid.local` oder keine) bekommen
+nichts; die Rückmeldung nennt sie zum selbst Bescheid geben
+(`Polls\EntryMail`). Auf der Website sehen Melder „Die Meldung ging am … an
+den Veranstalter“ bzw. „… bestätigt“, an ihren Startern „gemeldet“ und nach
+dem Abschicken den Hinweis auf Nachmeldungen.
+
+**Mail-Vorlagen** (Einstellungen → „Wettkampfmeldung: E-Mails an die Melder“):
+Betreff und Text je für „abgeschickt“ und „bestätigt“, Platzhalter `{name}`,
+`{wettkampf}`, `{datum}`, `{starter}` (Liste der eigenen Starter), `{verein}`,
+`{absender}` (wer im Backend geklickt hat). Leer = mitgelieferte Vorlage.
+
+**Meldung über DokuMe** (seit 1.23.0): Häkchen „Gemeldet wird über DokuMe –
+Judopass abfragen“ an der Wettkampfmeldung (`vp_polls.dokume`). Dann fragt das
+Formular je Starter „Digitaler Judopass: vorhanden / nicht vorhanden“ (Pflicht,
+`vp_poll_entries.judopass`); Meldeliste und CSV zeigen die Spalte, Starter ohne
+Pass sind rot gezählt – in DokuMe nur mit Pass meldbar.
+
 **Löschen nach dem Wettkampf** (`Polls\EntryCleanup`, täglich 4:00): die
 Starter einer Meldung werden „Meldungen löschen … Tage nach dem Wettkampf“
 (Vorgabe 30, 0 = nie) entfernt, die Umfrage bleibt mit Vermerk stehen.
@@ -955,7 +996,9 @@ Wird eine Person gelöscht, gehen sie mit; wird ein Gast aufgenommen, wandern
 sie zum Mitglied.
 
 **Technik.** Tabelle `vp_poll_entries`; Spalten `event_date`, `classes`,
-`purge_days`, `purged_at` an `vp_polls`. Schnittstelle
+`purge_days`, `purged_at`, `dokume`, `submitted_at`, `confirmed_at` an `vp_polls`;
+`judopass`, `submitted_at` an `vp_poll_entries`. Backend-Aktionen
+`vp_poll_entries_xlsx`, `vp_poll_entries_mark`, `vp_poll_entries_state`. Schnittstelle
 `POST|DELETE /polls/{id}/entries` (`starters: [...]`). Klassen-Editor im
 Backend `assets/js/poll-classes.js` (Texte aus `ClassesAdmin::texts()`).
 

@@ -355,15 +355,26 @@
         }
 
         var hinweise = [T.entryPrivacy];
+        if (p.dokume) { hinweise.push(T.dokumeNote); }
         if (p.login_required) { hinweise.push(T.loginOnly); }
         box.appendChild(el('p', 'vp-poll__note', hinweise.join(' ')));
+
+        // Stand der Meldung beim Veranstalter (setzt das Orgateam von Hand).
+        if (p.confirmed_at) {
+            box.appendChild(el('p', 'vp-entry__state is-confirmed', fmt(T.entryConfirmed, dayText(p.confirmed_at))));
+        } else if (p.submitted_at) {
+            box.appendChild(el('p', 'vp-entry__state', fmt(T.entrySubmitted, dayText(p.submitted_at))));
+        }
+        if (p.submitted_at && p.open) { box.appendChild(el('p', 'vp-poll__note', T.entryLate)); }
 
         if (!p.open) {
             if (p.entries.length) {
                 box.appendChild(el('h4', '', T.yourEntry));
                 var ul = el('ul', 'vp-entry__mine');
                 p.entries.forEach(function (e) {
-                    ul.appendChild(el('li', '', e.first_name + ' ' + e.last_name + ' (' + e.birth_year + ') – ' + e.class_key + ' ' + e.sex + ', ' + weightText(e.weight)));
+                    var li = el('li', '', e.first_name + ' ' + e.last_name + ' (' + e.birth_year + ') – ' + e.class_key + ' ' + e.sex + ', ' + weightText(e.weight));
+                    if (e.submitted) { li.appendChild(el('span', 'vp-entry__badge', T.submittedBadge)); }
+                    ul.appendChild(li);
                 });
                 box.appendChild(ul);
             }
@@ -419,6 +430,10 @@
             var gewicht = sel('is-weight', T.weightClass, [], '');
             var naehe = el('p', 'vp-entry__near', T.nearText);
             var notiz = text('is-note', T.note, e.note, 255);
+            // Bei Meldung über DokuMe: nur Judoka mit digitalem Judopass sind meldbar.
+            var pass = p.dokume ? sel('is-pass', T.judopass, [['', '–'], ['1', T.passYes], ['0', T.passNo]],
+                e.judopass === true ? '1' : (e.judopass === false ? '0' : (e.judopass || ''))) : null;
+            row._submitted = !!e.submitted;
             var weg = el('button', 'vp-entry__remove', T.removeStarter);
             weg.type = 'button';
             weg.addEventListener('click', function () {
@@ -439,7 +454,7 @@
                 var d = row._get();
                 var belegt = classesOf(d);
                 var frei = eligible(p, d.birth_year, d.sex).filter(function (c) { return belegt.indexOf(c.key) === -1; })[0];
-                var neu = addRow({ first_name: d.first_name, last_name: d.last_name, birth_year: d.birth_year, sex: d.sex, class_key: frei ? frei.key : '' }, row);
+                var neu = addRow({ first_name: d.first_name, last_name: d.last_name, birth_year: d.birth_year, sex: d.sex, judopass: d.judopass, class_key: frei ? frei.key : '' }, row);
                 neu.querySelector('.is-weight select').focus();
             });
 
@@ -493,6 +508,7 @@
 
             [vor, nach, jg, sex, klasse, gewicht].forEach(function (f) { row.appendChild(f.label); });
             row.appendChild(naehe);
+            if (pass) { row.appendChild(pass.label); }
             row.appendChild(notiz.label);
             var knoepfe = el('div', 'vp-entry__rowactions');
             knoepfe.appendChild(zweit);
@@ -503,7 +519,8 @@
                 return {
                     first_name: vor.input.value.trim(), last_name: nach.input.value.trim(),
                     birth_year: parseInt(jg.input.value, 10) || 0, sex: sex.input.value,
-                    class_key: klasse.input.value, weight: gewicht.input.value, note: notiz.input.value.trim()
+                    class_key: klasse.input.value, weight: gewicht.input.value, note: notiz.input.value.trim(),
+                    judopass: pass ? pass.input.value : ''
                 };
             };
             row._empty = function () { return !vor.input.value.trim() && !nach.input.value.trim(); };
@@ -538,7 +555,9 @@
 
         function nummern() {
             Array.prototype.forEach.call(rows.children, function (r, i) {
-                r.querySelector('legend').textContent = fmt(T.starterNo, i + 1);
+                var lg = r.querySelector('legend');
+                lg.textContent = fmt(T.starterNo, i + 1);
+                if (r._submitted) { lg.appendChild(el('span', 'vp-entry__badge', T.submittedBadge)); }
             });
         }
 

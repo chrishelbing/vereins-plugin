@@ -170,6 +170,34 @@ class SettingsPage {
                         <p class="description"><?php esc_html_e( 'Betrifft nur Gäste über Terminlink und wartende Registrierungen (vp_people), nie aufgenommene Mitglieder. 0 = nie automatisch löschen.', 'vereins-plugin' ); ?></p>
                     </div>
 
+                    <h2><?php esc_html_e( 'Wettkampfmeldung: E-Mails an die Melder', 'vereins-plugin' ); ?></h2>
+                    <p class="description" style="max-width:60em;">
+                        <?php esc_html_e( 'Diese Mails verschickt das Orgateam von der Meldeliste aus, wenn die Meldung an den Veranstalter abgeschickt bzw. vom Veranstalter bestätigt wurde. Jeder Melder bekommt nur seine eigenen Starter.', 'vereins-plugin' ); ?>
+                        <br><?php esc_html_e( 'Platzhalter:', 'vereins-plugin' ); ?>
+                        <code>{name}</code> <?php esc_html_e( 'Melder', 'vereins-plugin' ); ?> ·
+                        <code>{wettkampf}</code> <?php esc_html_e( 'Titel', 'vereins-plugin' ); ?> ·
+                        <code>{datum}</code> <?php esc_html_e( 'Wettkampftag', 'vereins-plugin' ); ?> ·
+                        <code>{starter}</code> <?php esc_html_e( 'Liste der Starter mit Klasse und Gewicht', 'vereins-plugin' ); ?> ·
+                        <code>{verein}</code> ·
+                        <code>{absender}</code> <?php esc_html_e( 'wer die Mail auslöst', 'vereins-plugin' ); ?>.
+                        <?php esc_html_e( 'Ein leeres Feld setzt den Standardtext wieder ein.', 'vereins-plugin' ); ?>
+                    </p>
+                    <?php foreach ( [
+                        'sent'      => __( 'Meldung abgeschickt', 'vereins-plugin' ),
+                        'confirmed' => __( 'Meldung bestätigt', 'vereins-plugin' ),
+                    ] as $art => $titel ) : ?>
+                        <h3 style="margin-bottom:6px;"><?php echo esc_html( $titel ); ?></h3>
+                        <div class="vp-field">
+                            <label for="vp-mail-<?php echo esc_attr( $art ); ?>-subject"><?php esc_html_e( 'Betreff', 'vereins-plugin' ); ?></label>
+                            <input type="text" class="large-text" id="vp-mail-<?php echo esc_attr( $art ); ?>-subject" name="entry_mail_<?php echo esc_attr( $art ); ?>_subject"
+                                   value="<?php echo esc_attr( $settings[ "entry_mail_{$art}_subject" ] ); ?>">
+                        </div>
+                        <div class="vp-field">
+                            <label for="vp-mail-<?php echo esc_attr( $art ); ?>-body"><?php esc_html_e( 'Text', 'vereins-plugin' ); ?></label>
+                            <textarea class="large-text" rows="9" id="vp-mail-<?php echo esc_attr( $art ); ?>-body" name="entry_mail_<?php echo esc_attr( $art ); ?>_body"><?php echo esc_textarea( $settings[ "entry_mail_{$art}_body" ] ); ?></textarea>
+                        </div>
+                    <?php endforeach; ?>
+
                     <p class="submit">
                         <button type="submit" class="button button-primary"><?php esc_html_e( 'Speichern', 'vereins-plugin' ); ?></button>
                     </p>
@@ -461,7 +489,19 @@ class SettingsPage {
             wp_die( esc_html__( 'Keine Berechtigung.', 'vereins-plugin' ) );
         }
 
+        $vorgabe = Settings::defaults();
+        $mail    = static function ( string $key, bool $text ) use ( $vorgabe ): string {
+            $wert = wp_unslash( (string) ( $_POST[ $key ] ?? '' ) );
+            $wert = $text ? sanitize_textarea_field( $wert ) : sanitize_text_field( $wert );
+            return trim( $wert ) !== '' ? $wert : (string) $vorgabe[ $key ];
+        };
+
         Settings::update( [
+            'entry_mail_sent_subject'      => $mail( 'entry_mail_sent_subject', false ),
+            'entry_mail_sent_body'         => $mail( 'entry_mail_sent_body', true ),
+            'entry_mail_confirmed_subject' => $mail( 'entry_mail_confirmed_subject', false ),
+            'entry_mail_confirmed_body'    => $mail( 'entry_mail_confirmed_body', true ),
+
             'sender_name'      => sanitize_text_field( $_POST['sender_name'] ?? '' ),
             'notify_email'     => sanitize_email( $_POST['notify_email'] ?? '' ),
             'require_approval' => ! empty( $_POST['require_approval'] ) ? 1 : 0,

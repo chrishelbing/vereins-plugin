@@ -124,6 +124,12 @@
 .vp-entry__remove { justify-self: start; grid-column: 1 / -1; }
 .vp-entry__add { margin-top: .75rem; }
 .vp-entry__mine { margin: 0; padding-left: 1.2rem; }
+.vp-entry__state { margin: 0 0 .75rem; padding: .5rem .75rem; border-radius: 8px; background: var(--vp-poll-soft); font-size: .9rem; }
+.vp-entry__state.is-confirmed { background: var(--vp-c-tint, #eff6ff); }
+.vp-entry__badge {
+    display: inline-block; margin-left: .5rem; padding: .05rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 600;
+    background: var(--vp-c-tint-2, #dbeafe); color: var(--vp-c-ink, #111827); vertical-align: middle;
+}
 
 /* Ideensammlung --------------------------------------------------------- */
 .vp-ideas__form textarea { font: inherit; padding: .5rem; border: 1px solid var(--vp-poll-border); border-radius: 6px; resize: vertical; color: inherit; }
