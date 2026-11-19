@@ -1054,14 +1054,12 @@ class PollsAdmin {
                         <a class="button button-primary" href="<?php echo esc_url( $xlsx ); ?>"><?php esc_html_e( 'BJV-Meldeliste (Excel)', 'vereins-plugin' ); ?></a>
                         <a class="button" href="<?php echo esc_url( $csv ); ?>"><?php esc_html_e( 'Alles als CSV', 'vereins-plugin' ); ?></a></li>
                     <li><?php esc_html_e( 'Excel (Kampfrichter ergänzen) an den Veranstalter schicken – oder die Starter in DokuMe eintragen.', 'vereins-plugin' ); ?></li>
-                    <li><?php esc_html_e( 'Unten abhaken, wer gemeldet ist, und „Als gemeldet speichern und Melder informieren“. Die Leiste darunter zeigt vorher, wer eine Mail bekommt.', 'vereins-plugin' ); ?>
-                        <a href="#vp-abhaken"><?php esc_html_e( 'Zur Liste', 'vereins-plugin' ); ?></a></li>
+                    <li><?php esc_html_e( 'Unten abhaken, wer gemeldet ist, und „Als gemeldet speichern und Melder informieren“. Die Leiste darunter zeigt vorher, wer eine Mail bekommt.', 'vereins-plugin' ); ?></li>
                 </ol>
             <?php else : ?>
                 <?php if ( $offen ) : ?>
                     <h2><?php echo esc_html( sprintf( _n( 'Nachmeldung: %d Starter noch nicht gemeldet', 'Nachmeldung: %d Starter noch nicht gemeldet', count( $offen ), 'vereins-plugin' ), count( $offen ) ) ); ?></h2>
-                    <p><?php esc_html_e( 'Gelb und ohne Haken in der Liste. Beim Veranstalter nachmelden, dann abhaken und „Speichern und Melder informieren“. Danach braucht die Nachmeldung wieder eine Bestätigung.', 'vereins-plugin' ); ?>
-                        <a href="#vp-abhaken"><?php esc_html_e( 'Zur Liste', 'vereins-plugin' ); ?></a></p>
+                    <p><?php esc_html_e( 'Gelb und ohne Haken in der Liste. Beim Veranstalter nachmelden, dann abhaken und „Speichern und Melder informieren“. Danach braucht die Nachmeldung wieder eine Bestätigung.', 'vereins-plugin' ); ?></p>
                 <?php endif; ?>
                 <?php if ( $warten ) : ?>
                     <h2><?php echo esc_html( sprintf( _n( 'Bestätigung vom Veranstalter: %d Starter wartet', 'Bestätigung vom Veranstalter: %d Starter warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h2>
