@@ -425,6 +425,47 @@ class PollModel {
     }
 
     /**
+     * Status eines Starters von Hand setzen (Korrektur durchs Orgateam):
+     * open = nicht gemeldet, submitted = gemeldet, notified = gemeldet und
+     * Melder informiert, confirmed = bestätigt. Vorhandene Zeitstempel bleiben.
+     */
+    public function set_entry_status( int $poll_id, int $entry_id, string $status ): void {
+        global $wpdb;
+        $stufe = array_search( $status, [ 'open', 'submitted', 'notified', 'confirmed' ], true );
+        if ( $stufe === false ) {
+            return;
+        }
+        $jetzt = current_time( 'mysql' );
+        foreach ( $this->entries( $poll_id ) as $e ) {
+            if ( (int) $e['id'] !== $entry_id ) {
+                continue;
+            }
+            $wpdb->update( $this->t( 'vp_poll_entries' ), [
+                'submitted_at' => $stufe >= 1 ? ( $e['submitted_at'] ?: $jetzt ) : null,
+                'notified_at'  => $stufe >= 2 ? ( $e['notified_at'] ?: $jetzt ) : null,
+                'confirmed_at' => $stufe >= 3 ? ( $e['confirmed_at'] ?: $jetzt ) : null,
+            ], [ 'id' => $entry_id ] );
+        }
+    }
+
+    /** Nur Korrektur (z. B. Tippfehler): Felder ändern, Status und Vermerke bleiben. */
+    public function correct_entry( int $entry_id, array $r ): void {
+        global $wpdb;
+        $wpdb->update( $this->t( 'vp_poll_entries' ), array_intersect_key( $r, array_flip( [ 'first_name', 'last_name', 'birth_year', 'sex', 'class_key', 'weight', 'note', 'judopass' ] ) ), [ 'id' => $entry_id ] );
+    }
+
+    /** Status eines Starters als Wort (siehe set_entry_status). */
+    public static function entry_status( array $e ): string {
+        if ( ! empty( $e['confirmed_at'] ) ) {
+            return 'confirmed';
+        }
+        if ( empty( $e['submitted_at'] ) ) {
+            return 'open';
+        }
+        return ! empty( $e['notified_at'] ) ? 'notified' : 'submitted';
+    }
+
+    /**
      * Meldestatus zurücksetzen: keine Haken, keine Vermerke, keine offenen
      * Abmeldungen – die Starter selbst bleiben. Für Tests oder einen Neuanfang.
      */

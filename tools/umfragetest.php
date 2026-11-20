@@ -362,6 +362,17 @@ $model->reset_entry_status( $um );
 $r = $model->entries( $um );
 Pruefung::ok( 'Zurücksetzen: Starter bleiben, ohne Haken und Vermerke', count( $r ) === 1 && empty( $r[0]['submitted_at'] ) && $r[0]['prev_weight'] === null );
 Pruefung::ok( 'Zurücksetzen: Abmeldungen und Meldestatus weg', $model->withdrawn_entries( $um ) === [] && empty( $model->find( $um )['submitted_at'] ) );
+// Orgateam korrigiert
+$model->replace_entries( $um, $gerd, [ $mia ] );
+$x = $model->entries( $um, $gerd )[0];
+$model->set_entry_status( $um, (int) $x['id'], 'confirmed' );
+Pruefung::gleich( 'Status von Hand: bestätigt', PollModel::entry_status( $model->entries( $um, $gerd )[0] ), 'confirmed' );
+$model->set_entry_status( $um, (int) $x['id'], 'submitted' );
+Pruefung::gleich( 'Status von Hand zurück: gemeldet, nicht informiert', PollModel::entry_status( $model->entries( $um, $gerd )[0] ), 'submitted' );
+$model->correct_entry( (int) $x['id'], [ 'first_name' => 'Mira' ] );
+$x = $model->entries( $um, $gerd )[0];
+Pruefung::ok( 'Korrektur: Name geändert, Status bleibt', $x['first_name'] === 'Mira' && ! empty( $x['submitted_at'] ) );
+Pruefung::ok( 'Prüfung fürs Orgateam: falsches Gewicht abgelehnt', ( new EntryService( $model ) )->validate_rows( $model->find( $um ), $gerd, [ array_merge( $mia, [ 'class_key' => 'U11', 'weight' => '-99' ] ) ] ) instanceof WP_Error );
 $model->delete( $um );
 
 // DokuMe: Judopass je Starter

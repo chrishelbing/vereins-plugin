@@ -37,6 +37,7 @@ class PollsAdmin {
         add_action( 'wp_ajax_vp_poll_entries_tick', [ $this, 'ajax_tick' ] );
         add_action( 'admin_post_vp_poll_entries_state', [ $this, 'handle_state' ] );
         add_action( 'admin_post_vp_poll_entries_reset', [ $this, 'handle_reset' ] );
+        add_action( 'admin_post_vp_poll_entry_edit', [ $this, 'handle_entry_edit' ] );
         add_action( 'admin_post_vp_delete_poll_text', [ $this, 'handle_delete_text' ] );
         add_action( 'admin_post_vp_poll_to_choice',   [ $this, 'handle_to_choice' ] );
     }
@@ -846,7 +847,99 @@ class PollsAdmin {
         if ( $haupt_am !== '' || $ab || array_filter( $liste, static fn( $z ) => ! empty( $z['submitted_at'] ) ) ) {
             $this->render_reset( $poll );
         }
+        $this->render_edit_dialog( $poll );
     }
+
+    /**
+     * Ein Dialog für alle Starter: bearbeiten, Status korrigieren, entfernen.
+     * Die Zeilen tragen ihre Daten in data-edit; das Script füllt den Dialog.
+     */
+    private function render_edit_dialog( array $poll ): void {
+        $id      = (int) $poll['id'];
+        $klassen = array_map( static fn( $c ) => [ 'key' => $c['key'], 'sex' => $c['sex'], 'near' => ! empty( $c['near'] ), 'm' => array_values( (array) $c['m'] ), 'w' => array_values( (array) $c['w'] ) ], PollModel::classes( $poll ) );
+        $status  = [
+            'open'      => __( 'nicht gemeldet', 'vereins-plugin' ),
+            'submitted' => __( 'gemeldet – Melder noch nicht informiert', 'vereins-plugin' ),
+            'notified'  => __( 'gemeldet und Melder informiert', 'vereins-plugin' ),
+            'confirmed' => __( 'bestätigt', 'vereins-plugin' ),
+        ];
+        ?>
+        <dialog class="vp-informdlg" id="vp-edit-entry">
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <input type="hidden" name="action" value="vp_poll_entry_edit">
+                <input type="hidden" name="id" value="<?php echo $id; ?>">
+                <input type="hidden" name="entry" value="">
+                <input type="hidden" name="old_status" value="">
+                <?php wp_nonce_field( 'vp_poll_entry_edit_' . $id ); ?>
+                <h2 style="margin-top:0;"><?php esc_html_e( 'Starter bearbeiten', 'vereins-plugin' ); ?></h2>
+                <p class="description" data-edit-reporter></p>
+                <table class="form-table" role="presentation" style="margin-top:0;">
+                    <tr><th><label for="vp-e-first"><?php esc_html_e( 'Vorname', 'vereins-plugin' ); ?></label></th><td><input id="vp-e-first" name="first_name" class="regular-text" required></td></tr>
+                    <tr><th><label for="vp-e-last"><?php esc_html_e( 'Nachname', 'vereins-plugin' ); ?></label></th><td><input id="vp-e-last" name="last_name" class="regular-text" required></td></tr>
+                    <tr><th><label for="vp-e-year"><?php esc_html_e( 'Jahrgang', 'vereins-plugin' ); ?></label></th><td><input id="vp-e-year" name="birth_year" type="number" min="1920" max="2100" style="width:7em;" required>
+                        <select name="sex" aria-label="<?php esc_attr_e( 'Geschlecht', 'vereins-plugin' ); ?>"><option value="m"><?php esc_html_e( 'männlich', 'vereins-plugin' ); ?></option><option value="w"><?php esc_html_e( 'weiblich', 'vereins-plugin' ); ?></option></select></td></tr>
+                    <tr><th><label for="vp-e-class"><?php esc_html_e( 'Klasse / Gewicht', 'vereins-plugin' ); ?></label></th><td><select id="vp-e-class" name="class_key"></select> <select name="weight" aria-label="<?php esc_attr_e( 'Gewicht', 'vereins-plugin' ); ?>"></select></td></tr>
+                    <?php if ( ! empty( $poll['dokume'] ) ) : ?>
+                        <tr><th><label for="vp-e-pass"><?php esc_html_e( 'Digitaler Judopass', 'vereins-plugin' ); ?></label></th><td><select id="vp-e-pass" name="judopass"><option value="1"><?php esc_html_e( 'vorhanden', 'vereins-plugin' ); ?></option><option value="0"><?php esc_html_e( 'nicht vorhanden', 'vereins-plugin' ); ?></option></select></td></tr>
+                    <?php endif; ?>
+                    <tr><th><label for="vp-e-note"><?php esc_html_e( 'Hinweis', 'vereins-plugin' ); ?></label></th><td><input id="vp-e-note" name="note" class="regular-text"></td></tr>
+                    <tr><th><label for="vp-e-status"><?php esc_html_e( 'Status', 'vereins-plugin' ); ?></label></th><td><select id="vp-e-status" name="status">
+                        <?php foreach ( $status as $k => $t ) : ?><option value="<?php echo esc_attr( $k ); ?>"><?php echo esc_html( $t ); ?></option><?php endforeach; ?>
+                    </select><p class="description"><?php esc_html_e( 'Zum Korrigieren – es gehen keine E-Mails raus.', 'vereins-plugin' ); ?></p></td></tr>
+                </table>
+                <p><label><input type="checkbox" name="correct" value="1">
+                    <?php esc_html_e( 'Nur Korrektur (z. B. Tippfehler) – beim Veranstalter ändert sich nichts, der Status bleibt.', 'vereins-plugin' ); ?></label><br>
+                    <span class="description"><?php esc_html_e( 'Ohne Haken läuft eine Änderung an einem schon gemeldeten Starter als Ummeldung (Gewicht) bzw. als Ab- und Nachmeldung (Name, Jahrgang, Klasse).', 'vereins-plugin' ); ?></span></p>
+                <div class="vp-markbar__actions">
+                    <button class="button button-primary" name="op" value="save"><?php esc_html_e( 'Speichern', 'vereins-plugin' ); ?></button>
+                    <button class="button button-link-delete" name="op" value="remove" formnovalidate
+                        onclick="return confirm(<?php echo esc_attr( wp_json_encode( __( 'Starter entfernen? War er schon gemeldet, läuft das als Abmeldung beim Veranstalter.', 'vereins-plugin' ) ) ); ?>);"><?php esc_html_e( 'Starter entfernen', 'vereins-plugin' ); ?></button>
+                    <button type="button" class="button-link" data-edit-close><?php esc_html_e( 'Abbrechen', 'vereins-plugin' ); ?></button>
+                </div>
+            </form>
+        </dialog>
+        <script>
+        (function () {
+            var dlg = document.getElementById('vp-edit-entry');
+            if (!dlg) { return; }
+            var K = <?php echo wp_json_encode( array_values( $klassen ) ); ?>;
+            var T = <?php echo wp_json_encode( [ 'near' => __( 'gewichtsnah', 'vereins-plugin' ), 'by' => __( 'Gemeldet von %s', 'vereins-plugin' ) ] ); ?>;
+            var f = dlg.querySelector('form');
+            var el = function (n) { return f.elements[n]; };
+            function klassen(sel) {
+                var sex = el('sex').value, c = el('class_key');
+                c.textContent = '';
+                K.forEach(function (k) { if (k.sex === 'mw' || k.sex === sex) { c.add(new Option(k.key, k.key)); } });
+                if (sel) { c.value = sel; }
+            }
+            function gewichte(sel) {
+                var k = K.filter(function (x) { return x.key === el('class_key').value; })[0], g = el('weight');
+                g.textContent = '';
+                if (!k || k.near) { g.add(new Option(T.near, '')); g.value = ''; return; }
+                (k[el('sex').value] || []).forEach(function (w) { g.add(new Option((w.charAt(0) === '+' ? '+' : '−') + w.slice(1) + ' kg', w)); });
+                if (sel !== undefined) { g.value = sel; }
+            }
+            el('sex').addEventListener('change', function () { klassen(el('class_key').value); gewichte(); });
+            el('class_key').addEventListener('change', function () { gewichte(); });
+            document.addEventListener('click', function (ev) {
+                var b = ev.target.closest('[data-edit]');
+                if (!b) { return; }
+                var d = JSON.parse(b.dataset.edit);
+                ['entry', 'first_name', 'last_name', 'birth_year', 'sex', 'note', 'status'].forEach(function (n) { el(n).value = d[n]; });
+                el('old_status').value = d.status;
+                if (el('judopass') && d.judopass !== null) { el('judopass').value = String(d.judopass); }
+                el('correct').checked = false;
+                klassen(d.class_key);
+                gewichte(d.weight);
+                dlg.querySelector('[data-edit-reporter]').textContent = T.by.replace('%s', d.reporter);
+                dlg.showModal();
+            });
+            dlg.querySelector('[data-edit-close]').addEventListener('click', function () { dlg.close(); });
+        })();
+        </script>
+        <?php
+    }
+
 
     /** „Meldestatus zurücksetzen“ – eingeklappt, mit Rückfrage. */
     private function render_reset( array $poll ): void {
@@ -1087,7 +1180,13 @@ class PollsAdmin {
             'changes'   => __( 'Änderungen abgeschlossen.', 'vereins-plugin' ),
             'confirmed' => __( 'Bestätigung vermerkt.', 'vereins-plugin' ),
             'reset'     => __( 'Meldestatus zurückgesetzt.', 'vereins-plugin' ),
+            'edited'    => __( 'Starter gespeichert.', 'vereins-plugin' ),
+            'removed'   => __( 'Starter entfernt.', 'vereins-plugin' ),
         ];
+        if ( $msg === 'edit_error' ) {
+            echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( sanitize_text_field( wp_unslash( rawurldecode( (string) ( $_GET['vp_err'] ?? '' ) ) ) ) ) . '</p></div>';
+            return;
+        }
         if ( ! isset( $texte[ $msg ] ) ) {
             return;
         }
@@ -1339,7 +1438,14 @@ class PollsAdmin {
                     <?php if ( $tick ) : ?>
                         <td style="text-align:center;"><input type="checkbox" data-tick value="<?php echo (int) $z['id']; ?>" data-kind="<?php echo $ab ? 'withdrawn' : 'entry'; ?>" data-person="<?php echo (int) $z['person_id']; ?>" data-first="<?php echo esc_attr( $z['first_name'] ); ?>" data-notified="<?php echo $b ? '1' : '0'; ?>" <?php checked( $a ); ?> <?php disabled( $b ); ?> aria-label="<?php echo esc_attr( $ab ? __( 'beim Veranstalter abgemeldet', 'vereins-plugin' ) : __( 'beim Veranstalter gemeldet', 'vereins-plugin' ) ); ?>"></td>
                     <?php endif; ?>
-                    <td><strong class="<?php echo $ab ? 'vp-strike' : ''; ?>"><?php echo esc_html( $z['last_name'] ); ?>, <?php echo esc_html( $z['first_name'] ); ?></strong></td>
+                    <td><strong class="<?php echo $ab ? 'vp-strike' : ''; ?>"><?php echo esc_html( $z['last_name'] ); ?>, <?php echo esc_html( $z['first_name'] ); ?></strong>
+                        <?php if ( ! $ab ) : ?>
+                            <br><button type="button" class="button-link" style="font-size:12px;" data-edit="<?php echo esc_attr( wp_json_encode( [
+                                'entry' => (int) $z['id'], 'first_name' => $z['first_name'], 'last_name' => $z['last_name'], 'birth_year' => (int) $z['birth_year'],
+                                'sex' => $z['sex'], 'class_key' => $z['class_key'], 'weight' => $z['weight'], 'note' => $z['note'],
+                                'judopass' => isset( $z['judopass'] ) ? (int) $z['judopass'] : null, 'status' => PollModel::entry_status( $z ), 'reporter' => $z['reporter'],
+                            ] ) ); ?>"><?php esc_html_e( 'Bearbeiten', 'vereins-plugin' ); ?></button>
+                        <?php endif; ?></td>
                     <td><?php echo (int) $z['birth_year']; ?></td>
                     <td><?php if ( ( $z['art'] ?? '' ) === 'changed' || ( ! $tick && $z['prev_weight'] !== null ) ) : ?>
                             <span class="vp-strike"><?php echo $gewicht( (string) $z['prev_weight'] ); // phpcs:ignore ?></span> → <strong><?php echo $gewicht( $z['weight'] ); // phpcs:ignore ?></strong>
@@ -1585,6 +1691,78 @@ class PollsAdmin {
     }
 
     /** „Meldung ist abgeschickt“ / „… bestätigt“ – mit Mail an die Melder. */
+    /** Orgateam: Starter bearbeiten, Status korrigieren oder entfernen. */
+    public function handle_entry_edit(): void {
+        $id = (int) ( $_POST['id'] ?? 0 );
+        check_admin_referer( 'vp_poll_entry_edit_' . $id );
+        $poll = $this->entry_poll_or_die( $id );
+        $eid  = (int) ( $_POST['entry'] ?? 0 );
+        $ziel = null;
+        foreach ( $this->model->entries( $id ) as $e ) {
+            if ( (int) $e['id'] === $eid ) {
+                $ziel = $e;
+            }
+        }
+        if ( ! $ziel ) {
+            wp_die( esc_html__( 'Starter nicht gefunden.', 'vereins-plugin' ), 404 );
+        }
+        $pid    = (int) $ziel['person_id'];
+        $zeilen = $this->model->entries( $id, $pid );
+        $roh    = static fn( $e ) => array_intersect_key( $e, array_flip( [ 'first_name', 'last_name', 'birth_year', 'sex', 'class_key', 'weight', 'note', 'judopass' ] ) );
+
+        // Entfernen: wie wenn der Melder ihn streicht – schon Gemeldetes wird Abmeldung.
+        if ( ( $_POST['op'] ?? '' ) === 'remove' ) {
+            $rest = array_values( array_map( $roh, array_filter( $zeilen, static fn( $e ) => (int) $e['id'] !== $eid ) ) );
+            $this->model->replace_entries( $id, $pid, $rest );
+            wp_safe_redirect( $this->url( [ 'ergebnis' => $id, 'msg' => 'removed' ] ) );
+            exit;
+        }
+
+        $neu = [
+            'first_name' => wp_unslash( (string) ( $_POST['first_name'] ?? '' ) ),
+            'last_name'  => wp_unslash( (string) ( $_POST['last_name'] ?? '' ) ),
+            'birth_year' => (int) ( $_POST['birth_year'] ?? 0 ),
+            'sex'        => (string) ( $_POST['sex'] ?? '' ),
+            'class_key'  => wp_unslash( (string) ( $_POST['class_key'] ?? '' ) ),
+            'weight'     => (string) ( $_POST['weight'] ?? '' ),
+            'note'       => wp_unslash( (string) ( $_POST['note'] ?? '' ) ),
+            'judopass'   => isset( $_POST['judopass'] ) ? (string) $_POST['judopass'] : ( $ziel['judopass'] ?? null ),
+        ];
+        $alle = [];
+        $pos  = 0;
+        foreach ( array_values( $zeilen ) as $i => $e ) {
+            $alle[] = (int) $e['id'] === $eid ? $neu : $roh( $e );
+            if ( (int) $e['id'] === $eid ) {
+                $pos = $i;
+            }
+        }
+        $sauber = ( new EntryService( $this->model ) )->validate_rows( $poll, $pid, $alle );
+        if ( is_wp_error( $sauber ) ) {
+            wp_safe_redirect( $this->url( [ 'ergebnis' => $id, 'msg' => 'edit_error', 'vp_err' => rawurlencode( $sauber->get_error_message() ) ] ) );
+            exit;
+        }
+        $neu = $sauber[ $pos ];
+
+        if ( ! empty( $_POST['correct'] ) ) {
+            $this->model->correct_entry( $eid, $neu );
+            $neue_id = $eid;
+        } else {
+            $this->model->replace_entries( $id, $pid, $sauber );
+            $neue_id = 0;
+            foreach ( $this->model->entries( $id, $pid ) as $e ) {
+                if ( PollModel::entry_key( $e ) === PollModel::entry_key( $neu ) ) {
+                    $neue_id = (int) $e['id'];
+                }
+            }
+        }
+        $status = sanitize_key( $_POST['status'] ?? '' );
+        if ( $neue_id && $status !== '' && $status !== sanitize_key( $_POST['old_status'] ?? '' ) ) {
+            $this->model->set_entry_status( $id, $neue_id, $status );
+        }
+        wp_safe_redirect( $this->url( [ 'ergebnis' => $id, 'msg' => 'edited' ] ) );
+        exit;
+    }
+
     public function handle_reset(): void {
         $id = (int) ( $_POST['id'] ?? 0 );
         check_admin_referer( 'vp_poll_entries_reset_' . $id );

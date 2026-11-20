@@ -992,6 +992,18 @@ gemailt wird je Melder nur, was noch nicht mitgeteilt war (`notified_at`).
 Bestätigt wird je Starter (`confirmed_at`, `confirm_entries( $poll, $ids )`).
 Auf der Website sehen Melder je Starter „gemeldet“/„bestätigt“ und nach der
 Meldung den Hinweis, dass das Orgateam Nach-, Um- und Abmeldungen weitergibt.
+**Starter bearbeiten** (seit 1.24.2): Jede Zeile (außer Abmeldungen) hat
+„Bearbeiten“ → Dialog mit Melder, Name, Jahrgang, Geschlecht, Klasse,
+Gewicht (passend zur Klasse), Judopass (bei DokuMe), Hinweis und **Status**
+(nicht gemeldet / gemeldet – Melder nicht informiert / gemeldet und
+informiert / bestätigt; Korrektur ohne Mails, `set_entry_status()`).
+Geprüft wird wie auf der Website (`EntryService::validate_rows()`: Klasse,
+Gewicht, keine Doppelten). Ohne Haken „Nur Korrektur“ läuft die Änderung über
+`replace_entries()` – an Gemeldetem also als Ummeldung bzw. Ab- und
+Nachmeldung; mit Haken (Tippfehler) werden nur die Felder geändert, Status
+bleibt (`correct_entry()`). **„Starter entfernen“** (mit Rückfrage) wirkt wie
+Streichen durch den Melder – schon Gemeldetes wird Abmeldung.
+
 **Meldestatus zurücksetzen** (seit 1.24.1, unten unter „Weitere Aktionen“,
 mit Rückfrage; `PollModel::reset_entry_status()`): alle Haken und Vermerke
 (gemeldet, informiert, bestätigt, Ummeldung) und offene Abmeldungen weg,

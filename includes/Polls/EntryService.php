@@ -85,6 +85,30 @@ class EntryService {
             return new WP_Error( 'too_many', sprintf( __( 'Höchstens %d Starter je Meldung.', 'vereins-plugin' ), self::MAX_ROWS ), [ 'status' => 400 ] );
         }
 
+        $sauber = $this->validate_rows( $poll, $person_id, $rows );
+        if ( $sauber instanceof WP_Error ) {
+            return $sauber;
+        }
+
+        $this->model->replace_entries( (int) $poll['id'], $person_id, $sauber );
+
+        // Mit Login: Namen merken – nur den Namen, kein Jahrgang, kein Gewicht.
+        if ( $person_id > 0 ) {
+            foreach ( $sauber as $s ) {
+                SavedNames::remember( $person_id, $s['first_name'] . ' ' . $s['last_name'] );
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Starter eines Melders prüfen und bereinigen (Name, Jahrgang, Klasse,
+     * Gewicht, keine Doppelten, Judopass bei DokuMe). Auch fürs Orgateam,
+     * wenn es im Backend einen Starter bearbeitet.
+     *
+     * @return array|WP_Error bereinigte Zeilen
+     */
+    public function validate_rows( array $poll, int $person_id, array $rows ): array|WP_Error {
         $jahr    = self::year( $poll );
         $sauber  = [];
         $doppelt = [];
@@ -174,16 +198,7 @@ class EntryService {
                 'judopass'   => $judopass,
             ];
         }
-
-        $this->model->replace_entries( (int) $poll['id'], $person_id, $sauber );
-
-        // Mit Login: Namen merken – nur den Namen, kein Jahrgang, kein Gewicht.
-        if ( $person_id > 0 ) {
-            foreach ( $sauber as $s ) {
-                SavedNames::remember( $person_id, $s['first_name'] . ' ' . $s['last_name'] );
-            }
-        }
-        return true;
+        return $sauber;
     }
 
     /** Wer ist „derselbe Starter in derselben Klasse“? Name ohne Groß/klein, Jahrgang, Klasse. */
