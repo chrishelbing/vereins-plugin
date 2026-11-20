@@ -35,7 +35,7 @@ class Modules {
             'label'       => 'Termine',
             'description' => 'Terminkalender mit Zu- und Absagen, Mitbringliste, Helferaufgaben, Fotos, Banner und Flyern.',
             'namespaces'  => [ 'Events', 'Photos', 'Flyer' ],
-            'menu'        => 'vp-events',
+            'menu'        => 'vp-events',   // Kachel auf „Verein“
         ],
         'umfragen' => [
             'label'       => 'Umfragen',

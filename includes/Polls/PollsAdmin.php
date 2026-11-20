@@ -2,6 +2,7 @@
 
 namespace VereinsPlugin\Polls;
 
+use VereinsPlugin\Admin\AdminMenu;
 use VereinsPlugin\Admin\AdminStyles;
 use VereinsPlugin\Admin\Settings;
 use VereinsPlugin\Members\MemberService;
@@ -27,6 +28,7 @@ class PollsAdmin {
     }
 
     public function register(): void {
+        add_filter( 'vp_admin_tiles', [ self::class, 'tiles' ] );
         add_action( 'admin_menu', [ $this, 'add_menu' ] );
         add_action( 'admin_post_vp_save_poll',   [ $this, 'handle_save' ] );
         add_action( 'admin_post_vp_poll_status', [ $this, 'handle_status' ] );
@@ -43,16 +45,18 @@ class PollsAdmin {
         add_action( 'admin_post_vp_poll_to_choice',   [ $this, 'handle_to_choice' ] );
     }
 
+    /** Unterseite von „Verein“; auf der Startseite als Kachel (siehe tiles()). */
     public function add_menu(): void {
-        add_menu_page(
-            __( 'Umfragen', 'vereins-plugin' ),
-            __( 'Umfragen', 'vereins-plugin' ),
-            'manage_options',
-            self::SLUG,
-            [ $this, 'render' ],
-            'dashicons-chart-bar',
-            28
-        );
+        add_submenu_page( AdminMenu::HOME, __( 'Umfragen', 'vereins-plugin' ), __( 'Umfragen', 'vereins-plugin' ), 'manage_options', self::SLUG, [ $this, 'render' ] );
+    }
+
+    /** Kacheln für die Startseite „Verein“. */
+    public static function tiles( array $kacheln ): array {
+        $kacheln[ __( 'Umfragen', 'vereins-plugin' ) ] = [
+            [ 'slug' => self::SLUG, 'title' => __( 'Umfragen', 'vereins-plugin' ), 'text' => __( 'Termine finden, abstimmen, Ideen sammeln und zu Wettkämpfen melden.', 'vereins-plugin' ), 'icon' => 'dashicons-chart-bar' ],
+            [ 'slug' => ClassesAdmin::SLUG, 'title' => __( 'Wettkampf-Vorlagen', 'vereins-plugin' ), 'text' => __( 'Alters- und Gewichtsklassen für Wettkampfmeldungen.', 'vereins-plugin' ), 'icon' => 'dashicons-awards' ],
+        ];
+        return $kacheln;
     }
 
     private function url( array $args = [] ): string {
@@ -1019,9 +1023,12 @@ class PollsAdmin {
         $gemeldet = ! empty( $poll['submitted_at'] );
         $warten   = array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['submitted_at'] ) && empty( $z['confirmed_at'] ) ) );
         $mitteilen = array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['confirmed_at'] ) && empty( $z['confirm_notified_at'] ) ) );
-        $fertig   = $gemeldet && ! $warten && ! $mitteilen;
+        // Alle Starter der Hauptmeldung später geändert? Dann ist hier nichts
+        // mehr zu tun, aber auch nichts „bestätigt“ – das läuft bei den Änderungen.
+        $leer     = $gemeldet && ! $haupt;
+        $fertig   = $gemeldet && ! $leer && ! $warten && ! $mitteilen;
         $sammeln  = $this->service->is_open( $poll );
-        $stufe    = $fertig ? 5 : ( $gemeldet ? ( $warten ? 3 : 4 ) : ( $sammeln ? 1 : 2 ) );
+        $stufe    = $fertig ? 5 : ( $gemeldet ? ( $warten || $leer ? 3 : 4 ) : ( $sammeln ? 1 : 2 ) );
         $csv      = wp_nonce_url( admin_url( 'admin-post.php?action=vp_poll_entries_csv&id=' . $id ), 'vp_poll_entries_csv_' . $id );
         $xlsx     = wp_nonce_url( admin_url( 'admin-post.php?action=vp_poll_entries_xlsx&id=' . $id ), 'vp_poll_entries_xlsx_' . $id );
         $ohne_pass = ! empty( $poll['dokume'] ) ? count( array_filter( $haupt, static fn( $z ) => isset( $z['judopass'] ) && ! (int) $z['judopass'] ) ) : 0;
@@ -1069,6 +1076,8 @@ class PollsAdmin {
                 <?php elseif ( $mitteilen ) : ?>
                     <p><strong><?php esc_html_e( 'Nächster Schritt: Melder über die Bestätigung informieren.', 'vereins-plugin' ); ?></strong>
                         <?php esc_html_e( 'Das geht unten bei den Startern („Bestätigt, Melder noch nicht informiert“).', 'vereins-plugin' ); ?></p>
+                <?php elseif ( $leer ) : ?>
+                    <p><?php esc_html_e( 'Alle Starter der Hauptmeldung wurden danach geändert – es geht bei den Änderungen weiter.', 'vereins-plugin' ); ?></p>
                 <?php else : ?>
                     <p><strong>✓ <?php esc_html_e( 'Hauptmeldung gemeldet, bestätigt und Melder informiert.', 'vereins-plugin' ); ?></strong></p>
                 <?php endif; ?>

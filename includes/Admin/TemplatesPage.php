@@ -41,7 +41,7 @@ class TemplatesPage {
         AdminStyles::print_inline();
         ?>
         <div class="wrap vp-admin-wrap">
-            <h1><?php esc_html_e( 'Vorlagen', 'vereins-plugin' ); ?></h1>
+            <h1><?php esc_html_e( 'Termin-Vorlagen', 'vereins-plugin' ); ?></h1>
             <p class="description">
                 <?php esc_html_e( 'Vorlagen beschreiben, was bei einem Termin mitgebracht wird oder wobei geholfen werden muss. Sie lassen sich am Termintyp als Standard hinterlegen.', 'vereins-plugin' ); ?>
             </p>

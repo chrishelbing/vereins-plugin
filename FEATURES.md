@@ -36,15 +36,24 @@ Das Plugin besteht aus einer **gemeinsamen Basis** und **Modulen**
 
 - **Basis – Mitglieder & Anmeldung.** Mitglieder und Gäste (Personen),
   Anmeldung mit Passwort oder Zugangscode, Wiedererkennung von Gästen per
-  Cookie, Rollen, Mailversand, Datenschutz-Anbindung, Updates. Im Backend
-  unter **„Verein“** (Mitglieder, Einstellungen).
-- **Modul Termine.** Alles ab „Termine“ in dieser Datei. Backend: **„Termine“**
-  (Termine, Termintypen, Vorlagen).
-- **Modul Umfragen.** Siehe „Umfragen“. Backend: **„Umfragen“** (Alle Umfragen, Vorlagen).
+  Cookie, Rollen, Mailversand, Datenschutz-Anbindung, Updates. Kacheln
+  Mitglieder, Einstellungen.
+- **Modul Termine.** Alles ab „Termine“ in dieser Datei. Kacheln Termine,
+  Termintypen, Termin-Vorlagen.
+- **Modul Umfragen.** Siehe „Umfragen“. Kacheln Umfragen, Wettkampf-Vorlagen.
+
+**Backend: ein Menüpunkt „Verein“** (seit 1.25.0, `Admin\AdminMenu`). Er
+öffnet eine Startseite (`?page=vp-start`) mit Kacheln, nach Bereichen
+gruppiert (Termine, Umfragen, Verein). Module hängen ihre Kacheln über den
+Filter `vp_admin_tiles` ein. Alle Seiten sind Unterseiten von „Verein“, die
+Unterpunkte werden im Menü aber ausgeblendet – erst in `admin_head`, also
+nach der Rechteprüfung (früher entfernt, verweigert WordPress den Zugriff).
+„Verein“ bleibt auf allen Plugin-Seiten markiert (`parent_file`), oben steht
+„← Verein / Seitenname“. Seiten-Adressen (`?page=vp-events` usw.) unverändert.
 
 Module teilen nur die Basis und greifen nicht ineinander; `tools/check.php`
-wacht darüber. Bis 1.15.8 hing alles unter einem Menüpunkt „Verein“; die
-Seiten-Adressen (`?page=vp-events` usw.) sind gleich geblieben.
+wacht darüber. Bis 1.15.8 hing alles unter einem Menüpunkt „Verein“, von
+1.15.9 bis 1.24.x gab es drei Menüpunkte (Verein, Termine, Umfragen).
 
 ---
 
