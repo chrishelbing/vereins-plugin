@@ -1009,9 +1009,9 @@ class PollsAdmin {
         details.vp-fold > summary { cursor: pointer; padding: 6px 0; }
         /* Alle Klassentabellen mit denselben Spalten, damit nichts springt */
         .vp-card table.vp-entries { table-layout: fixed; width: 100%; }
-        .vp-entries .c-tick { width: 92px; } .vp-entries .c-name { width: 24%; } .vp-entries .c-year { width: 9%; }
-        .vp-entries .c-weight { width: 15%; } .vp-entries .c-by { width: 26%; } .vp-entries .c-pass { width: 8%; }
-        .vp-entries .c-flow { width: 120px; }
+        .vp-entries .c-tick { width: 9%; } .vp-entries .c-name { width: 19%; } .vp-entries .c-year { width: 8%; }
+        .vp-entries .c-weight { width: 12%; } .vp-entries .c-by { width: 22%; } .vp-entries .c-pass { width: 7%; }
+        .vp-entries .c-note { width: 13%; } .vp-entries .c-flow { width: 12%; }
         .vp-entries td { overflow-wrap: anywhere; }
         </style>
         <?php
@@ -1516,8 +1516,8 @@ class PollsAdmin {
                 <th class="c-weight"><?php esc_html_e( 'Gewicht', 'vereins-plugin' ); ?></th>
                 <th class="c-by"><?php esc_html_e( 'Gemeldet von', 'vereins-plugin' ); ?></th>
                 <?php if ( $dokume ) : ?><th class="c-pass"><?php esc_html_e( 'Judopass', 'vereins-plugin' ); ?></th><?php endif; ?>
-                <th><?php esc_html_e( 'Hinweis', 'vereins-plugin' ); ?></th>
-                <?php if ( $tick && ! empty( $zeilen[0]['art'] ) ) : ?><th class="c-flow"><?php esc_html_e( 'Ablauf', 'vereins-plugin' ); ?></th><?php endif; ?>
+                <th class="c-note"><?php esc_html_e( 'Hinweis', 'vereins-plugin' ); ?></th>
+                <th class="c-flow"><?php echo $tick && ! empty( $zeilen[0]['art'] ) ? esc_html__( 'Ablauf', 'vereins-plugin' ) : ''; ?></th>
             </tr></thead>
             <tbody>
             <?php foreach ( $zeilen as $z ) :
@@ -1557,6 +1557,8 @@ class PollsAdmin {
                         <td><span class="vp-mini" title="<?php esc_attr_e( 'a erledigt · b informiert · c bestätigt · d Bestätigung mitgeteilt', 'vereins-plugin' ); ?>">
                             <?php foreach ( $schritte as $nr => $ok ) : ?><span class="<?php echo $ok ? 'is-done' : ( $nr === $naechst ? 'is-next' : '' ); ?>"><?php echo esc_html( $nr ); ?></span><?php endforeach; ?>
                         </span></td>
+                    <?php else : ?>
+                        <td></td>
                     <?php endif; ?>
                 </tr>
             <?php endforeach; ?>
