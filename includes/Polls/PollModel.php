@@ -424,6 +424,21 @@ class PollModel {
         }
     }
 
+    /**
+     * Meldestatus zurücksetzen: keine Haken, keine Vermerke, keine offenen
+     * Abmeldungen – die Starter selbst bleiben. Für Tests oder einen Neuanfang.
+     */
+    public function reset_entry_status( int $poll_id ): void {
+        global $wpdb;
+        foreach ( $this->withdrawn_entries( $poll_id ) as $e ) {
+            $wpdb->delete( $this->t( 'vp_poll_entries' ), [ 'id' => (int) $e['id'] ] );
+        }
+        foreach ( $this->entries( $poll_id ) as $e ) {
+            $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => null, 'notified_at' => null, 'confirmed_at' => null, 'prev_weight' => null ], [ 'id' => (int) $e['id'] ] );
+        }
+        $wpdb->update( $this->t( 'vp_polls' ), [ 'submitted_at' => null, 'confirmed_at' => null ], [ 'id' => $poll_id ] );
+    }
+
     /** Meldung als abgeschickt bzw. bestätigt vermerken ('submitted_at' / 'confirmed_at'). */
     public function mark_poll( int $poll_id, string $feld ): void {
         global $wpdb;

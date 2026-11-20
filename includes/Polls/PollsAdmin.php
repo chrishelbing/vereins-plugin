@@ -36,6 +36,7 @@ class PollsAdmin {
         add_action( 'admin_post_vp_poll_entries_mark', [ $this, 'handle_mark' ] );
         add_action( 'wp_ajax_vp_poll_entries_tick', [ $this, 'ajax_tick' ] );
         add_action( 'admin_post_vp_poll_entries_state', [ $this, 'handle_state' ] );
+        add_action( 'admin_post_vp_poll_entries_reset', [ $this, 'handle_reset' ] );
         add_action( 'admin_post_vp_delete_poll_text', [ $this, 'handle_delete_text' ] );
         add_action( 'admin_post_vp_poll_to_choice',   [ $this, 'handle_to_choice' ] );
     }
@@ -842,6 +843,27 @@ class PollsAdmin {
         if ( $haupt_am !== '' ) {
             $this->render_by_status( $poll, $haupt, $aend_fertig );
         }
+        if ( $haupt_am !== '' || $ab || array_filter( $liste, static fn( $z ) => ! empty( $z['submitted_at'] ) ) ) {
+            $this->render_reset( $poll );
+        }
+    }
+
+    /** „Meldestatus zurücksetzen“ – eingeklappt, mit Rückfrage. */
+    private function render_reset( array $poll ): void {
+        $id = (int) $poll['id'];
+        ?>
+        <details class="vp-fold" style="max-width:1100px;margin:0 0 20px;">
+            <summary class="description"><?php esc_html_e( 'Weitere Aktionen', 'vereins-plugin' ); ?></summary>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:8px;"
+                  onsubmit="return confirm(<?php echo esc_attr( wp_json_encode( __( 'Meldestatus wirklich zurücksetzen? Alle Haken, „gemeldet“, „informiert“ und „bestätigt“ gehen verloren, offene Abmeldungen verschwinden. Die Starter bleiben. Es gehen keine E-Mails raus.', 'vereins-plugin' ) ) ); ?>);">
+                <input type="hidden" name="action" value="vp_poll_entries_reset">
+                <input type="hidden" name="id" value="<?php echo $id; ?>">
+                <?php wp_nonce_field( 'vp_poll_entries_reset_' . $id ); ?>
+                <button class="button button-link-delete"><?php esc_html_e( 'Meldestatus zurücksetzen', 'vereins-plugin' ); ?></button>
+                <span class="description"><?php esc_html_e( 'Alles wieder auf „Meldungen sammeln“: keine Haken, nichts gemeldet, informiert oder bestätigt, offene Abmeldungen weg. Die Starter bleiben, es gehen keine E-Mails raus. Gedacht für Tests oder einen Neuanfang.', 'vereins-plugin' ); ?></span>
+            </form>
+        </details>
+        <?php
     }
 
     private function render_entry_styles(): void {
@@ -1064,6 +1086,7 @@ class PollsAdmin {
             'submitted' => __( 'Gespeichert, Status „Gemeldet“.', 'vereins-plugin' ),
             'changes'   => __( 'Änderungen abgeschlossen.', 'vereins-plugin' ),
             'confirmed' => __( 'Bestätigung vermerkt.', 'vereins-plugin' ),
+            'reset'     => __( 'Meldestatus zurückgesetzt.', 'vereins-plugin' ),
         ];
         if ( ! isset( $texte[ $msg ] ) ) {
             return;
@@ -1562,6 +1585,15 @@ class PollsAdmin {
     }
 
     /** „Meldung ist abgeschickt“ / „… bestätigt“ – mit Mail an die Melder. */
+    public function handle_reset(): void {
+        $id = (int) ( $_POST['id'] ?? 0 );
+        check_admin_referer( 'vp_poll_entries_reset_' . $id );
+        $this->entry_poll_or_die( $id );
+        $this->model->reset_entry_status( $id );
+        wp_safe_redirect( $this->url( [ 'ergebnis' => $id, 'msg' => 'reset' ] ) );
+        exit;
+    }
+
     public function handle_state(): void {
         $id = (int) ( $_POST['id'] ?? 0 );
         check_admin_referer( 'vp_poll_entries_state_' . $id );

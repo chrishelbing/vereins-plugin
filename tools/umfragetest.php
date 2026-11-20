@@ -354,6 +354,14 @@ Pruefung::ok( 'Abmeldung abgeschlossen: Zeile weg', $model->withdrawn_entries( $
 $model->replace_entries( $um, $anna, [ $lea13 ] );
 $model->replace_entries( $um, $anna, [] );
 Pruefung::ok( 'nie gemeldet und gestrichen: einfach weg', $model->withdrawn_entries( $um ) === [] && $model->entries( $um, $anna ) === [] );
+$model->replace_entries( $um, $gerd, [ $mia, $tom ] );
+$model->mark_entries_submitted( $um, array_map( fn( $e ) => (int) $e['id'], $model->entries( $um ) ) );
+$model->mark_poll( $um, 'submitted_at' );
+$model->replace_entries( $um, $gerd, [ array_merge( $mia, [ 'weight' => '-31' ] ) ] );
+$model->reset_entry_status( $um );
+$r = $model->entries( $um );
+Pruefung::ok( 'Zurücksetzen: Starter bleiben, ohne Haken und Vermerke', count( $r ) === 1 && empty( $r[0]['submitted_at'] ) && $r[0]['prev_weight'] === null );
+Pruefung::ok( 'Zurücksetzen: Abmeldungen und Meldestatus weg', $model->withdrawn_entries( $um ) === [] && empty( $model->find( $um )['submitted_at'] ) );
 $model->delete( $um );
 
 // DokuMe: Judopass je Starter

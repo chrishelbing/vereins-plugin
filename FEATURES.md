@@ -992,6 +992,10 @@ gemailt wird je Melder nur, was noch nicht mitgeteilt war (`notified_at`).
 Bestätigt wird je Starter (`confirmed_at`, `confirm_entries( $poll, $ids )`).
 Auf der Website sehen Melder je Starter „gemeldet“/„bestätigt“ und nach der
 Meldung den Hinweis, dass das Orgateam Nach-, Um- und Abmeldungen weitergibt.
+**Meldestatus zurücksetzen** (seit 1.24.1, unten unter „Weitere Aktionen“,
+mit Rückfrage; `PollModel::reset_entry_status()`): alle Haken und Vermerke
+(gemeldet, informiert, bestätigt, Ummeldung) und offene Abmeldungen weg,
+Meldung wieder bei „Meldungen sammeln“; die Starter bleiben, keine Mails.
 Das Update 1.23.4 übernahm bestehende Bestätigungen für vorher gemeldete
 Starter (`PollSchema::migrate()`).
 
