@@ -996,6 +996,11 @@ Bei den Änderungen erscheint die Leiste „Weiter: b) Melder informieren“ nur
 wenn jemand zu informieren ist, und nur der früheste offene Schritt hat einen
 blauen Knopf (seit 1.24.4).
 
+Die Aktionen „Als bestätigt vermerken“ und „Bestätigung mitteilen“ der
+Hauptmeldung stehen seit 1.24.5 unten bei den betroffenen Startern (Gruppen
+„Gemeldet, wartet auf Bestätigung“ bzw. „Bestätigt, Melder noch nicht
+informiert“); oben im Hauptablauf steht nur, welcher Schritt dran ist.
+
 **Bestätigung mitteilen** (seit 1.24.3, `vp_poll_entries.confirm_notified_at`):
 Fertig ist ein Starter erst, wenn er bestätigt **und** der Melder darüber
 informiert ist. Beim Bestätigen ist „Gleich mitteilen – E-Mail …“ angehakt;

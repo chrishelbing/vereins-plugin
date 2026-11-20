@@ -1056,12 +1056,11 @@ class PollsAdmin {
                 <?php $this->tick_form( $poll, 'main', $haupt, [] ); ?>
             <?php else : ?>
                 <?php if ( $warten ) : ?>
-                    <h3><?php echo esc_html( sprintf( _n( 'Nächster Schritt: Bestätigung vom Veranstalter – %d Starter wartet', 'Nächster Schritt: Bestätigung vom Veranstalter – %d Starter warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h3>
-                    <p class="description"><?php esc_html_e( 'Kommt die Bestätigung (Mail, Teilnehmerliste oder Status in DokuMe), hier vermerken. Die Starter stehen unten unter „Wartet auf Bestätigung“.', 'vereins-plugin' ); ?></p>
-                    <?php $this->confirm_form( $poll, $warten, __( 'Hauptmeldung als bestätigt vermerken', 'vereins-plugin' ) ); ?>
+                    <p><strong><?php echo esc_html( sprintf( _n( 'Nächster Schritt: Bestätigung vom Veranstalter – %d Starter wartet.', 'Nächster Schritt: Bestätigung vom Veranstalter – %d Starter warten.', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></strong>
+                        <?php esc_html_e( 'Vermerken kannst du sie unten bei den Startern („Gemeldet, wartet auf Bestätigung“).', 'vereins-plugin' ); ?></p>
                 <?php elseif ( $mitteilen ) : ?>
-                    <h3><?php esc_html_e( 'Nächster Schritt: Melder über die Bestätigung informieren', 'vereins-plugin' ); ?></h3>
-                    <?php $this->confirm_notify_form( $poll, $mitteilen ); ?>
+                    <p><strong><?php esc_html_e( 'Nächster Schritt: Melder über die Bestätigung informieren.', 'vereins-plugin' ); ?></strong>
+                        <?php esc_html_e( 'Das geht unten bei den Startern („Bestätigt, Melder noch nicht informiert“).', 'vereins-plugin' ); ?></p>
                 <?php else : ?>
                     <p><strong>✓ <?php esc_html_e( 'Hauptmeldung gemeldet, bestätigt und Melder informiert.', 'vereins-plugin' ); ?></strong></p>
                 <?php endif; ?>
@@ -1117,12 +1116,15 @@ class PollsAdmin {
                 <div class="vp-group">
                     <h2><span class="vp-tag vp-tag--waiting"><?php echo esc_html( sprintf( __( 'Gemeldet, wartet auf Bestätigung · %d', 'vereins-plugin' ), count( $warten ) ) ); ?></span></h2>
                     <?php $this->class_tables( $poll, $warten, 'list' ); ?>
+                    <p class="description"><?php esc_html_e( 'Kommt die Bestätigung (Mail, Teilnehmerliste oder Status in DokuMe), hier vermerken:', 'vereins-plugin' ); ?></p>
+                    <?php $this->confirm_form( $poll, $warten, __( 'Als bestätigt vermerken', 'vereins-plugin' ) ); ?>
                 </div>
             <?php endif; ?>
             <?php if ( $offen_info ) : ?>
                 <div class="vp-group">
                     <h2><span class="vp-tag vp-tag--changed"><?php echo esc_html( sprintf( __( 'Bestätigt, Melder noch nicht informiert · %d', 'vereins-plugin' ), count( $offen_info ) ) ); ?></span></h2>
                     <?php $this->class_tables( $poll, $offen_info, 'list' ); ?>
+                    <?php $this->confirm_notify_form( $poll, $offen_info, ! $warten ); ?>
                 </div>
             <?php endif; ?>
             <?php if ( $best ) : ?>
