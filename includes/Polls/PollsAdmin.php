@@ -991,6 +991,7 @@ class PollsAdmin {
         .vp-legend { font-size: 12px; color: #50575e; margin: 0 0 6px; }
         .vp-group { border-top: 1px solid #f0f0f1; margin-top: 10px; }
         .vp-strike { text-decoration: line-through; color: #8c8f94; }
+        .vp-card [hidden], .vp-informdlg [hidden] { display: none !important; }
         .vp-markbar { position: sticky; bottom: 0; z-index: 5; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 10px 18px 14px; box-shadow: 0 -2px 10px rgba(0,0,0,.06); margin-top: 14px; }
         .vp-markbar p { margin: 6px 0; }
         .vp-markbar__actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
@@ -1077,6 +1078,9 @@ class PollsAdmin {
         $offen = count( $aend ) + count( $ab );
         $warten = array_values( array_filter( $aend, static fn( $z ) => ! empty( $z['submitted_at'] ) && ! empty( $z['notified_at'] ) && empty( $z['confirmed_at'] ) ) );
         $mitteilen = array_values( array_filter( $aend, static fn( $z ) => ! empty( $z['confirmed_at'] ) && empty( $z['confirm_notified_at'] ) ) );
+        // Nur ein Knopf ist hervorgehoben: der früheste offene Schritt.
+        $info_offen = array_filter( $aend, static fn( $z ) => ! empty( $z['submitted_at'] ) && empty( $z['notified_at'] ) )
+            || array_filter( $ab, static fn( $z ) => ! empty( $z['withdraw_done_at'] ) );
         ?>
         <div class="vp-card vp-card--changes">
             <h2><?php esc_html_e( 'Änderungen nach der Meldung', 'vereins-plugin' ); ?> <span class="vp-tag vp-tag--changed"><?php echo esc_html( sprintf( _n( '%d offen', '%d offen', $offen, 'vereins-plugin' ), $offen ) ); ?></span></h2>
@@ -1089,11 +1093,11 @@ class PollsAdmin {
             <?php $this->tick_form( $poll, 'changes', $aend, $ab ); ?>
             <?php if ( $warten ) : ?>
                 <h3><?php echo esc_html( sprintf( _n( 'c) Bestätigung: %d Änderung wartet', 'c) Bestätigung: %d Änderungen warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h3>
-                <?php $this->confirm_form( $poll, $warten, __( 'Änderungen als bestätigt vermerken', 'vereins-plugin' ) ); ?>
+                <?php $this->confirm_form( $poll, $warten, __( 'Änderungen als bestätigt vermerken', 'vereins-plugin' ), ! $info_offen ); ?>
             <?php endif; ?>
             <?php if ( $mitteilen ) : ?>
                 <h3><?php echo esc_html( sprintf( _n( 'd) Bestätigung mitteilen: %d Änderung', 'd) Bestätigung mitteilen: %d Änderungen', count( $mitteilen ), 'vereins-plugin' ), count( $mitteilen ) ) ); ?></h3>
-                <?php $this->confirm_notify_form( $poll, $mitteilen ); ?>
+                <?php $this->confirm_notify_form( $poll, $mitteilen, ! $info_offen && ! $warten ); ?>
             <?php endif; ?>
         </div>
         <?php
@@ -1365,6 +1369,8 @@ class PollsAdmin {
                 var k = q('[data-open]');
                 k.disabled = !an;
                 k.hidden = !haupt && !offen.length;
+                // Bei Änderungen: Leiste nur, wenn jemand zu informieren ist
+                bar.hidden = !haupt && !offen.length;
                 dq('[data-dlg-sent]').hidden = !mitS.length;
                 liste(dq('[data-dlg-sent-names]'), mitS);
                 dq('[data-dlg-withdrawn]').hidden = !mitA.length;
@@ -1390,7 +1396,7 @@ class PollsAdmin {
     }
 
     /** Bestätigung vermerken – für die genannten Starter, mit Mail-Option. */
-    private function confirm_form( array $poll, array $zeilen, string $label ): void {
+    private function confirm_form( array $poll, array $zeilen, string $label, bool $primaer = true ): void {
         $id     = (int) $poll['id'];
         $melder = array_values( array_unique( array_map( static fn( $z ) => (int) $z['person_id'], $zeilen ) ) );
         $plan   = EntryMail::plan( $poll, 'confirmed', $melder, (string) wp_get_current_user()->display_name );
@@ -1425,7 +1431,7 @@ class PollsAdmin {
                     <?php endif; ?>
                 </li>
             </ul>
-            <button class="button button-primary"><?php echo esc_html( $label ); ?></button>
+            <button class="button<?php echo $primaer ? ' button-primary' : ''; ?>"><?php echo esc_html( $label ); ?></button>
         </form>
         <?php
     }
@@ -1434,7 +1440,7 @@ class PollsAdmin {
      * Schritt „Bestätigung mitteilen“: wenn beim Bestätigen keine Mail
      * rausging. Empfänger, Mail-Beispiel, senden oder als mitgeteilt vermerken.
      */
-    private function confirm_notify_form( array $poll, array $zeilen ): void {
+    private function confirm_notify_form( array $poll, array $zeilen, bool $primaer = true ): void {
         $id     = (int) $poll['id'];
         $melder = array_values( array_unique( array_map( static fn( $z ) => (int) $z['person_id'], $zeilen ) ) );
         $plan   = EntryMail::plan( $poll, 'confirmed', $melder, (string) wp_get_current_user()->display_name );
@@ -1461,7 +1467,7 @@ class PollsAdmin {
             <?php endif; ?>
             <div class="vp-markbar__actions">
                 <?php if ( $mit ) : ?>
-                    <button class="button button-primary" name="inform" value="mail"><?php echo esc_html( sprintf( _n( '%d E-Mail senden', '%d E-Mails senden', count( $mit ), 'vereins-plugin' ), count( $mit ) ) ); ?></button>
+                    <button class="button<?php echo $primaer ? ' button-primary' : ''; ?>" name="inform" value="mail"><?php echo esc_html( sprintf( _n( '%d E-Mail senden', '%d E-Mails senden', count( $mit ), 'vereins-plugin' ), count( $mit ) ) ); ?></button>
                 <?php endif; ?>
                 <button class="button" name="inform" value="nomail"><?php esc_html_e( 'Schon Bescheid gegeben – ohne E-Mail abschließen', 'vereins-plugin' ); ?></button>
             </div>

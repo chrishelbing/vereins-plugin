@@ -992,6 +992,10 @@ gemailt wird je Melder nur, was noch nicht mitgeteilt war (`notified_at`).
 Bestätigt wird je Starter (`confirmed_at`, `confirm_entries( $poll, $ids )`).
 Auf der Website sehen Melder je Starter „gemeldet“/„bestätigt“ und nach der
 Meldung den Hinweis, dass das Orgateam Nach-, Um- und Abmeldungen weitergibt.
+Bei den Änderungen erscheint die Leiste „Weiter: b) Melder informieren“ nur,
+wenn jemand zu informieren ist, und nur der früheste offene Schritt hat einen
+blauen Knopf (seit 1.24.4).
+
 **Bestätigung mitteilen** (seit 1.24.3, `vp_poll_entries.confirm_notified_at`):
 Fertig ist ein Starter erst, wenn er bestätigt **und** der Melder darüber
 informiert ist. Beim Bestätigen ist „Gleich mitteilen – E-Mail …“ angehakt;
