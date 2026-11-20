@@ -1042,12 +1042,14 @@ class PollsAdmin {
                 <?php if ( $sammeln ) : ?>
                     <p class="description"><?php esc_html_e( 'Die Meldung ist noch offen – meist meldest du nach dem Meldeschluss. Wer danach dazukommt, läuft als Nachmeldung.', 'vereins-plugin' ); ?></p>
                 <?php endif; ?>
+                <p>
+                    <a class="button" href="<?php echo esc_url( $xlsx ); ?>"><span class="dashicons dashicons-download" style="vertical-align:text-bottom;" aria-hidden="true"></span> <?php esc_html_e( 'BJV-Meldeliste (Excel)', 'vereins-plugin' ); ?></a>
+                    <a class="button" href="<?php echo esc_url( $csv ); ?>"><span class="dashicons dashicons-download" style="vertical-align:text-bottom;" aria-hidden="true"></span> <?php esc_html_e( 'Alles als CSV', 'vereins-plugin' ); ?></a>
+                </p>
                 <ol>
-                    <li><?php esc_html_e( 'Meldeliste holen:', 'vereins-plugin' ); ?>
-                        <a class="button button-primary" href="<?php echo esc_url( $xlsx ); ?>"><?php esc_html_e( 'BJV-Meldeliste (Excel)', 'vereins-plugin' ); ?></a>
-                        <a class="button" href="<?php echo esc_url( $csv ); ?>"><?php esc_html_e( 'Alles als CSV', 'vereins-plugin' ); ?></a></li>
+                    <li><?php esc_html_e( 'Meldeliste herunterladen (Knöpfe oben).', 'vereins-plugin' ); ?></li>
                     <li><?php esc_html_e( 'Excel (Kampfrichter ergänzen) an den Veranstalter schicken – oder die Starter in DokuMe eintragen.', 'vereins-plugin' ); ?></li>
-                    <li><?php esc_html_e( 'Unten abhaken, wen du gemeldet hast. Jeder Haken wird sofort gespeichert – ohne Mail, ohne Statusänderung.', 'vereins-plugin' ); ?></li>
+                    <li><?php esc_html_e( 'Unten abhaken, wen du gemeldet hast – einzeln oder mit dem Haken im Tabellenkopf die ganze Klasse. Jeder Haken wird sofort gespeichert, ohne Mail und ohne Statusänderung.', 'vereins-plugin' ); ?></li>
                     <li><?php esc_html_e( '„Weiter: Status ‚Gemeldet‘ setzen“ – dort siehst du die Empfänger und entscheidest, ob E-Mails rausgehen.', 'vereins-plugin' ); ?></li>
                 </ol>
                 <?php if ( $ohne_pass ) : ?>
@@ -1158,7 +1160,6 @@ class PollsAdmin {
             <?php
             if ( $modus === 'main' ) {
                 echo '<h3>' . esc_html__( 'Abhakliste: Wen hast du schon gemeldet?', 'vereins-plugin' ) . '</h3>';
-                echo '<p class="description" style="margin-top:0;">' . esc_html__( 'Das Plugin meldet nicht selbst. Du hakst ab, wen du beim Veranstalter gemeldet hast – einzeln oder mit dem Haken im Tabellenkopf die ganze Klasse.', 'vereins-plugin' ) . '</p>';
                 $this->class_tables( $poll, $zeilen, 'tick' );
             } else {
                 $gruppen = [
