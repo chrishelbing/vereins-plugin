@@ -992,6 +992,17 @@ gemailt wird je Melder nur, was noch nicht mitgeteilt war (`notified_at`).
 Bestätigt wird je Starter (`confirmed_at`, `confirm_entries( $poll, $ids )`).
 Auf der Website sehen Melder je Starter „gemeldet“/„bestätigt“ und nach der
 Meldung den Hinweis, dass das Orgateam Nach-, Um- und Abmeldungen weitergibt.
+**Bestätigung mitteilen** (seit 1.24.3, `vp_poll_entries.confirm_notified_at`):
+Fertig ist ein Starter erst, wenn er bestätigt **und** der Melder darüber
+informiert ist. Beim Bestätigen ist „Gleich mitteilen – E-Mail …“ angehakt;
+ohne Haken bleibt ein eigener Schritt offen – in der Hauptmeldung Stufe
+„4. Bestätigt · Melder informieren“, bei Änderungen Mini-Schritt **d** – mit
+Empfängern, Mail-Beispiel und „n E-Mails senden“ bzw. „Schon Bescheid gegeben –
+ohne E-Mail abschließen“ (`handle_confirm_notify()`, `mark_confirm_notified()`).
+Unten in „Starter nach Status“ die Gruppe „Bestätigt, Melder noch nicht
+informiert“. Status im Bearbeiten-Dialog um „bestätigt und Melder informiert“
+ergänzt.
+
 **Starter bearbeiten** (seit 1.24.2): Jede Zeile (außer Abmeldungen) hat
 „Bearbeiten“ → Dialog mit Melder, Name, Jahrgang, Geschlecht, Klasse,
 Gewicht (passend zur Klasse), Judopass (bei DokuMe), Hinweis und **Status**

@@ -100,7 +100,8 @@ class PollSchema {
         // judopass: 1/0 laut Melder (nur bei DokuMe-Meldungen), NULL = nicht gefragt.
         // submitted_at: dieser Starter ist beim Veranstalter gemeldet (Abhakliste).
         // notified_at: der Melder hat zu diesem Starter die Mail „abgeschickt“ bekommen.
-        // confirmed_at: der Veranstalter hat diesen Starter bestätigt.
+        // confirmed_at: der Veranstalter hat diesen Starter bestätigt;
+        // confirm_notified_at: der Melder weiß davon (Mail oder von Hand).
         // prev_weight: Ummeldung – Gewicht, mit dem der Starter gemeldet war.
         // withdrawn_at: vom Melder gestrichen, war aber schon gemeldet (Abmeldung);
         // withdraw_done_at: beim Veranstalter abgemeldet. Die Zeile bleibt, bis
@@ -120,6 +121,7 @@ class PollSchema {
             submitted_at DATETIME       DEFAULT NULL,
             notified_at  DATETIME       DEFAULT NULL,
             confirmed_at DATETIME       DEFAULT NULL,
+            confirm_notified_at DATETIME DEFAULT NULL,
             prev_weight  VARCHAR(20)    DEFAULT NULL,
             withdrawn_at DATETIME       DEFAULT NULL,
             withdraw_done_at DATETIME   DEFAULT NULL,

@@ -38,6 +38,7 @@ class PollsAdmin {
         add_action( 'admin_post_vp_poll_entries_state', [ $this, 'handle_state' ] );
         add_action( 'admin_post_vp_poll_entries_reset', [ $this, 'handle_reset' ] );
         add_action( 'admin_post_vp_poll_entry_edit', [ $this, 'handle_entry_edit' ] );
+        add_action( 'admin_post_vp_poll_entries_cnotify', [ $this, 'handle_confirm_notify' ] );
         add_action( 'admin_post_vp_delete_poll_text', [ $this, 'handle_delete_text' ] );
         add_action( 'admin_post_vp_poll_to_choice',   [ $this, 'handle_to_choice' ] );
     }
@@ -833,8 +834,9 @@ class PollsAdmin {
             $z['art'] = 'withdrawn';
         }
         unset( $z );
-        $aend_offen  = array_values( array_filter( $aend, static fn( $z ) => empty( $z['confirmed_at'] ) ) );
-        $aend_fertig = array_values( array_filter( $aend, static fn( $z ) => ! empty( $z['confirmed_at'] ) ) );
+        $fertig      = static fn( $z ) => ! empty( $z['confirmed_at'] ) && ! empty( $z['confirm_notified_at'] );
+        $aend_offen  = array_values( array_filter( $aend, static fn( $z ) => ! $fertig( $z ) ) );
+        $aend_fertig = array_values( array_filter( $aend, $fertig ) );
 
         $this->render_entry_styles();
         $this->render_main_flow( $poll, $haupt );
@@ -861,7 +863,8 @@ class PollsAdmin {
             'open'      => __( 'nicht gemeldet', 'vereins-plugin' ),
             'submitted' => __( 'gemeldet – Melder noch nicht informiert', 'vereins-plugin' ),
             'notified'  => __( 'gemeldet und Melder informiert', 'vereins-plugin' ),
-            'confirmed' => __( 'bestätigt', 'vereins-plugin' ),
+            'confirmed' => __( 'bestätigt – Melder noch nicht informiert', 'vereins-plugin' ),
+            'done'      => __( 'bestätigt und Melder informiert', 'vereins-plugin' ),
         ];
         ?>
         <dialog class="vp-informdlg" id="vp-edit-entry">
@@ -1008,9 +1011,10 @@ class PollsAdmin {
         $id       = (int) $poll['id'];
         $gemeldet = ! empty( $poll['submitted_at'] );
         $warten   = array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['submitted_at'] ) && empty( $z['confirmed_at'] ) ) );
-        $fertig   = $gemeldet && ! $warten;
+        $mitteilen = array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['confirmed_at'] ) && empty( $z['confirm_notified_at'] ) ) );
+        $fertig   = $gemeldet && ! $warten && ! $mitteilen;
         $sammeln  = $this->service->is_open( $poll );
-        $stufe    = $fertig ? 4 : ( $gemeldet ? 3 : ( $sammeln ? 1 : 2 ) );
+        $stufe    = $fertig ? 5 : ( $gemeldet ? ( $warten ? 3 : 4 ) : ( $sammeln ? 1 : 2 ) );
         $csv      = wp_nonce_url( admin_url( 'admin-post.php?action=vp_poll_entries_csv&id=' . $id ), 'vp_poll_entries_csv_' . $id );
         $xlsx     = wp_nonce_url( admin_url( 'admin-post.php?action=vp_poll_entries_xlsx&id=' . $id ), 'vp_poll_entries_xlsx_' . $id );
         $ohne_pass = ! empty( $poll['dokume'] ) ? count( array_filter( $haupt, static fn( $z ) => isset( $z['judopass'] ) && ! (int) $z['judopass'] ) ) : 0;
@@ -1018,13 +1022,13 @@ class PollsAdmin {
             1 => [ __( 'Meldungen sammeln', 'vereins-plugin' ), $sammeln && ! empty( $poll['closes_at'] ) ? sprintf( __( 'bis %s', 'vereins-plugin' ), mysql2date( 'd.m. H:i', $poll['closes_at'] ) ) : sprintf( _n( '%d Starter', '%d Starter', count( $haupt ), 'vereins-plugin' ), count( $haupt ) ) ],
             2 => [ __( 'Beim Veranstalter melden', 'vereins-plugin' ), __( 'Excel schicken oder DokuMe', 'vereins-plugin' ) ],
             3 => [ __( 'Gemeldet', 'vereins-plugin' ), $gemeldet ? sprintf( __( 'am %s · Melder informiert', 'vereins-plugin' ), mysql2date( 'd.m.', $poll['submitted_at'] ) ) : __( 'Melder informiert', 'vereins-plugin' ) ],
-            4 => [ __( 'Bestätigt', 'vereins-plugin' ), $fertig && ! empty( $poll['confirmed_at'] ) ? mysql2date( 'd.m.', $poll['confirmed_at'] ) : __( 'vom Veranstalter', 'vereins-plugin' ) ],
+            4 => [ __( 'Bestätigt', 'vereins-plugin' ), ! $warten && ! empty( $poll['confirmed_at'] ) ? sprintf( __( 'am %s', 'vereins-plugin' ), mysql2date( 'd.m.', $poll['confirmed_at'] ) ) . ( $mitteilen ? ' · ' . __( 'Melder informieren', 'vereins-plugin' ) : ' · ' . __( 'Melder informiert', 'vereins-plugin' ) ) : __( 'vom Veranstalter', 'vereins-plugin' ) ],
         ];
         ?>
         <div class="vp-card vp-card--main">
             <h2><?php esc_html_e( 'Hauptmeldung', 'vereins-plugin' ); ?></h2>
             <ol class="vp-flow" aria-label="<?php esc_attr_e( 'Ablauf der Hauptmeldung', 'vereins-plugin' ); ?>">
-                <?php foreach ( $stufen as $nr => [ $titel, $info ] ) : $erledigt = $nr < $stufe || ( $nr === 4 && $fertig ); ?>
+                <?php foreach ( $stufen as $nr => [ $titel, $info ] ) : $erledigt = $nr < $stufe; ?>
                     <li class="vp-flow__step<?php echo $erledigt ? ' is-done' : ( $nr === $stufe ? ' is-current' : '' ); ?>"<?php echo $nr === $stufe && ! $erledigt ? ' aria-current="step"' : ''; ?>>
                         <strong><?php echo ( $erledigt ? '✓ ' : $nr . '. ' ) . esc_html( $titel ); ?></strong>
                         <span><?php echo esc_html( $info ); ?></span>
@@ -1054,8 +1058,11 @@ class PollsAdmin {
                     <h3><?php echo esc_html( sprintf( _n( 'Nächster Schritt: Bestätigung vom Veranstalter – %d Starter wartet', 'Nächster Schritt: Bestätigung vom Veranstalter – %d Starter warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h3>
                     <p class="description"><?php esc_html_e( 'Kommt die Bestätigung (Mail, Teilnehmerliste oder Status in DokuMe), hier vermerken. Die Starter stehen unten unter „Wartet auf Bestätigung“.', 'vereins-plugin' ); ?></p>
                     <?php $this->confirm_form( $poll, $warten, __( 'Hauptmeldung als bestätigt vermerken', 'vereins-plugin' ) ); ?>
+                <?php elseif ( $mitteilen ) : ?>
+                    <h3><?php esc_html_e( 'Nächster Schritt: Melder über die Bestätigung informieren', 'vereins-plugin' ); ?></h3>
+                    <?php $this->confirm_notify_form( $poll, $mitteilen ); ?>
                 <?php else : ?>
-                    <p><strong>✓ <?php esc_html_e( 'Hauptmeldung gemeldet und bestätigt.', 'vereins-plugin' ); ?></strong></p>
+                    <p><strong>✓ <?php esc_html_e( 'Hauptmeldung gemeldet, bestätigt und Melder informiert.', 'vereins-plugin' ); ?></strong></p>
                 <?php endif; ?>
                 <p><?php esc_html_e( 'Meldeliste (aktueller Stand):', 'vereins-plugin' ); ?>
                     <a class="button button-small" href="<?php echo esc_url( $xlsx ); ?>"><?php esc_html_e( 'BJV-Meldeliste (Excel)', 'vereins-plugin' ); ?></a>
@@ -1069,17 +1076,24 @@ class PollsAdmin {
     private function render_changes( array $poll, array $aend, array $ab ): void {
         $offen = count( $aend ) + count( $ab );
         $warten = array_values( array_filter( $aend, static fn( $z ) => ! empty( $z['submitted_at'] ) && ! empty( $z['notified_at'] ) && empty( $z['confirmed_at'] ) ) );
+        $mitteilen = array_values( array_filter( $aend, static fn( $z ) => ! empty( $z['confirmed_at'] ) && empty( $z['confirm_notified_at'] ) ) );
         ?>
         <div class="vp-card vp-card--changes">
             <h2><?php esc_html_e( 'Änderungen nach der Meldung', 'vereins-plugin' ); ?> <span class="vp-tag vp-tag--changed"><?php echo esc_html( sprintf( _n( '%d offen', '%d offen', $offen, 'vereins-plugin' ), $offen ) ); ?></span></h2>
             <p class="vp-legend"><?php esc_html_e( 'Jede Änderung läuft für sich:', 'vereins-plugin' ); ?>
                 <span class="vp-mini"><span>a</span></span> <?php esc_html_e( 'beim Veranstalter erledigen (abhaken)', 'vereins-plugin' ); ?> →
                 <span class="vp-mini"><span>b</span></span> <?php esc_html_e( 'Melder informieren', 'vereins-plugin' ); ?> →
-                <span class="vp-mini"><span>c</span></span> <?php esc_html_e( 'Bestätigung vom Veranstalter (nicht bei Abmeldungen)', 'vereins-plugin' ); ?></p>
+                <span class="vp-mini"><span>c</span></span> <?php esc_html_e( 'Bestätigung vom Veranstalter', 'vereins-plugin' ); ?> →
+                <span class="vp-mini"><span>d</span></span> <?php esc_html_e( 'Melder über die Bestätigung informieren', 'vereins-plugin' ); ?>
+                <span class="description">(<?php esc_html_e( 'Abmeldungen: nur a und b', 'vereins-plugin' ); ?>)</span></p>
             <?php $this->tick_form( $poll, 'changes', $aend, $ab ); ?>
             <?php if ( $warten ) : ?>
                 <h3><?php echo esc_html( sprintf( _n( 'c) Bestätigung: %d Änderung wartet', 'c) Bestätigung: %d Änderungen warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h3>
                 <?php $this->confirm_form( $poll, $warten, __( 'Änderungen als bestätigt vermerken', 'vereins-plugin' ) ); ?>
+            <?php endif; ?>
+            <?php if ( $mitteilen ) : ?>
+                <h3><?php echo esc_html( sprintf( _n( 'd) Bestätigung mitteilen: %d Änderung', 'd) Bestätigung mitteilen: %d Änderungen', count( $mitteilen ), 'vereins-plugin' ), count( $mitteilen ) ) ); ?></h3>
+                <?php $this->confirm_notify_form( $poll, $mitteilen ); ?>
             <?php endif; ?>
         </div>
         <?php
@@ -1088,7 +1102,8 @@ class PollsAdmin {
     /** Alle übrigen Starter nach Status, darin nach Klasse. */
     private function render_by_status( array $poll, array $haupt, array $aend_fertig ): void {
         $warten = array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['submitted_at'] ) && empty( $z['confirmed_at'] ) ) );
-        $best   = array_merge( array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['confirmed_at'] ) ) ), $aend_fertig );
+        $offen_info = array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['confirmed_at'] ) && empty( $z['confirm_notified_at'] ) ) );
+        $best   = array_merge( array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['confirmed_at'] ) && ! empty( $z['confirm_notified_at'] ) ) ), $aend_fertig );
         $nicht  = array_values( array_filter( $haupt, static fn( $z ) => empty( $z['submitted_at'] ) ) );
         $best   = ( new EntryService( $this->model ) )->sort_for_orga( $poll, $best );
         ?>
@@ -1100,6 +1115,12 @@ class PollsAdmin {
                     <?php $this->class_tables( $poll, $warten, 'list' ); ?>
                 </div>
             <?php endif; ?>
+            <?php if ( $offen_info ) : ?>
+                <div class="vp-group">
+                    <h2><span class="vp-tag vp-tag--changed"><?php echo esc_html( sprintf( __( 'Bestätigt, Melder noch nicht informiert · %d', 'vereins-plugin' ), count( $offen_info ) ) ); ?></span></h2>
+                    <?php $this->class_tables( $poll, $offen_info, 'list' ); ?>
+                </div>
+            <?php endif; ?>
             <?php if ( $best ) : ?>
                 <div class="vp-group">
                     <details class="vp-fold">
@@ -1109,7 +1130,7 @@ class PollsAdmin {
                     </details>
                 </div>
             <?php endif; ?>
-            <?php if ( ! $warten && ! $best && ! $nicht ) : ?>
+            <?php if ( ! $warten && ! $best && ! $nicht && ! $offen_info ) : ?>
                 <p class="description"><?php esc_html_e( 'Alle Starter stehen oben bei den Änderungen.', 'vereins-plugin' ); ?></p>
             <?php endif; ?>
         </div>
@@ -1181,6 +1202,7 @@ class PollsAdmin {
             'confirmed' => __( 'Bestätigung vermerkt.', 'vereins-plugin' ),
             'reset'     => __( 'Meldestatus zurückgesetzt.', 'vereins-plugin' ),
             'edited'    => __( 'Starter gespeichert.', 'vereins-plugin' ),
+            'cnotified' => __( 'Bestätigung mitgeteilt.', 'vereins-plugin' ),
             'removed'   => __( 'Starter entfernt.', 'vereins-plugin' ),
         ];
         if ( $msg === 'edit_error' ) {
@@ -1385,7 +1407,7 @@ class PollsAdmin {
                 <li>
                     <?php if ( $mit ) : ?>
                         <label><input type="checkbox" name="mail" value="1" checked>
-                        <strong><?php echo esc_html( sprintf( _n( 'E-Mail „Meldung bestätigt“ an %d Melder:', 'E-Mail „Meldung bestätigt“ an %d Melder:', count( $mit ), 'vereins-plugin' ), count( $mit ) ) ); ?></strong></label>
+                        <strong><?php echo esc_html( sprintf( _n( 'Gleich mitteilen – E-Mail „Meldung bestätigt“ an %d Melder:', 'E-Mail „Meldung bestätigt“ an %d Melder:', count( $mit ), 'vereins-plugin' ), count( $mit ) ) ); ?></strong></label>
                         <?php echo esc_html( implode( ' · ', array_map( static fn( $m ) => $m['name'] . ' (' . implode( ', ', $m['starters'] ) . ')', $mit ) ) ); ?>
                     <?php else : ?>
                         <?php esc_html_e( 'Keine E-Mail – kein Melder mit E-Mail-Adresse.', 'vereins-plugin' ); ?>
@@ -1404,6 +1426,45 @@ class PollsAdmin {
                 </li>
             </ul>
             <button class="button button-primary"><?php echo esc_html( $label ); ?></button>
+        </form>
+        <?php
+    }
+
+    /**
+     * Schritt „Bestätigung mitteilen“: wenn beim Bestätigen keine Mail
+     * rausging. Empfänger, Mail-Beispiel, senden oder als mitgeteilt vermerken.
+     */
+    private function confirm_notify_form( array $poll, array $zeilen ): void {
+        $id     = (int) $poll['id'];
+        $melder = array_values( array_unique( array_map( static fn( $z ) => (int) $z['person_id'], $zeilen ) ) );
+        $plan   = EntryMail::plan( $poll, 'confirmed', $melder, (string) wp_get_current_user()->display_name );
+        $mit    = array_filter( $plan, static fn( $m ) => $m['email'] !== '' );
+        $ohne   = array_filter( $plan, static fn( $m ) => $m['email'] === '' );
+        ?>
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <input type="hidden" name="action" value="vp_poll_entries_cnotify">
+            <input type="hidden" name="id" value="<?php echo $id; ?>">
+            <?php foreach ( $zeilen as $z ) : ?><input type="hidden" name="ids[]" value="<?php echo (int) $z['id']; ?>"><?php endforeach; ?>
+            <?php wp_nonce_field( 'vp_poll_entries_cnotify_' . $id ); ?>
+            <p class="description"><?php esc_html_e( 'Bestätigt ist vermerkt, aber die Melder wissen es noch nicht.', 'vereins-plugin' ); ?></p>
+            <?php if ( $mit ) : ?>
+                <p><strong><?php esc_html_e( 'E-Mail „Meldung bestätigt“ an:', 'vereins-plugin' ); ?></strong>
+                    <?php echo esc_html( implode( ' · ', array_map( static fn( $m ) => $m['name'] . ' (' . implode( ', ', $m['starters'] ) . ')', $mit ) ) ); ?></p>
+                <?php $erste = reset( $mit ); ?>
+                <details><summary><?php echo esc_html( sprintf( __( 'Mail ansehen (Beispiel für %s)', 'vereins-plugin' ), $erste['name'] ) ); ?></summary>
+                    <pre><strong><?php echo esc_html( $erste['subject'] ); ?></strong>
+
+<?php echo esc_html( $erste['body'] ); ?></pre></details>
+            <?php endif; ?>
+            <?php if ( $ohne ) : ?>
+                <p class="vp-mailwarn"><?php echo esc_html( sprintf( __( 'Ohne E-Mail-Adresse, bitte selbst Bescheid geben: %s', 'vereins-plugin' ), implode( ', ', array_column( $ohne, 'name' ) ) ) ); ?></p>
+            <?php endif; ?>
+            <div class="vp-markbar__actions">
+                <?php if ( $mit ) : ?>
+                    <button class="button button-primary" name="inform" value="mail"><?php echo esc_html( sprintf( _n( '%d E-Mail senden', '%d E-Mails senden', count( $mit ), 'vereins-plugin' ), count( $mit ) ) ); ?></button>
+                <?php endif; ?>
+                <button class="button" name="inform" value="nomail"><?php esc_html_e( 'Schon Bescheid gegeben – ohne E-Mail abschließen', 'vereins-plugin' ); ?></button>
+            </div>
         </form>
         <?php
     }
@@ -1433,6 +1494,7 @@ class PollsAdmin {
                 $a    = $ab ? ! empty( $z['withdraw_done_at'] ) : ! empty( $z['submitted_at'] );
                 $b    = ! $ab && ! empty( $z['notified_at'] ) && $a;
                 $c    = ! $ab && ! empty( $z['confirmed_at'] );
+                $dd   = $c && ! empty( $z['confirm_notified_at'] );
                 ?>
                 <tr>
                     <?php if ( $tick ) : ?>
@@ -1456,10 +1518,10 @@ class PollsAdmin {
                     <?php endif; ?>
                     <td><?php echo esc_html( $z['note'] ); ?></td>
                     <?php if ( $tick && ! empty( $z['art'] ) ) :
-                        $schritte = $ab ? [ 'a' => $a, 'b' => false ] : [ 'a' => $a, 'b' => $b, 'c' => $c ];
+                        $schritte = $ab ? [ 'a' => $a, 'b' => false ] : [ 'a' => $a, 'b' => $b, 'c' => $c, 'd' => $dd ];
                         $naechst  = array_search( false, $schritte, true );
                         ?>
-                        <td><span class="vp-mini" title="<?php esc_attr_e( 'a erledigt · b informiert · c bestätigt', 'vereins-plugin' ); ?>">
+                        <td><span class="vp-mini" title="<?php esc_attr_e( 'a erledigt · b informiert · c bestätigt · d Bestätigung mitgeteilt', 'vereins-plugin' ); ?>">
                             <?php foreach ( $schritte as $nr => $ok ) : ?><span class="<?php echo $ok ? 'is-done' : ( $nr === $naechst ? 'is-next' : '' ); ?>"><?php echo esc_html( $nr ); ?></span><?php endforeach; ?>
                         </span></td>
                     <?php endif; ?>
@@ -1763,6 +1825,30 @@ class PollsAdmin {
         exit;
     }
 
+    /** Bestätigung mitteilen: per Mail oder als „Bescheid gegeben“ vermerken. */
+    public function handle_confirm_notify(): void {
+        $id = (int) ( $_POST['id'] ?? 0 );
+        check_admin_referer( 'vp_poll_entries_cnotify_' . $id );
+        $poll   = $this->entry_poll_or_die( $id );
+        $ids    = array_map( 'intval', (array) ( $_POST['ids'] ?? [] ) );
+        $melder = [];
+        foreach ( $this->model->entries( $id ) as $e ) {
+            if ( in_array( (int) $e['id'], $ids, true ) ) {
+                $melder[] = (int) $e['person_id'];
+            }
+        }
+        $melder = array_values( array_unique( $melder ) );
+        $args   = [ 'ergebnis' => $id, 'msg' => 'cnotified' ];
+        if ( ( $_POST['inform'] ?? '' ) === 'mail' && $melder ) {
+            $r = EntryMail::send( $poll, 'confirmed', $melder, (string) wp_get_current_user()->display_name );
+            $args['vp_sent'] = (int) $r['sent'];
+            $args['vp_skip'] = rawurlencode( implode( ', ', $r['skipped'] ) );
+        }
+        $this->model->mark_confirm_notified( $id, $ids );
+        wp_safe_redirect( $this->url( $args ) );
+        exit;
+    }
+
     public function handle_reset(): void {
         $id = (int) ( $_POST['id'] ?? 0 );
         check_admin_referer( 'vp_poll_entries_reset_' . $id );
@@ -1782,6 +1868,11 @@ class PollsAdmin {
             $this->model->mark_poll( $id, 'confirmed_at' );
         }
         $mail = ! empty( $_POST['mail'] ) && $melder ? EntryMail::send( $poll, 'confirmed', $melder, (string) wp_get_current_user()->display_name ) : null;
+        if ( ! empty( $_POST['mail'] ) ) {
+            // Gemailt (oder ohne Adresse zum selbst Bescheid geben genannt) –
+            // ohne Mail bleibt Schritt „Bestätigung mitteilen“ offen.
+            $this->model->mark_confirm_notified( $id, $ids );
+        }
         $args = [ 'ergebnis' => $id, 'msg' => 'confirmed' ];
         if ( $mail ) {
             $args['vp_sent'] = (int) $mail['sent'];

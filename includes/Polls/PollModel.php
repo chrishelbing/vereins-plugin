@@ -248,7 +248,7 @@ class PollModel {
             }
             return null;
         };
-        $vermerke = [ 'submitted_at', 'notified_at', 'confirmed_at', 'prev_weight' ];
+        $vermerke = [ 'submitted_at', 'notified_at', 'confirmed_at', 'confirm_notified_at', 'prev_weight' ];
 
         $neu = [];
         foreach ( $rows as $r ) {
@@ -334,7 +334,7 @@ class PollModel {
                 $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => $jetzt ], [ 'id' => (int) $e['id'] ] );
                 $melder[] = (int) $e['person_id'];
             } elseif ( ! $gemeldet && ! empty( $e['submitted_at'] ) ) {
-                $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => null, 'confirmed_at' => null ], [ 'id' => (int) $e['id'] ] );
+                $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => null, 'confirmed_at' => null, 'confirm_notified_at' => null ], [ 'id' => (int) $e['id'] ] );
             }
         }
         return array_values( array_unique( $melder ) );
@@ -431,7 +431,7 @@ class PollModel {
      */
     public function set_entry_status( int $poll_id, int $entry_id, string $status ): void {
         global $wpdb;
-        $stufe = array_search( $status, [ 'open', 'submitted', 'notified', 'confirmed' ], true );
+        $stufe = array_search( $status, [ 'open', 'submitted', 'notified', 'confirmed', 'done' ], true );
         if ( $stufe === false ) {
             return;
         }
@@ -444,6 +444,7 @@ class PollModel {
                 'submitted_at' => $stufe >= 1 ? ( $e['submitted_at'] ?: $jetzt ) : null,
                 'notified_at'  => $stufe >= 2 ? ( $e['notified_at'] ?: $jetzt ) : null,
                 'confirmed_at' => $stufe >= 3 ? ( $e['confirmed_at'] ?: $jetzt ) : null,
+                'confirm_notified_at' => $stufe >= 4 ? ( $e['confirm_notified_at'] ?: $jetzt ) : null,
             ], [ 'id' => $entry_id ] );
         }
     }
@@ -457,7 +458,7 @@ class PollModel {
     /** Status eines Starters als Wort (siehe set_entry_status). */
     public static function entry_status( array $e ): string {
         if ( ! empty( $e['confirmed_at'] ) ) {
-            return 'confirmed';
+            return ! empty( $e['confirm_notified_at'] ) ? 'done' : 'confirmed';
         }
         if ( empty( $e['submitted_at'] ) ) {
             return 'open';
@@ -475,9 +476,20 @@ class PollModel {
             $wpdb->delete( $this->t( 'vp_poll_entries' ), [ 'id' => (int) $e['id'] ] );
         }
         foreach ( $this->entries( $poll_id ) as $e ) {
-            $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => null, 'notified_at' => null, 'confirmed_at' => null, 'prev_weight' => null ], [ 'id' => (int) $e['id'] ] );
+            $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'submitted_at' => null, 'notified_at' => null, 'confirmed_at' => null, 'confirm_notified_at' => null, 'prev_weight' => null ], [ 'id' => (int) $e['id'] ] );
         }
         $wpdb->update( $this->t( 'vp_polls' ), [ 'submitted_at' => null, 'confirmed_at' => null ], [ 'id' => $poll_id ] );
+    }
+
+    /** Bestätigung dieser Starter den Meldern mitgeteilt (Mail oder von Hand). */
+    public function mark_confirm_notified( int $poll_id, array $ids ): void {
+        global $wpdb;
+        $jetzt = current_time( 'mysql' );
+        foreach ( $this->entries( $poll_id ) as $e ) {
+            if ( in_array( (int) $e['id'], $ids, true ) && ! empty( $e['confirmed_at'] ) && empty( $e['confirm_notified_at'] ) ) {
+                $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'confirm_notified_at' => $jetzt ], [ 'id' => (int) $e['id'] ] );
+            }
+        }
     }
 
     /** Meldung als abgeschickt bzw. bestätigt vermerken ('submitted_at' / 'confirmed_at'). */
