@@ -44,7 +44,7 @@ class EntryMail {
      * @return array<int, array{name:string, email:string, subject:string, body:string, starters:string[]}>
      *         email = '' bei Platzhalter-Adresse oder ohne Adresse
      */
-    public static function plan( array $poll, string $art, array $melder = [], string $absender = '', bool $nur_gemeldet = true ): array {
+    public static function plan( array $poll, string $art, array $melder = [], string $absender = '', bool $nur_gemeldet = true, array $dazu = [] ): array {
         $art     = in_array( $art, [ 'confirmed', 'withdrawn' ], true ) ? $art : 'sent';
         $betreff = (string) Settings::get( "entry_mail_{$art}_subject", self::defaults()[ "entry_mail_{$art}_subject" ] );
         $text    = (string) Settings::get( "entry_mail_{$art}_body", self::defaults()[ "entry_mail_{$art}_body" ] );
@@ -54,7 +54,13 @@ class EntryMail {
         $model  = new PollModel();
         $zeilen = $art === 'withdrawn' ? $model->withdrawn_entries( (int) $poll['id'] ) : $model->entries( (int) $poll['id'] );
         foreach ( $zeilen as $e ) {
-            if ( ! $nur_gemeldet || ( $art === 'withdrawn' ? ! empty( $e['withdraw_done_at'] ) : ! empty( $e['submitted_at'] ) ) ) {
+            // „bestätigt“ nennt nur Bestätigte – bzw. die, die gerade bestätigt werden ($dazu)
+            $passt = match ( $art ) {
+                'withdrawn' => ! empty( $e['withdraw_done_at'] ),
+                'confirmed' => ! empty( $e['confirmed_at'] ) || in_array( (int) $e['id'], $dazu, true ),
+                default     => ! empty( $e['submitted_at'] ),
+            };
+            if ( ! $nur_gemeldet || $passt ) {
                 $je_melder[ (int) $e['person_id'] ][] = $e;
             }
         }

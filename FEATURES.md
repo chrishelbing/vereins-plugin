@@ -971,19 +971,20 @@ Starter hat einen eigenen Status. Die Meldeliste hat drei Bereiche:
    „Status setzen und n E-Mails senden“ / „Status setzen, keine E-Mail“ /
    „Abbrechen“. Danach: „Hauptmeldung als bestätigt vermerken“ (mit Mail-Option
    und Empfängern), dann ✓.
-2. **Änderungen nach der Meldung** (gelb, nur wenn es welche gibt) – gruppiert
-   in **Nachmeldung** (neu dazugekommen), **Ummeldung** (Gewicht in derselben
-   Klasse geändert; „−28 kg → −31 kg“, `vp_poll_entries.prev_weight`) und
-   **Abmeldung** (vom Melder gestrichen, war schon gemeldet; bleibt als Zeile
-   mit `withdrawn_at`, durchgestrichen), darin nach Klasse, Melder je Zeile.
-   Jede Zeile zeigt ihren **Mini-Ablauf a → b → c**: a) beim Veranstalter
-   erledigen (Haken, sofort gespeichert; bei Abmeldungen `withdraw_done_at`),
-   b) Melder informieren, c) Bestätigung (nicht bei Abmeldungen); erledigt
-   grün, nächster Schritt gelb. „Weiter: b) Melder informieren“ → Dialog mit
-   „Meldung abgeschickt“-Empfängern und „Abmeldung weitergegeben“-Empfängern;
-   erledigte Abmeldungen fallen danach weg (`finish_withdrawn()`). Dann
-   „Änderungen als bestätigt vermerken“. Bestätigte Änderungen wandern nach
-   unten.
+2. **Änderungen nach der Meldung** (gelb, nur wenn es welche gibt). Seit
+   1.26.0 **nach Prozessschritt gruppiert** – jeder Starter steht bei dem
+   Schritt, der für ihn als Nächstes dran ist; die Art (Nachmeldung,
+   Ummeldung, Abmeldung) steht als Etikett in der Spalte „Art“:
+   **1 Beim Veranstalter nach-, um- oder abmelden** (Haken, sofort
+   gespeichert), **2 Melder informieren** (abgehakt, Melder weiß es noch
+   nicht; Haken lösen schiebt zurück; „Weiter: Melder informieren“ → Dialog),
+   **3 Wartet auf Bestätigung** („Als bestätigt vermerken“, Mail nennt nur die
+   bestätigten bzw. gerade bestätigten Starter), **4 Melder über die
+   Bestätigung informieren**. Darin jeweils nach Klasse. Nachmeldung = neu
+   dazugekommen; Ummeldung = Gewicht in derselben Klasse geändert („−28 kg →
+   −31 kg“, `prev_weight`); Abmeldung = vom Melder gestrichen, war schon
+   gemeldet (`withdrawn_at`, durchgestrichen; nur Schritte 1 und 2, danach
+   fällt die Zeile weg, `finish_withdrawn()`).
 3. **Starter nach Status** (nach der Hauptmeldung) – „Gemeldet, wartet auf
    Bestätigung“ und „Bestätigt“ (eingeklappt), jeweils nach Klasse, Melder je
    Zeile.

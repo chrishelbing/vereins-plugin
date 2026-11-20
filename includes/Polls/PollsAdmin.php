@@ -998,6 +998,7 @@ class PollsAdmin {
         .vp-card [hidden], .vp-informdlg [hidden] { display: none !important; }
         .vp-markbar { position: sticky; bottom: 0; z-index: 5; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 10px 18px 14px; box-shadow: 0 -2px 10px rgba(0,0,0,.06); margin-top: 14px; }
         .vp-markbar p { margin: 6px 0; }
+        .vp-card--changes .vp-markbar { position: static; box-shadow: none; }
         .vp-markbar__actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
         .vp-informdlg { border: 0; border-radius: 8px; padding: 22px 26px; max-width: 680px; width: calc(100% - 40px); box-shadow: 0 10px 40px rgba(0,0,0,.25); }
         .vp-informdlg::backdrop { background: rgba(0,0,0,.4); }
@@ -1007,6 +1008,9 @@ class PollsAdmin {
         .vp-effects li::before { content: "→"; position: absolute; left: 0; color: #2271b1; font-weight: 600; }
         .vp-card pre, .vp-informdlg pre { white-space: pre-wrap; background: #f6f7f7; border: 1px solid #dcdcde; padding: 10px; font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; max-width: 640px; }
         details.vp-fold > summary { cursor: pointer; padding: 6px 0; }
+        .vp-stephead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px !important; margin: 18px 0 4px !important; }
+        .vp-stephead .description { font-weight: normal; font-size: 13px; }
+        .vp-stepnum { display: inline-flex; width: 24px; height: 24px; border-radius: 50%; background: #dba617; color: #fff; align-items: center; justify-content: center; font-size: 13px; }
         /* Alle Klassentabellen mit denselben Spalten, damit nichts springt */
         .vp-card table.vp-entries { table-layout: fixed; width: 100%; }
         .vp-entries .c-tick { width: 9%; } .vp-entries .c-name { width: 19%; } .vp-entries .c-year { width: 8%; }
@@ -1100,23 +1104,32 @@ class PollsAdmin {
         ?>
         <div class="vp-card vp-card--changes">
             <h2><?php esc_html_e( 'Änderungen nach der Meldung', 'vereins-plugin' ); ?> <span class="vp-tag vp-tag--changed"><?php echo esc_html( sprintf( _n( '%d offen', '%d offen', $offen, 'vereins-plugin' ), $offen ) ); ?></span></h2>
-            <p class="vp-legend"><?php esc_html_e( 'Jede Änderung läuft für sich:', 'vereins-plugin' ); ?>
-                <span class="vp-mini"><span>a</span></span> <?php esc_html_e( 'beim Veranstalter erledigen (abhaken)', 'vereins-plugin' ); ?> →
-                <span class="vp-mini"><span>b</span></span> <?php esc_html_e( 'Melder informieren', 'vereins-plugin' ); ?> →
-                <span class="vp-mini"><span>c</span></span> <?php esc_html_e( 'Bestätigung vom Veranstalter', 'vereins-plugin' ); ?> →
-                <span class="vp-mini"><span>d</span></span> <?php esc_html_e( 'Melder über die Bestätigung informieren', 'vereins-plugin' ); ?>
-                <span class="description">(<?php esc_html_e( 'Abmeldungen: nur a und b', 'vereins-plugin' ); ?>)</span></p>
+            <p class="description" style="margin-top:0;"><?php esc_html_e( 'Jede Nach-, Um- oder Abmeldung durchläuft die Schritte unten einzeln; jeder Starter steht bei dem Schritt, der für ihn als Nächstes dran ist.', 'vereins-plugin' ); ?></p>
             <?php $this->tick_form( $poll, 'changes', $aend, $ab ); ?>
             <?php if ( $warten ) : ?>
-                <h3><?php echo esc_html( sprintf( _n( 'c) Bestätigung: %d Änderung wartet', 'c) Bestätigung: %d Änderungen warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h3>
-                <?php $this->confirm_form( $poll, $warten, __( 'Änderungen als bestätigt vermerken', 'vereins-plugin' ), ! $info_offen ); ?>
+                <div class="vp-group">
+                    <?php $this->step_heading( 3, __( 'Wartet auf Bestätigung vom Veranstalter', 'vereins-plugin' ), count( $warten ), __( 'gemeldet, Melder informiert', 'vereins-plugin' ) ); ?>
+                    <?php $this->class_tables( $poll, $warten, 'list' ); ?>
+                    <?php $this->confirm_form( $poll, $warten, __( 'Als bestätigt vermerken', 'vereins-plugin' ), ! $info_offen ); ?>
+                </div>
             <?php endif; ?>
             <?php if ( $mitteilen ) : ?>
-                <h3><?php echo esc_html( sprintf( _n( 'd) Bestätigung mitteilen: %d Änderung', 'd) Bestätigung mitteilen: %d Änderungen', count( $mitteilen ), 'vereins-plugin' ), count( $mitteilen ) ) ); ?></h3>
-                <?php $this->confirm_notify_form( $poll, $mitteilen, ! $info_offen && ! $warten ); ?>
+                <div class="vp-group">
+                    <?php $this->step_heading( 4, __( 'Melder über die Bestätigung informieren', 'vereins-plugin' ), count( $mitteilen ), __( 'bestätigt, Melder weiß es noch nicht', 'vereins-plugin' ) ); ?>
+                    <?php $this->class_tables( $poll, $mitteilen, 'list' ); ?>
+                    <?php $this->confirm_notify_form( $poll, $mitteilen, ! $info_offen && ! $warten ); ?>
+                </div>
             <?php endif; ?>
         </div>
         <?php
+    }
+
+    /** Überschrift eines Schritts bei den Änderungen: Nummer, Titel, Anzahl, Zustand. */
+    private function step_heading( int $nr, string $titel, int $anzahl, string $info ): void {
+        printf(
+            '<h3 class="vp-stephead"><span class="vp-stepnum">%d</span> %s <span class="vp-tag">%d</span> <span class="description">%s</span></h3>',
+            $nr, esc_html( $titel ), $anzahl, esc_html( $info )
+        );
     }
 
     /** Alle übrigen Starter nach Status, darin nach Klasse. */
@@ -1177,17 +1190,22 @@ class PollsAdmin {
                 echo '<h3>' . esc_html__( 'Abhakliste: Wen hast du schon gemeldet?', 'vereins-plugin' ) . '</h3>';
                 $this->class_tables( $poll, $zeilen, 'tick' );
             } else {
-                $gruppen = [
-                    'late'      => [ __( 'Nachmeldung', 'vereins-plugin' ), __( 'nach der Meldung dazugekommen', 'vereins-plugin' ), array_values( array_filter( $zeilen, static fn( $z ) => $z['art'] === 'late' ) ) ],
-                    'changed'   => [ __( 'Ummeldung', 'vereins-plugin' ), __( 'Gewicht nach der Meldung geändert', 'vereins-plugin' ), array_values( array_filter( $zeilen, static fn( $z ) => $z['art'] === 'changed' ) ) ],
-                    'withdrawn' => [ __( 'Abmeldung', 'vereins-plugin' ), __( 'vom Melder gestrichen – beim Veranstalter abmelden', 'vereins-plugin' ), $ab ],
-                ];
-                foreach ( $gruppen as $art => [ $titel, $info, $reihe ] ) {
-                    if ( ! $reihe ) {
-                        continue;
-                    }
-                    echo '<div class="vp-group"><h2><span class="vp-tag vp-tag--' . esc_attr( $art ) . '">' . esc_html( $titel . ' · ' . count( $reihe ) ) . '</span> <span class="description" style="font-weight:normal;font-size:13px;">' . esc_html( $info ) . '</span></h2>';
-                    $this->class_tables( $poll, $reihe, 'tick' );
+                // Schritt 1: beim Veranstalter erledigen; Schritt 2: Melder informieren.
+                // Abhaken schiebt einen Starter von 1 nach 2 (sichtbar nach dem Neuladen).
+                $erledigt = static fn( $z ) => $z['art'] === 'withdrawn' ? ! empty( $z['withdraw_done_at'] ) : ! empty( $z['submitted_at'] );
+                $alle     = array_merge( $zeilen, $ab );
+                $s1 = ( new EntryService( $this->model ) )->sort_for_orga( $poll, array_values( array_filter( $alle, static fn( $z ) => ! $erledigt( $z ) ) ) );
+                $s2 = ( new EntryService( $this->model ) )->sort_for_orga( $poll, array_values( array_filter( $alle, static fn( $z ) => $erledigt( $z ) && ( $z['art'] === 'withdrawn' || empty( $z['notified_at'] ) ) ) ) );
+                if ( $s1 ) {
+                    echo '<div class="vp-group">';
+                    $this->step_heading( 1, __( 'Beim Veranstalter nach-, um- oder abmelden', 'vereins-plugin' ), count( $s1 ), __( 'erledigt? abhaken – wird sofort gespeichert', 'vereins-plugin' ) );
+                    $this->class_tables( $poll, $s1, 'tick' );
+                    echo '</div>';
+                }
+                if ( $s2 ) {
+                    echo '<div class="vp-group">';
+                    $this->step_heading( 2, __( 'Melder informieren', 'vereins-plugin' ), count( $s2 ), __( 'beim Veranstalter erledigt', 'vereins-plugin' ) );
+                    $this->class_tables( $poll, $s2, 'tick' );
                     echo '</div>';
                 }
             }
@@ -1296,7 +1314,7 @@ class PollsAdmin {
             <p><strong data-count></strong> <span class="description" data-save-state aria-live="polite"></span></p>
             <p data-pending></p>
             <div class="vp-markbar__actions">
-                <button type="button" class="button button-primary button-large" data-open><?php echo esc_html( $haupt ? __( 'Weiter: Status „Gemeldet“ setzen', 'vereins-plugin' ) : __( 'Weiter: b) Melder informieren', 'vereins-plugin' ) ); ?></button>
+                <button type="button" class="button button-primary button-large" data-open><?php echo esc_html( $haupt ? __( 'Weiter: Status „Gemeldet“ setzen', 'vereins-plugin' ) : __( 'Weiter: Melder informieren', 'vereins-plugin' ) ); ?></button>
                 <span class="description"><?php esc_html_e( 'Im nächsten Schritt siehst du die Empfänger und entscheidest, ob E-Mails rausgehen.', 'vereins-plugin' ); ?></span>
             </div>
         </div>
@@ -1422,7 +1440,7 @@ class PollsAdmin {
     private function confirm_form( array $poll, array $zeilen, string $label, bool $primaer = true ): void {
         $id     = (int) $poll['id'];
         $melder = array_values( array_unique( array_map( static fn( $z ) => (int) $z['person_id'], $zeilen ) ) );
-        $plan   = EntryMail::plan( $poll, 'confirmed', $melder, (string) wp_get_current_user()->display_name );
+        $plan   = EntryMail::plan( $poll, 'confirmed', $melder, (string) wp_get_current_user()->display_name, true, array_map( static fn( $z ) => (int) $z['id'], $zeilen ) );
         $mit    = array_filter( $plan, static fn( $m ) => $m['email'] !== '' );
         $ohne   = array_filter( $plan, static fn( $m ) => $m['email'] === '' );
         ?>
@@ -1517,7 +1535,7 @@ class PollsAdmin {
                 <th class="c-by"><?php esc_html_e( 'Gemeldet von', 'vereins-plugin' ); ?></th>
                 <?php if ( $dokume ) : ?><th class="c-pass"><?php esc_html_e( 'Judopass', 'vereins-plugin' ); ?></th><?php endif; ?>
                 <th class="c-note"><?php esc_html_e( 'Hinweis', 'vereins-plugin' ); ?></th>
-                <th class="c-flow"><?php echo $tick && ! empty( $zeilen[0]['art'] ) ? esc_html__( 'Ablauf', 'vereins-plugin' ) : ''; ?></th>
+                <th class="c-flow"><?php echo ! empty( $zeilen[0]['art'] ) ? esc_html__( 'Art', 'vereins-plugin' ) : ''; ?></th>
             </tr></thead>
             <tbody>
             <?php foreach ( $zeilen as $z ) :
@@ -1550,13 +1568,10 @@ class PollsAdmin {
                         <td><?php echo ! isset( $z['judopass'] ) ? '–' : ( (int) $z['judopass'] ? esc_html__( 'ja', 'vereins-plugin' ) : '<strong style="color:#b32d2e;">' . esc_html__( 'nein', 'vereins-plugin' ) . '</strong>' ); ?></td>
                     <?php endif; ?>
                     <td><?php echo esc_html( $z['note'] ); ?></td>
-                    <?php if ( $tick && ! empty( $z['art'] ) ) :
-                        $schritte = $ab ? [ 'a' => $a, 'b' => false ] : [ 'a' => $a, 'b' => $b, 'c' => $c, 'd' => $dd ];
-                        $naechst  = array_search( false, $schritte, true );
+                    <?php if ( ! empty( $z['art'] ) ) :
+                        $arten = [ 'late' => __( 'Nachmeldung', 'vereins-plugin' ), 'changed' => __( 'Ummeldung', 'vereins-plugin' ), 'withdrawn' => __( 'Abmeldung', 'vereins-plugin' ) ];
                         ?>
-                        <td><span class="vp-mini" title="<?php esc_attr_e( 'a erledigt · b informiert · c bestätigt · d Bestätigung mitgeteilt', 'vereins-plugin' ); ?>">
-                            <?php foreach ( $schritte as $nr => $ok ) : ?><span class="<?php echo $ok ? 'is-done' : ( $nr === $naechst ? 'is-next' : '' ); ?>"><?php echo esc_html( $nr ); ?></span><?php endforeach; ?>
-                        </span></td>
+                        <td><span class="vp-tag vp-tag--<?php echo esc_attr( $z['art'] ); ?>"><?php echo esc_html( $arten[ $z['art'] ] ?? '' ); ?></span></td>
                     <?php else : ?>
                         <td></td>
                     <?php endif; ?>
