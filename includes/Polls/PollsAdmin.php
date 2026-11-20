@@ -1003,6 +1003,12 @@ class PollsAdmin {
         .vp-effects li::before { content: "→"; position: absolute; left: 0; color: #2271b1; font-weight: 600; }
         .vp-card pre, .vp-informdlg pre { white-space: pre-wrap; background: #f6f7f7; border: 1px solid #dcdcde; padding: 10px; font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; max-width: 640px; }
         details.vp-fold > summary { cursor: pointer; padding: 6px 0; }
+        /* Alle Klassentabellen mit denselben Spalten, damit nichts springt */
+        .vp-card table.vp-entries { table-layout: fixed; width: 100%; }
+        .vp-entries .c-tick { width: 92px; } .vp-entries .c-name { width: 24%; } .vp-entries .c-year { width: 9%; }
+        .vp-entries .c-weight { width: 15%; } .vp-entries .c-by { width: 26%; } .vp-entries .c-pass { width: 8%; }
+        .vp-entries .c-flow { width: 120px; }
+        .vp-entries td { overflow-wrap: anywhere; }
         </style>
         <?php
     }
@@ -1484,18 +1490,20 @@ class PollsAdmin {
         $dokume = ! empty( $poll['dokume'] );
         $gewicht = static fn( $w ) => $w !== '' ? esc_html( ClassTemplates::weight_label( $w ) ) : '<span class="description">' . esc_html__( 'gewichtsnah', 'vereins-plugin' ) . '</span>';
         ?>
-        <table class="vp-table">
+        <table class="vp-table vp-entries">
             <thead><tr>
                 <?php if ( $tick ) : ?>
-                    <th style="width:1%;white-space:nowrap;"><label><input type="checkbox" class="vp-check-all" aria-label="<?php esc_attr_e( 'alle in dieser Klasse abhaken', 'vereins-plugin' ); ?>"> <?php esc_html_e( 'Erledigt', 'vereins-plugin' ); ?></label></th>
+                    <th class="c-tick" style="white-space:nowrap;"><label><input type="checkbox" class="vp-check-all" aria-label="<?php esc_attr_e( 'alle in dieser Klasse abhaken', 'vereins-plugin' ); ?>"> <?php esc_html_e( 'Erledigt', 'vereins-plugin' ); ?></label></th>
+                <?php else : ?>
+                    <th class="c-tick"><span class="screen-reader-text"><?php esc_html_e( 'Status', 'vereins-plugin' ); ?></span></th>
                 <?php endif; ?>
-                <th><?php esc_html_e( 'Name', 'vereins-plugin' ); ?></th>
-                <th><?php esc_html_e( 'Jahrgang', 'vereins-plugin' ); ?></th>
-                <th><?php esc_html_e( 'Gewicht', 'vereins-plugin' ); ?></th>
-                <th><?php esc_html_e( 'Gemeldet von', 'vereins-plugin' ); ?></th>
-                <?php if ( $dokume ) : ?><th><?php esc_html_e( 'Judopass', 'vereins-plugin' ); ?></th><?php endif; ?>
+                <th class="c-name"><?php esc_html_e( 'Name', 'vereins-plugin' ); ?></th>
+                <th class="c-year"><?php esc_html_e( 'Jahrgang', 'vereins-plugin' ); ?></th>
+                <th class="c-weight"><?php esc_html_e( 'Gewicht', 'vereins-plugin' ); ?></th>
+                <th class="c-by"><?php esc_html_e( 'Gemeldet von', 'vereins-plugin' ); ?></th>
+                <?php if ( $dokume ) : ?><th class="c-pass"><?php esc_html_e( 'Judopass', 'vereins-plugin' ); ?></th><?php endif; ?>
                 <th><?php esc_html_e( 'Hinweis', 'vereins-plugin' ); ?></th>
-                <?php if ( $tick && ! empty( $zeilen[0]['art'] ) ) : ?><th><?php esc_html_e( 'Ablauf', 'vereins-plugin' ); ?></th><?php endif; ?>
+                <?php if ( $tick && ! empty( $zeilen[0]['art'] ) ) : ?><th class="c-flow"><?php esc_html_e( 'Ablauf', 'vereins-plugin' ); ?></th><?php endif; ?>
             </tr></thead>
             <tbody>
             <?php foreach ( $zeilen as $z ) :
@@ -1508,6 +1516,8 @@ class PollsAdmin {
                 <tr>
                     <?php if ( $tick ) : ?>
                         <td style="text-align:center;"><input type="checkbox" data-tick value="<?php echo (int) $z['id']; ?>" data-kind="<?php echo $ab ? 'withdrawn' : 'entry'; ?>" data-person="<?php echo (int) $z['person_id']; ?>" data-first="<?php echo esc_attr( $z['first_name'] ); ?>" data-notified="<?php echo $b ? '1' : '0'; ?>" <?php checked( $a ); ?> <?php disabled( $b ); ?> aria-label="<?php echo esc_attr( $ab ? __( 'beim Veranstalter abgemeldet', 'vereins-plugin' ) : __( 'beim Veranstalter gemeldet', 'vereins-plugin' ) ); ?>"></td>
+                    <?php else : ?>
+                        <td style="text-align:center;"><?php echo $dd ? '<span style="color:#00a32a;" title="' . esc_attr__( 'bestätigt, Melder informiert', 'vereins-plugin' ) . '">✓</span>' : ( $c ? '<span style="color:#996800;" title="' . esc_attr__( 'bestätigt, Melder noch nicht informiert', 'vereins-plugin' ) . '">✓</span>' : '<span class="description" title="' . esc_attr__( 'wartet auf Bestätigung', 'vereins-plugin' ) . '">…</span>' ); // phpcs:ignore ?></td>
                     <?php endif; ?>
                     <td><strong class="<?php echo $ab ? 'vp-strike' : ''; ?>"><?php echo esc_html( $z['last_name'] ); ?>, <?php echo esc_html( $z['first_name'] ); ?></strong>
                         <?php if ( ! $ab ) : ?>

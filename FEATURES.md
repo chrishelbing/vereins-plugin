@@ -1001,6 +1001,10 @@ Hauptmeldung stehen seit 1.24.5 unten bei den betroffenen Startern (Gruppen
 „Gemeldet, wartet auf Bestätigung“ bzw. „Bestätigt, Melder noch nicht
 informiert“); oben im Hauptablauf steht nur, welcher Schritt dran ist.
 
+Alle Klassentabellen haben dieselben festen Spalten (erste Spalte Haken bzw.
+Status-Zeichen ✓/…), damit Namen, Jahrgang, Gewicht und Melder in allen
+Bereichen untereinander stehen (seit 1.24.7).
+
 **Bestätigung mitteilen** (seit 1.24.3, `vp_poll_entries.confirm_notified_at`):
 Fertig ist ein Starter erst, wenn er bestätigt **und** der Melder darüber
 informiert ist. Beim Bestätigen ist „Gleich mitteilen – E-Mail …“ angehakt;
