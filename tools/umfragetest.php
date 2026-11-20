@@ -320,6 +320,42 @@ Pruefung::ok( 'Haken lösen nimmt die Bestätigung weg', empty( array_column( $m
 $entry->submit( $model->find( $wid ), $gerd, [ $mia, $tom, $lea13 ] );
 Pruefung::ok( 'Website: Starter als bestätigt markiert', $service->payload( $model->find( $wid ), $gerd, false )['entries'][0]['confirmed'] === true );
 
+// Änderungen nach der Meldung: Ummeldung, Abmeldung, wieder eingetragen
+echo "\nÄnderungen nach der Meldung\n";
+$um = $model->save( [ 'kind' => 'entry', 'title' => 'Ummeldetest', 'status' => 'open', 'event_date' => '2027-03-06', 'classes' => PollModel::classes( $w ) ] );
+$model->replace_entries( $um, $gerd, [ $mia, $tom ] );
+$model->mark_entries_submitted( $um, array_map( fn( $e ) => (int) $e['id'], $model->entries( $um ) ) );
+$model->replace_entries( $um, $gerd, [ array_merge( $mia, [ 'weight' => '-31' ] ), $tom ] );
+$e = array_column( $model->entries( $um, $gerd ), null, 'first_name' );
+Pruefung::ok( 'Gewicht geändert: Ummeldung mit altem Gewicht, offen', $e['Mia']['prev_weight'] === '-28' && empty( $e['Mia']['submitted_at'] ) );
+Pruefung::ok( 'unverändert: kein Ummelde-Vermerk', $e['Tom']['prev_weight'] === null && ! empty( $e['Tom']['submitted_at'] ) );
+$model->replace_entries( $um, $gerd, [ array_merge( $mia, [ 'weight' => '-34' ] ), $tom ] );
+Pruefung::gleich( 'nochmal geändert: gemeldet bleibt das erste Gewicht', array_column( $model->entries( $um, $gerd ), 'prev_weight', 'first_name' )['Mia'], '-28' );
+$model->replace_entries( $um, $gerd, [ $mia, $tom ] );
+Pruefung::ok( 'zurück zum gemeldeten Gewicht: keine Ummeldung mehr', array_column( $model->entries( $um, $gerd ), 'prev_weight', 'first_name' )['Mia'] === null );
+$model->mark_entries_submitted( $um, array_map( fn( $e ) => (int) $e['id'], $model->entries( $um ) ) );
+
+$model->replace_entries( $um, $gerd, [ $mia ] );
+$ab = $model->withdrawn_entries( $um );
+Pruefung::ok( 'gestrichen nach der Meldung: Abmeldung statt weg', count( $ab ) === 1 && $ab[0]['first_name'] === 'Tom' && count( $model->entries( $um ) ) === 1 );
+Pruefung::ok( 'Abmeldung zählt nicht als Starter (Doppelt-Prüfung, Liste)', count( $entry->list_for_orga( $model->find( $um ) ) ) === 1 && count( $entry->list_for_orga( $model->find( $um ), true ) ) === 1 );
+$model->replace_entries( $um, $gerd, [ $mia, $tom ] );
+$t = array_column( $model->entries( $um, $gerd ), null, 'first_name' )['Tom'];
+Pruefung::ok( 'wieder eingetragen vor der Abmeldung: wie vorher gemeldet', ! empty( $t['submitted_at'] ) && $model->withdrawn_entries( $um ) === [] );
+$model->replace_entries( $um, $gerd, [ $mia ] );
+$model->mark_withdrawn_done( $um, [ (int) $model->withdrawn_entries( $um )[0]['id'] ] );
+Pruefung::gleich( 'abgemeldet: Melder fällig für Mail', $model->melder_withdrawn_done( $um ), [ $gerd ] );
+Pruefung::ok( 'Mail „Abmeldung“ nennt den abgemeldeten Starter', str_contains( EntryMail::plan( $model->find( $um ), 'withdrawn', [ $gerd ] )[ $gerd ]['body'], 'Tom Muster' ) );
+$model->replace_entries( $um, $gerd, [ $mia, $tom ] );
+$t = array_column( $model->entries( $um, $gerd ), null, 'first_name' )['Tom'];
+Pruefung::ok( 'nach erledigter Abmeldung wieder eingetragen: Nachmeldung', empty( $t['submitted_at'] ) && count( $model->withdrawn_entries( $um ) ) === 1 );
+$model->finish_withdrawn( $um, [ $gerd ] );
+Pruefung::ok( 'Abmeldung abgeschlossen: Zeile weg', $model->withdrawn_entries( $um ) === [] );
+$model->replace_entries( $um, $anna, [ $lea13 ] );
+$model->replace_entries( $um, $anna, [] );
+Pruefung::ok( 'nie gemeldet und gestrichen: einfach weg', $model->withdrawn_entries( $um ) === [] && $model->entries( $um, $anna ) === [] );
+$model->delete( $um );
+
 // DokuMe: Judopass je Starter
 $dok = $model->find( $model->save( [ 'kind' => 'entry', 'title' => 'DokuMe-Turnier', 'status' => 'open', 'event_date' => '2027-02-06', 'classes' => PollModel::classes( $w ), 'dokume' => true ] ) );
 Pruefung::ok( 'DokuMe-Häkchen gespeichert', (int) $dok['dokume'] === 1 );

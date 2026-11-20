@@ -222,14 +222,12 @@ class EntryService {
      *
      * @return array<int, array>
      */
-    public function list_for_orga( array $poll ): array {
-        $zeilen  = $this->model->entries( (int) $poll['id'] );
+    public function list_for_orga( array $poll, bool $abmeldungen = false ): array {
+        $zeilen  = $abmeldungen ? $this->model->withdrawn_entries( (int) $poll['id'] ) : $this->model->entries( (int) $poll['id'] );
         $melder  = [];
         foreach ( array_unique( array_map( static fn( $e ) => (int) $e['person_id'], $zeilen ) ) as $pid ) {
             $melder[ $pid ] = Person::find( $pid ) ?? [ 'name' => __( 'Unbekannt', 'vereins-plugin' ), 'email' => '', 'phone' => '' ];
         }
-        $reihe = array_flip( array_map( static fn( $c ) => $c['key'], PollModel::classes( $poll ) ) );
-
         foreach ( $zeilen as &$z ) {
             $m = $melder[ (int) $z['person_id'] ];
             $z['reporter']       = $m['name'];
@@ -240,6 +238,12 @@ class EntryService {
         }
         unset( $z );
 
+        return $this->sort_for_orga( $poll, $zeilen );
+    }
+
+    /** Nach Klasse (Reihenfolge der Vorlage), Geschlecht, Gewicht, Name. */
+    public function sort_for_orga( array $poll, array $zeilen ): array {
+        $reihe = array_flip( array_map( static fn( $c ) => $c['key'], PollModel::classes( $poll ) ) );
         usort( $zeilen, static function ( $a, $b ) use ( $reihe ) {
             return [ $reihe[ $a['class_key'] ] ?? 99, $a['sex'], self::weight_order( $a['weight'] ), $a['last_name'], $a['first_name'] ]
                <=> [ $reihe[ $b['class_key'] ] ?? 99, $b['sex'], self::weight_order( $b['weight'] ), $b['last_name'], $b['first_name'] ];

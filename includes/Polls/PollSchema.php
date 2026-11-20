@@ -101,6 +101,10 @@ class PollSchema {
         // submitted_at: dieser Starter ist beim Veranstalter gemeldet (Abhakliste).
         // notified_at: der Melder hat zu diesem Starter die Mail „abgeschickt“ bekommen.
         // confirmed_at: der Veranstalter hat diesen Starter bestätigt.
+        // prev_weight: Ummeldung – Gewicht, mit dem der Starter gemeldet war.
+        // withdrawn_at: vom Melder gestrichen, war aber schon gemeldet (Abmeldung);
+        // withdraw_done_at: beim Veranstalter abgemeldet. Die Zeile bleibt, bis
+        // der Melder informiert ist.
         $entries = "CREATE TABLE {$prefix}vp_poll_entries (
             id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             poll_id     BIGINT UNSIGNED NOT NULL,
@@ -116,6 +120,9 @@ class PollSchema {
             submitted_at DATETIME       DEFAULT NULL,
             notified_at  DATETIME       DEFAULT NULL,
             confirmed_at DATETIME       DEFAULT NULL,
+            prev_weight  VARCHAR(20)    DEFAULT NULL,
+            withdrawn_at DATETIME       DEFAULT NULL,
+            withdraw_done_at DATETIME   DEFAULT NULL,
             created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
             KEY          poll_person (poll_id, person_id)

@@ -777,16 +777,21 @@ class PollsAdmin {
     // Wettkampfmeldung: Meldeliste
     // ------------------------------------------------------------------
 
-    /** Die gerade angezeigte Meldung – für die Markierung der Nachmeldungen. */
-    private ?array $current_poll = null;
-
+    /**
+     * Meldeliste fürs Orgateam.
+     *
+     * Jeder Starter hat einen eigenen Status. Oben der Hauptablauf der ersten
+     * Meldung (sammeln → melden → gemeldet → bestätigt), der nicht mehr
+     * zurückspringt. Was danach kommt – Nachmeldung, Ummeldung (Gewicht
+     * geändert), Abmeldung (gestrichen) –, läuft in einem eigenen Bereich mit
+     * Mini-Ablauf a) beim Veranstalter erledigen → b) Melder informieren →
+     * c) Bestätigung. Unten alle übrigen Starter nach Status, darin nach Klasse.
+     */
     private function render_entries( array $poll ): void {
-        $this->current_poll = $poll;
         $service = new EntryService( $this->model );
         $liste   = $service->list_for_orga( $poll );
+        $ab      = $service->list_for_orga( $poll, true );
         $melder  = $this->model->voter_count( (int) $poll['id'] );
-        $jahr    = EntryService::year( $poll );
-        $klassen = array_column( PollModel::classes( $poll ), null, 'key' );
         $faellig = EntryCleanup::due_date( $poll );
         ?>
         <h1><?php echo esc_html( $poll['title'] ); ?></h1>
@@ -804,44 +809,260 @@ class PollsAdmin {
         <?php elseif ( $faellig ) : ?>
             <p class="description"><?php echo esc_html( sprintf( __( 'Die Meldungen werden am %s automatisch gelöscht.', 'vereins-plugin' ), mysql2date( 'd.m.Y', $faellig ) ) ); ?></p>
         <?php endif; ?>
-
-        <?php if ( ! $liste ) : ?>
-            <p><?php esc_html_e( 'Noch keine Meldungen.', 'vereins-plugin' ); ?></p>
-            <?php return; ?>
-        <?php endif; ?>
-        <?php $this->render_entry_steps( $poll, $liste ); ?>
-
-        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-            <input type="hidden" name="action" value="vp_poll_entries_mark">
-            <input type="hidden" name="id" value="<?php echo (int) $poll['id']; ?>">
-            <?php wp_nonce_field( 'vp_poll_entries_mark_' . (int) $poll['id'] ); ?>
-            <h2 id="vp-abhaken" style="margin-bottom:4px;"><?php esc_html_e( 'Abhakliste: Wen hast du schon gemeldet?', 'vereins-plugin' ); ?></h2>
-            <p style="margin-top:0;max-width:62em;"><?php esc_html_e( 'Das Plugin meldet nicht selbst beim Veranstalter. Du meldest dort (Excel per Mail oder DokuMe) und hakst hier ab, wen du gemeldet hast – einzeln oder mit dem Haken im Tabellenkopf die ganze Klasse. Jeder Haken wird sofort gespeichert, ohne Mail und ohne Statusänderung. Bist du fertig, geht es unten mit „Weiter“ zum Abschluss: Dort siehst du die Empfänger und entscheidest, ob E-Mails rausgehen.', 'vereins-plugin' ); ?></p>
-            <?php foreach ( $liste as $z ) : ?>
-                <input type="hidden" name="alle[]" value="<?php echo (int) $z['id']; ?>">
-            <?php endforeach; ?>
         <?php
-        $gruppen = [];
+        if ( ! $liste && ! $ab ) {
+            echo '<p>' . esc_html__( 'Noch keine Meldungen.', 'vereins-plugin' ) . '</p>';
+            return;
+        }
+
+        // Jeden Starter einordnen: Hauptmeldung oder Änderung danach
+        $haupt_am = (string) ( $poll['submitted_at'] ?? '' );
+        $haupt = $aend = [];
         foreach ( $liste as $z ) {
-            $gruppen[ $z['class_key'] . ' ' . $z['sex'] ][] = $z;
+            $spaet = $haupt_am !== '' && ( empty( $z['submitted_at'] ) || $z['submitted_at'] > $haupt_am );
+            if ( $spaet ) {
+                $z['art'] = $z['prev_weight'] !== null ? 'changed' : 'late';
+                $aend[] = $z;
+            } else {
+                $haupt[] = $z;
+            }
         }
-        foreach ( $gruppen as $zeilen ) {
-            $k = $klassen[ $zeilen[0]['class_key'] ] ?? null;
-            $titel = $zeilen[0]['class_key'] . ' ' . ( $zeilen[0]['sex'] === 'w' ? __( 'weiblich', 'vereins-plugin' ) : __( 'männlich', 'vereins-plugin' ) );
-            echo '<h2 style="margin-bottom:6px;">' . esc_html( $titel )
-                . ( $k ? ' <span class="description" style="font-weight:normal;">' . esc_html( sprintf( __( 'Jahrgänge %s', 'vereins-plugin' ), ClassTemplates::years_label( $k, $jahr ) ) ) . '</span>' : '' )
-                . ' <span class="description" style="font-weight:normal;">· ' . esc_html( sprintf( _n( '%d Starter', '%d Starter', count( $zeilen ), 'vereins-plugin' ), count( $zeilen ) ) ) . '</span></h2>';
-            $this->entry_table( $zeilen, true, ! empty( $poll['dokume'] ) );
+        foreach ( $ab as &$z ) {
+            $z['art'] = 'withdrawn';
         }
-        $this->close_mark_form( $poll );
+        unset( $z );
+        $aend_offen  = array_values( array_filter( $aend, static fn( $z ) => empty( $z['confirmed_at'] ) ) );
+        $aend_fertig = array_values( array_filter( $aend, static fn( $z ) => ! empty( $z['confirmed_at'] ) ) );
+
+        $this->render_entry_styles();
+        $this->render_main_flow( $poll, $haupt );
+        if ( $aend_offen || $ab ) {
+            $this->render_changes( $poll, $aend_offen, $ab );
+        }
+        if ( $haupt_am !== '' ) {
+            $this->render_by_status( $poll, $haupt, $aend_fertig );
+        }
     }
 
-    /** Rückmeldung nach Abhaken, Abschicken oder Bestätigen. */
+    private function render_entry_styles(): void {
+        ?>
+        <style>
+        .vp-flow { display: flex; flex-wrap: wrap; margin: 16px 0 12px; max-width: 1100px; list-style: none; padding: 0; }
+        .vp-flow__step { position: relative; flex: 1 1 180px; padding: 10px 14px 10px 30px; background: #f0f0f1; color: #50575e; margin: 0 6px 0 0;
+            clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%); }
+        .vp-flow__step:first-child { padding-left: 14px; clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%); }
+        .vp-flow__step strong { display: block; font-size: 14px; }
+        .vp-flow__step span { font-size: 12px; }
+        .vp-flow__step.is-done { background: #d1e7dd; color: #0a3622; }
+        .vp-flow__step.is-current { background: #2271b1; color: #fff; }
+        .vp-card { background: #fff; border: 1px solid #c3c4c7; border-radius: 6px; padding: 4px 20px 16px; max-width: 1100px; margin: 0 0 20px; }
+        .vp-card--main { border-left: 4px solid #2271b1; }
+        .vp-card--changes { border-left: 4px solid #dba617; }
+        .vp-card h2 { font-size: 16px; margin: 14px 0 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .vp-card h3 { font-size: 13px; margin: 14px 0 6px; }
+        .vp-tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: #f0f0f1; color: #50575e; }
+        .vp-tag--late { background: #e5f0fa; color: #135e96; }
+        .vp-tag--changed { background: #fcf0d1; color: #6b4a00; }
+        .vp-tag--withdrawn { background: #fbe9ea; color: #8a2424; }
+        .vp-tag--waiting { background: #f0f0f1; color: #50575e; }
+        .vp-tag--confirmed { background: #d1e7dd; color: #0a3622; }
+        .vp-mini { display: inline-flex; gap: 4px; align-items: center; white-space: nowrap; }
+        .vp-mini span { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: #f0f0f1; color: #8c8f94; }
+        .vp-mini span.is-done { background: #d1e7dd; color: #0a3622; }
+        .vp-mini span.is-next { background: #fcf0d1; color: #6b4a00; font-weight: 600; }
+        .vp-legend { font-size: 12px; color: #50575e; margin: 0 0 6px; }
+        .vp-group { border-top: 1px solid #f0f0f1; margin-top: 10px; }
+        .vp-strike { text-decoration: line-through; color: #8c8f94; }
+        .vp-markbar { position: sticky; bottom: 0; z-index: 5; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 10px 18px 14px; box-shadow: 0 -2px 10px rgba(0,0,0,.06); margin-top: 14px; }
+        .vp-markbar p { margin: 6px 0; }
+        .vp-markbar__actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+        .vp-informdlg { border: 0; border-radius: 8px; padding: 22px 26px; max-width: 680px; width: calc(100% - 40px); box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+        .vp-informdlg::backdrop { background: rgba(0,0,0,.4); }
+        .vp-mailwarn { color: #8a4b00; }
+        .vp-effects { margin: 6px 0 12px; list-style: none; padding: 0; }
+        .vp-effects li { margin: 0 0 6px; padding-left: 22px; position: relative; }
+        .vp-effects li::before { content: "→"; position: absolute; left: 0; color: #2271b1; font-weight: 600; }
+        .vp-card pre, .vp-informdlg pre { white-space: pre-wrap; background: #f6f7f7; border: 1px solid #dcdcde; padding: 10px; font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; max-width: 640px; }
+        details.vp-fold > summary { cursor: pointer; padding: 6px 0; }
+        </style>
+        <?php
+    }
+
+    /** Hauptablauf der ersten Meldung – springt nicht mehr zurück. */
+    private function render_main_flow( array $poll, array $haupt ): void {
+        $id       = (int) $poll['id'];
+        $gemeldet = ! empty( $poll['submitted_at'] );
+        $warten   = array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['submitted_at'] ) && empty( $z['confirmed_at'] ) ) );
+        $fertig   = $gemeldet && ! $warten;
+        $sammeln  = $this->service->is_open( $poll );
+        $stufe    = $fertig ? 4 : ( $gemeldet ? 3 : ( $sammeln ? 1 : 2 ) );
+        $csv      = wp_nonce_url( admin_url( 'admin-post.php?action=vp_poll_entries_csv&id=' . $id ), 'vp_poll_entries_csv_' . $id );
+        $xlsx     = wp_nonce_url( admin_url( 'admin-post.php?action=vp_poll_entries_xlsx&id=' . $id ), 'vp_poll_entries_xlsx_' . $id );
+        $ohne_pass = ! empty( $poll['dokume'] ) ? count( array_filter( $haupt, static fn( $z ) => isset( $z['judopass'] ) && ! (int) $z['judopass'] ) ) : 0;
+        $stufen = [
+            1 => [ __( 'Meldungen sammeln', 'vereins-plugin' ), $sammeln && ! empty( $poll['closes_at'] ) ? sprintf( __( 'bis %s', 'vereins-plugin' ), mysql2date( 'd.m. H:i', $poll['closes_at'] ) ) : sprintf( _n( '%d Starter', '%d Starter', count( $haupt ), 'vereins-plugin' ), count( $haupt ) ) ],
+            2 => [ __( 'Beim Veranstalter melden', 'vereins-plugin' ), __( 'Excel schicken oder DokuMe', 'vereins-plugin' ) ],
+            3 => [ __( 'Gemeldet', 'vereins-plugin' ), $gemeldet ? sprintf( __( 'am %s · Melder informiert', 'vereins-plugin' ), mysql2date( 'd.m.', $poll['submitted_at'] ) ) : __( 'Melder informiert', 'vereins-plugin' ) ],
+            4 => [ __( 'Bestätigt', 'vereins-plugin' ), $fertig && ! empty( $poll['confirmed_at'] ) ? mysql2date( 'd.m.', $poll['confirmed_at'] ) : __( 'vom Veranstalter', 'vereins-plugin' ) ],
+        ];
+        ?>
+        <div class="vp-card vp-card--main">
+            <h2><?php esc_html_e( 'Hauptmeldung', 'vereins-plugin' ); ?></h2>
+            <ol class="vp-flow" aria-label="<?php esc_attr_e( 'Ablauf der Hauptmeldung', 'vereins-plugin' ); ?>">
+                <?php foreach ( $stufen as $nr => [ $titel, $info ] ) : $erledigt = $nr < $stufe || ( $nr === 4 && $fertig ); ?>
+                    <li class="vp-flow__step<?php echo $erledigt ? ' is-done' : ( $nr === $stufe ? ' is-current' : '' ); ?>"<?php echo $nr === $stufe && ! $erledigt ? ' aria-current="step"' : ''; ?>>
+                        <strong><?php echo ( $erledigt ? '✓ ' : $nr . '. ' ) . esc_html( $titel ); ?></strong>
+                        <span><?php echo esc_html( $info ); ?></span>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
+
+            <?php if ( ! $gemeldet ) : ?>
+                <h3><?php esc_html_e( 'Nächster Schritt: beim Veranstalter melden', 'vereins-plugin' ); ?></h3>
+                <?php if ( $sammeln ) : ?>
+                    <p class="description"><?php esc_html_e( 'Die Meldung ist noch offen – meist meldest du nach dem Meldeschluss. Wer danach dazukommt, läuft als Nachmeldung.', 'vereins-plugin' ); ?></p>
+                <?php endif; ?>
+                <ol>
+                    <li><?php esc_html_e( 'Meldeliste holen:', 'vereins-plugin' ); ?>
+                        <a class="button button-primary" href="<?php echo esc_url( $xlsx ); ?>"><?php esc_html_e( 'BJV-Meldeliste (Excel)', 'vereins-plugin' ); ?></a>
+                        <a class="button" href="<?php echo esc_url( $csv ); ?>"><?php esc_html_e( 'Alles als CSV', 'vereins-plugin' ); ?></a></li>
+                    <li><?php esc_html_e( 'Excel (Kampfrichter ergänzen) an den Veranstalter schicken – oder die Starter in DokuMe eintragen.', 'vereins-plugin' ); ?></li>
+                    <li><?php esc_html_e( 'Unten abhaken, wen du gemeldet hast. Jeder Haken wird sofort gespeichert – ohne Mail, ohne Statusänderung.', 'vereins-plugin' ); ?></li>
+                    <li><?php esc_html_e( '„Weiter: Status ‚Gemeldet‘ setzen“ – dort siehst du die Empfänger und entscheidest, ob E-Mails rausgehen.', 'vereins-plugin' ); ?></li>
+                </ol>
+                <?php if ( $ohne_pass ) : ?>
+                    <p><strong style="color:#b32d2e;"><?php echo esc_html( sprintf( _n( '%d Starter hat keinen digitalen Judopass – in DokuMe nicht meldbar.', '%d Starter haben keinen digitalen Judopass – in DokuMe nicht meldbar.', $ohne_pass, 'vereins-plugin' ), $ohne_pass ) ); ?></strong></p>
+                <?php endif; ?>
+                <?php $this->tick_form( $poll, 'main', $haupt, [] ); ?>
+            <?php else : ?>
+                <?php if ( $warten ) : ?>
+                    <h3><?php echo esc_html( sprintf( _n( 'Nächster Schritt: Bestätigung vom Veranstalter – %d Starter wartet', 'Nächster Schritt: Bestätigung vom Veranstalter – %d Starter warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h3>
+                    <p class="description"><?php esc_html_e( 'Kommt die Bestätigung (Mail, Teilnehmerliste oder Status in DokuMe), hier vermerken. Die Starter stehen unten unter „Wartet auf Bestätigung“.', 'vereins-plugin' ); ?></p>
+                    <?php $this->confirm_form( $poll, $warten, __( 'Hauptmeldung als bestätigt vermerken', 'vereins-plugin' ) ); ?>
+                <?php else : ?>
+                    <p><strong>✓ <?php esc_html_e( 'Hauptmeldung gemeldet und bestätigt.', 'vereins-plugin' ); ?></strong></p>
+                <?php endif; ?>
+                <p><?php esc_html_e( 'Meldeliste (aktueller Stand):', 'vereins-plugin' ); ?>
+                    <a class="button button-small" href="<?php echo esc_url( $xlsx ); ?>"><?php esc_html_e( 'BJV-Meldeliste (Excel)', 'vereins-plugin' ); ?></a>
+                    <a class="button button-small" href="<?php echo esc_url( $csv ); ?>"><?php esc_html_e( 'Alles als CSV', 'vereins-plugin' ); ?></a></p>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /** Nachmeldungen, Ummeldungen, Abmeldungen – jeweils mit Mini-Ablauf. */
+    private function render_changes( array $poll, array $aend, array $ab ): void {
+        $offen = count( $aend ) + count( $ab );
+        $warten = array_values( array_filter( $aend, static fn( $z ) => ! empty( $z['submitted_at'] ) && ! empty( $z['notified_at'] ) && empty( $z['confirmed_at'] ) ) );
+        ?>
+        <div class="vp-card vp-card--changes">
+            <h2><?php esc_html_e( 'Änderungen nach der Meldung', 'vereins-plugin' ); ?> <span class="vp-tag vp-tag--changed"><?php echo esc_html( sprintf( _n( '%d offen', '%d offen', $offen, 'vereins-plugin' ), $offen ) ); ?></span></h2>
+            <p class="vp-legend"><?php esc_html_e( 'Jede Änderung läuft für sich:', 'vereins-plugin' ); ?>
+                <span class="vp-mini"><span>a</span></span> <?php esc_html_e( 'beim Veranstalter erledigen (abhaken)', 'vereins-plugin' ); ?> →
+                <span class="vp-mini"><span>b</span></span> <?php esc_html_e( 'Melder informieren', 'vereins-plugin' ); ?> →
+                <span class="vp-mini"><span>c</span></span> <?php esc_html_e( 'Bestätigung vom Veranstalter (nicht bei Abmeldungen)', 'vereins-plugin' ); ?></p>
+            <?php $this->tick_form( $poll, 'changes', $aend, $ab ); ?>
+            <?php if ( $warten ) : ?>
+                <h3><?php echo esc_html( sprintf( _n( 'c) Bestätigung: %d Änderung wartet', 'c) Bestätigung: %d Änderungen warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h3>
+                <?php $this->confirm_form( $poll, $warten, __( 'Änderungen als bestätigt vermerken', 'vereins-plugin' ) ); ?>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /** Alle übrigen Starter nach Status, darin nach Klasse. */
+    private function render_by_status( array $poll, array $haupt, array $aend_fertig ): void {
+        $warten = array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['submitted_at'] ) && empty( $z['confirmed_at'] ) ) );
+        $best   = array_merge( array_values( array_filter( $haupt, static fn( $z ) => ! empty( $z['confirmed_at'] ) ) ), $aend_fertig );
+        $nicht  = array_values( array_filter( $haupt, static fn( $z ) => empty( $z['submitted_at'] ) ) );
+        $best   = ( new EntryService( $this->model ) )->sort_for_orga( $poll, $best );
+        ?>
+        <div class="vp-card">
+            <h2><?php esc_html_e( 'Starter nach Status', 'vereins-plugin' ); ?></h2>
+            <?php if ( $warten ) : ?>
+                <div class="vp-group">
+                    <h2><span class="vp-tag vp-tag--waiting"><?php echo esc_html( sprintf( __( 'Gemeldet, wartet auf Bestätigung · %d', 'vereins-plugin' ), count( $warten ) ) ); ?></span></h2>
+                    <?php $this->class_tables( $poll, $warten, 'list' ); ?>
+                </div>
+            <?php endif; ?>
+            <?php if ( $best ) : ?>
+                <div class="vp-group">
+                    <details class="vp-fold">
+                        <summary><span class="vp-tag vp-tag--confirmed"><?php echo esc_html( sprintf( __( 'Bestätigt · %d', 'vereins-plugin' ), count( $best ) ) ); ?></span>
+                            <span class="description"><?php esc_html_e( 'nichts zu tun – aufklappen', 'vereins-plugin' ); ?></span></summary>
+                        <?php $this->class_tables( $poll, $best, 'list' ); ?>
+                    </details>
+                </div>
+            <?php endif; ?>
+            <?php if ( ! $warten && ! $best && ! $nicht ) : ?>
+                <p class="description"><?php esc_html_e( 'Alle Starter stehen oben bei den Änderungen.', 'vereins-plugin' ); ?></p>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * Abhaken (Schritt „melden“ bzw. a) mit Leiste und Abschluss-Dialog.
+     * $modus 'main': Hauptmeldung; 'changes': Änderungen nach der Meldung.
+     */
+    private function tick_form( array $poll, string $modus, array $zeilen, array $ab ): void {
+        $id = (int) $poll['id'];
+        ?>
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-tickform="<?php echo esc_attr( $modus ); ?>">
+            <input type="hidden" name="action" value="vp_poll_entries_mark">
+            <input type="hidden" name="id" value="<?php echo $id; ?>">
+            <input type="hidden" name="scope" value="<?php echo esc_attr( $modus ); ?>">
+            <?php wp_nonce_field( 'vp_poll_entries_mark_' . $id ); ?>
+            <?php
+            if ( $modus === 'main' ) {
+                echo '<h3>' . esc_html__( 'Abhakliste: Wen hast du schon gemeldet?', 'vereins-plugin' ) . '</h3>';
+                echo '<p class="description" style="margin-top:0;">' . esc_html__( 'Das Plugin meldet nicht selbst. Du hakst ab, wen du beim Veranstalter gemeldet hast – einzeln oder mit dem Haken im Tabellenkopf die ganze Klasse.', 'vereins-plugin' ) . '</p>';
+                $this->class_tables( $poll, $zeilen, 'tick' );
+            } else {
+                $gruppen = [
+                    'late'      => [ __( 'Nachmeldung', 'vereins-plugin' ), __( 'nach der Meldung dazugekommen', 'vereins-plugin' ), array_values( array_filter( $zeilen, static fn( $z ) => $z['art'] === 'late' ) ) ],
+                    'changed'   => [ __( 'Ummeldung', 'vereins-plugin' ), __( 'Gewicht nach der Meldung geändert', 'vereins-plugin' ), array_values( array_filter( $zeilen, static fn( $z ) => $z['art'] === 'changed' ) ) ],
+                    'withdrawn' => [ __( 'Abmeldung', 'vereins-plugin' ), __( 'vom Melder gestrichen – beim Veranstalter abmelden', 'vereins-plugin' ), $ab ],
+                ];
+                foreach ( $gruppen as $art => [ $titel, $info, $reihe ] ) {
+                    if ( ! $reihe ) {
+                        continue;
+                    }
+                    echo '<div class="vp-group"><h2><span class="vp-tag vp-tag--' . esc_attr( $art ) . '">' . esc_html( $titel . ' · ' . count( $reihe ) ) . '</span> <span class="description" style="font-weight:normal;font-size:13px;">' . esc_html( $info ) . '</span></h2>';
+                    $this->class_tables( $poll, $reihe, 'tick' );
+                    echo '</div>';
+                }
+            }
+            $this->tick_bar( $poll, $modus );
+            ?>
+        </form>
+        <?php
+    }
+
+    /** Tabellen je Klasse; $modus 'tick' mit Haken, 'list' ohne. */
+    private function class_tables( array $poll, array $zeilen, string $modus ): void {
+        $klassen = array_column( PollModel::classes( $poll ), null, 'key' );
+        $jahr    = EntryService::year( $poll );
+        $gruppen = [];
+        foreach ( $zeilen as $z ) {
+            $gruppen[ $z['class_key'] . ' ' . $z['sex'] ][] = $z;
+        }
+        foreach ( $gruppen as $reihe ) {
+            $k     = $klassen[ $reihe[0]['class_key'] ] ?? null;
+            $titel = $reihe[0]['class_key'] . ' ' . ( $reihe[0]['sex'] === 'w' ? __( 'weiblich', 'vereins-plugin' ) : __( 'männlich', 'vereins-plugin' ) );
+            echo '<h3>' . esc_html( $titel )
+                . ( $k ? ' <span class="description" style="font-weight:normal;">' . esc_html( sprintf( __( 'Jahrgänge %s', 'vereins-plugin' ), ClassTemplates::years_label( $k, $jahr ) ) ) . '</span>' : '' )
+                . ' <span class="description" style="font-weight:normal;">· ' . esc_html( sprintf( _n( '%d Starter', '%d Starter', count( $reihe ), 'vereins-plugin' ), count( $reihe ) ) ) . '</span></h3>';
+            $this->entry_table( $poll, $reihe, $modus );
+        }
+    }
+
+    /** Rückmeldung nach Abschluss oder Bestätigen. */
     private function entry_notice(): void {
         $msg   = sanitize_key( $_GET['msg'] ?? '' );
         $texte = [
-            'marked'    => __( 'Haken gespeichert – keine Mail verschickt.', 'vereins-plugin' ),
             'submitted' => __( 'Gespeichert, Status „Gemeldet“.', 'vereins-plugin' ),
+            'changes'   => __( 'Änderungen abgeschlossen.', 'vereins-plugin' ),
             'confirmed' => __( 'Bestätigung vermerkt.', 'vereins-plugin' ),
         ];
         if ( ! isset( $texte[ $msg ] ) ) {
@@ -850,7 +1071,7 @@ class PollsAdmin {
         $text = $texte[ $msg ];
         if ( isset( $_GET['vp_sent'] ) ) {
             $n     = (int) $_GET['vp_sent'];
-            $text .= ' ' . sprintf( _n( '%d Melder per E-Mail informiert.', '%d Melder per E-Mail informiert.', $n, 'vereins-plugin' ), $n );
+            $text .= ' ' . sprintf( _n( '%d E-Mail verschickt.', '%d E-Mails verschickt.', $n, 'vereins-plugin' ), $n );
             $ohne  = sanitize_text_field( wp_unslash( rawurldecode( (string) ( $_GET['vp_skip'] ?? '' ) ) ) );
             if ( $ohne !== '' ) {
                 $text .= ' ' . sprintf( __( 'Ohne E-Mail-Adresse, bitte selbst Bescheid geben: %s', 'vereins-plugin' ), $ohne );
@@ -859,107 +1080,110 @@ class PollsAdmin {
         echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $text ) . '</p></div>';
     }
 
-    /**
-     * Ende der Abhakliste: Leiste, die beim Abhaken live zeigt, was das
-     * Speichern bewirkt – vor allem, wer namentlich eine Mail bekommt.
-     * Die Haken sind die einzige Quelle: gemailt wird, wer abgehakte Starter
-     * hat, zu denen noch keine Mail rausging (notified_at).
-     */
-    private function close_mark_form( array $poll ): void {
-        $melder = [];
-        foreach ( EntryMail::plan( $poll, 'sent', [], '', false ) as $pid => $m ) {
-            $melder[ $pid ] = [ 'name' => $m['name'], 'mail' => $m['email'] !== '' ];
+    /** Name und Mail-Fähigkeit aller Melder dieser Meldung – für die Leiste. */
+    private function melder_map( array $poll ): array {
+        $ids = array_unique( array_map( static fn( $e ) => (int) $e['person_id'], array_merge( $this->model->entries( (int) $poll['id'] ), $this->model->withdrawn_entries( (int) $poll['id'] ) ) ) );
+        $map = [];
+        foreach ( $ids as $pid ) {
+            $p    = Person::find( $pid );
+            $mail = (string) ( $p['email'] ?? '' );
+            $map[ $pid ] = [ 'name' => (string) ( $p['name'] ?? __( 'Unbekannt', 'vereins-plugin' ) ), 'mail' => $p && $mail !== '' && ! MemberService::is_placeholder_email( $mail ) && is_email( $mail ) ];
         }
-        $beispiel = null;
-        foreach ( EntryMail::plan( $poll, 'sent', [], (string) wp_get_current_user()->display_name, false ) as $m ) {
-            if ( $m['email'] !== '' ) {
-                $beispiel = $m;
-                break;
+        return $map;
+    }
+
+    /**
+     * Leiste unter der Abhakliste und Dialog zum Abschließen. Die Leiste
+     * zeigt live, wer noch nicht informiert ist; der Dialog nennt die
+     * Empfänger, und erst dort wird entschieden, ob E-Mails rausgehen.
+     */
+    private function tick_bar( array $poll, string $modus ): void {
+        $haupt    = $modus === 'main';
+        $absender = (string) wp_get_current_user()->display_name;
+        $beispiele = [];
+        foreach ( [ 'sent', 'withdrawn' ] as $art ) {
+            if ( $haupt && $art === 'withdrawn' ) {
+                continue;
+            }
+            foreach ( EntryMail::plan( $poll, $art, [], $absender, false ) as $m ) {
+                if ( $m['email'] !== '' ) {
+                    $beispiele[ $art ] = $m;
+                    break;
+                }
             }
         }
-        $gemeldet = ! empty( $poll['submitted_at'] );
         $texte = [
-            'count'      => __( '%1$d von %2$d Startern abgehakt.', 'vereins-plugin' ),
+            'count'      => __( '%1$d von %2$d abgehakt.', 'vereins-plugin' ),
             'pending'    => __( 'Noch nicht informiert: %s', 'vereins-plugin' ),
-            'without'    => __( 'Ohne E-Mail-Adresse, bitte selbst Bescheid geben: %s', 'vereins-plugin' ),
             'noneNew'    => __( 'Alle Melder der abgehakten Starter sind informiert.', 'vereins-plugin' ),
-            'noneTicked' => __( 'Noch kein Starter abgehakt.', 'vereins-plugin' ),
-            'informed'   => __( 'Schon informiert: %s', 'vereins-plugin' ),
-            'openFirst'  => __( 'Weiter: Status „Gemeldet“ setzen', 'vereins-plugin' ),
-            'openMore'   => __( 'Weiter: Nachmeldung abschließen', 'vereins-plugin' ),
-            'sendFirst'  => __( 'Status setzen und %d E-Mails senden', 'vereins-plugin' ),
-            'sendFirst1' => __( 'Status setzen und 1 E-Mail senden', 'vereins-plugin' ),
-            'sendMore'   => __( '%d E-Mails senden', 'vereins-plugin' ),
-            'sendMore1'  => __( '1 E-Mail senden', 'vereins-plugin' ),
+            'noneTicked' => __( 'Noch nichts abgehakt.', 'vereins-plugin' ),
+            'withdrawn'  => __( 'abgemeldet: %s', 'vereins-plugin' ),
+            'without'    => __( 'Ohne E-Mail-Adresse, bitte selbst Bescheid geben: %s', 'vereins-plugin' ),
+            'send'       => $haupt ? __( 'Status setzen und %d E-Mails senden', 'vereins-plugin' ) : __( '%d E-Mails senden', 'vereins-plugin' ),
+            'send1'      => $haupt ? __( 'Status setzen und 1 E-Mail senden', 'vereins-plugin' ) : __( '1 E-Mail senden', 'vereins-plugin' ),
             'saving'     => __( 'Haken wird gespeichert …', 'vereins-plugin' ),
             'saved'      => __( 'Haken gespeichert', 'vereins-plugin' ),
             'saveError'  => __( 'Haken konnte nicht gespeichert werden – Seite neu laden.', 'vereins-plugin' ),
         ];
         ?>
-            <style>
-            .vp-markbar { position: sticky; bottom: 0; z-index: 5; background: #fff; border: 1px solid #c3c4c7; border-left: 4px solid #2271b1; border-radius: 4px; padding: 10px 18px 14px; max-width: 1100px; box-shadow: 0 -2px 10px rgba(0,0,0,.06); }
-            .vp-markbar p { margin: 6px 0; }
-            .vp-markbar .vp-mailwarn { color: #8a4b00; }
-            .vp-markbar pre { white-space: pre-wrap; background: #f6f7f7; border: 1px solid #dcdcde; padding: 10px; font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; max-width: 640px; }
-            .vp-markbar__actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
-            .vp-informdlg { border: 0; border-radius: 8px; padding: 22px 26px; max-width: 680px; width: calc(100% - 40px); box-shadow: 0 10px 40px rgba(0,0,0,.25); }
-            .vp-informdlg::backdrop { background: rgba(0,0,0,.4); }
-            .vp-informdlg .vp-mailwarn { color: #8a4b00; }
-            .vp-informdlg pre { white-space: pre-wrap; background: #f6f7f7; border: 1px solid #dcdcde; padding: 10px; font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
-            </style>
-            <div class="vp-markbar" data-markbar data-first-submit="<?php echo $gemeldet ? '0' : '1'; ?>">
-                <p><strong data-count></strong> <span class="description" data-save-state aria-live="polite"></span></p>
-                <p data-pending></p>
-                <p class="description" data-informed></p>
-                <div class="vp-markbar__actions">
-                    <button type="button" class="button button-primary button-large" data-open></button>
-                    <span class="description"><?php esc_html_e( 'Im nächsten Schritt siehst du die Empfänger und entscheidest, ob E-Mails rausgehen.', 'vereins-plugin' ); ?></span>
-                </div>
+        <div class="vp-markbar" data-markbar>
+            <p><strong data-count></strong> <span class="description" data-save-state aria-live="polite"></span></p>
+            <p data-pending></p>
+            <div class="vp-markbar__actions">
+                <button type="button" class="button button-primary button-large" data-open><?php echo esc_html( $haupt ? __( 'Weiter: Status „Gemeldet“ setzen', 'vereins-plugin' ) : __( 'Weiter: b) Melder informieren', 'vereins-plugin' ) ); ?></button>
+                <span class="description"><?php esc_html_e( 'Im nächsten Schritt siehst du die Empfänger und entscheidest, ob E-Mails rausgehen.', 'vereins-plugin' ); ?></span>
             </div>
+        </div>
+        <dialog class="vp-informdlg" data-dialog>
+            <h2 style="margin-top:0;"><?php echo esc_html( $haupt ? __( 'Status „Gemeldet“ setzen', 'vereins-plugin' ) : __( 'Änderungen abschließen: Melder informieren', 'vereins-plugin' ) ); ?></h2>
+            <p><?php echo esc_html( $haupt
+                ? __( 'Die Hauptmeldung steht dann auf „Gemeldet“ – auch auf der Website. Sollen die Melder eine E-Mail bekommen?', 'vereins-plugin' )
+                : __( 'Die abgehakten Änderungen sind beim Veranstalter erledigt. Sollen die Melder eine E-Mail bekommen? Erledigte Abmeldungen verschwinden danach aus der Liste.', 'vereins-plugin' ) ); ?></p>
+            <div data-dlg-sent>
+                <p><strong><?php esc_html_e( 'E-Mail „Meldung abgeschickt“ an:', 'vereins-plugin' ); ?></strong></p>
+                <ul data-dlg-sent-names style="list-style:disc;margin-left:20px;"></ul>
+            </div>
+            <div data-dlg-withdrawn>
+                <p><strong><?php esc_html_e( 'E-Mail „Abmeldung weitergegeben“ an:', 'vereins-plugin' ); ?></strong></p>
+                <ul data-dlg-withdrawn-names style="list-style:disc;margin-left:20px;"></ul>
+            </div>
+            <p class="vp-mailwarn" data-dlg-without></p>
+            <?php foreach ( $beispiele as $art => $b ) : ?>
+                <details>
+                    <summary><?php echo esc_html( $art === 'sent' ? __( 'Mail „Meldung abgeschickt“ ansehen (Beispiel)', 'vereins-plugin' ) : __( 'Mail „Abmeldung weitergegeben“ ansehen (Beispiel)', 'vereins-plugin' ) ); ?></summary>
+                    <pre><strong><?php echo esc_html( $b['subject'] ); ?></strong>
 
-            <dialog class="vp-informdlg" data-dialog>
-                <h2 style="margin-top:0;"><?php echo esc_html( $gemeldet ? __( 'Nachmeldung abschließen', 'vereins-plugin' ) : __( 'Status „Gemeldet“ setzen', 'vereins-plugin' ) ); ?></h2>
-                <p><?php echo esc_html( $gemeldet
-                    ? __( 'Die neu abgehakten Starter sind nachgemeldet. Sollen ihre Melder eine E-Mail bekommen?', 'vereins-plugin' )
-                    : __( 'Die Meldung steht dann auf „Gemeldet“ – auch auf der Website. Sollen die Melder eine E-Mail bekommen?', 'vereins-plugin' ) ); ?></p>
-                <div data-dlg-mail>
-                    <p><strong><?php esc_html_e( 'E-Mail „Meldung abgeschickt“ an:', 'vereins-plugin' ); ?></strong></p>
-                    <ul data-dlg-names style="list-style:disc;margin-left:20px;"></ul>
-                </div>
-                <p class="vp-mailwarn" data-dlg-without></p>
-                <?php if ( $beispiel ) : ?>
-                    <details>
-                        <summary><?php esc_html_e( 'Mail ansehen (Beispiel)', 'vereins-plugin' ); ?></summary>
-                        <pre><strong><?php echo esc_html( $beispiel['subject'] ); ?></strong>
-
-<?php echo esc_html( $beispiel['body'] ); ?></pre>
-                        <?php if ( current_user_can( 'manage_options' ) ) : ?>
-                            <a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-settings#wettkampf' ) ); ?>"><?php esc_html_e( 'Vorlage in den Einstellungen ändern', 'vereins-plugin' ); ?></a>
-                        <?php endif; ?>
-                    </details>
-                <?php endif; ?>
-                <div class="vp-markbar__actions">
-                    <button class="button button-primary button-large" name="inform" value="mail" data-dlg-send></button>
-                    <button class="button" name="inform" value="nomail"><?php echo esc_html( $gemeldet ? __( 'Ohne E-Mail abschließen', 'vereins-plugin' ) : __( 'Status setzen, keine E-Mail', 'vereins-plugin' ) ); ?></button>
-                    <button type="button" class="button-link" data-dlg-close><?php esc_html_e( 'Abbrechen', 'vereins-plugin' ); ?></button>
-                </div>
-            </dialog>
-        </form>
+<?php echo esc_html( $b['body'] ); ?></pre>
+                </details>
+            <?php endforeach; ?>
+            <?php if ( $beispiele && current_user_can( 'manage_options' ) ) : ?>
+                <p><a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-settings#wettkampf' ) ); ?>"><?php esc_html_e( 'Vorlagen in den Einstellungen ändern', 'vereins-plugin' ); ?></a></p>
+            <?php endif; ?>
+            <div class="vp-markbar__actions">
+                <button class="button button-primary button-large" name="inform" value="mail" data-dlg-send></button>
+                <button class="button" name="inform" value="nomail"><?php echo esc_html( $haupt ? __( 'Status setzen, keine E-Mail', 'vereins-plugin' ) : __( 'Ohne E-Mail abschließen', 'vereins-plugin' ) ); ?></button>
+                <button type="button" class="button-link" data-dlg-close><?php esc_html_e( 'Abbrechen', 'vereins-plugin' ); ?></button>
+            </div>
+        </dialog>
         <script>
         (function () {
-            var bar = document.querySelector('[data-markbar]');
-            if (!bar) { return; }
-            var M = <?php echo wp_json_encode( (object) $melder ); ?>;
+            var form = document.currentScript.closest('form');
+            if (!form) { return; }
+            var bar = form.querySelector('[data-markbar]');
+            var dlg = form.querySelector('[data-dialog]');
+            var M = <?php echo wp_json_encode( (object) $this->melder_map( $poll ) ); ?>;
             var T = <?php echo wp_json_encode( $texte ); ?>;
-            var erst = bar.dataset.firstSubmit === '1';
-            var form = bar.closest('form');
-            // Haken sofort speichern – ohne Knopf, ohne Mail, ohne Status.
-            function speichern(boxen) {
+            var haupt = <?php echo $haupt ? 'true' : 'false'; ?>;
+            var q = function (s) { return bar.querySelector(s); };
+            var dq = function (s) { return dlg.querySelector(s); };
+            var fmt = function (t) { var a = [].slice.call(arguments, 1), i = 0; return t.replace(/%(\d\$)?[sd]/g, function () { return a[i++]; }); };
+            var boxen = function () { return form.querySelectorAll('input[data-tick]'); };
+            function speichern(liste) {
                 var fd = new FormData();
                 fd.append('action', 'vp_poll_entries_tick');
                 fd.append('id', form.querySelector('[name="id"]').value);
                 fd.append('_wpnonce', form.querySelector('[name="_wpnonce"]').value);
-                boxen.forEach(function (b) { fd.append(b.checked ? 'on[]' : 'off[]', b.value); });
+                liste.forEach(function (b) { fd.append((b.dataset.kind === 'withdrawn' ? 'w' : '') + (b.checked ? 'on[]' : 'off[]'), b.value); });
                 var st = q('[data-save-state]');
                 st.textContent = T.saving;
                 fetch(<?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>, { method: 'POST', body: fd, credentials: 'same-origin' })
@@ -967,197 +1191,80 @@ class PollsAdmin {
                     .then(function (j) { st.textContent = j && j.success ? '✓ ' + T.saved : T.saveError; })
                     .catch(function () { st.textContent = T.saveError; });
             }
-            var q = function (s) { return bar.querySelector(s); };
-            var fmt = function (t) { var a = [].slice.call(arguments, 1), i = 0; return t.replace(/%(\d\$)?[sd]/g, function () { return a[i++]; }); };
+            function liste(ul, namen) {
+                ul.textContent = '';
+                namen.forEach(function (n) { var li = document.createElement('li'); li.textContent = n; ul.appendChild(li); });
+            }
             function rechnen() {
-                var boxen = document.querySelectorAll('input[name="gemeldet[]"]');
-                var an = 0, neu = {}, info = {};
-                boxen.forEach(function (b) {
-                    var pid = b.dataset.person;
-                    if (b.dataset.notified === '1') { info[pid] = true; }
+                var alle = boxen(), an = 0, sent = {}, ab = {};
+                alle.forEach(function (b) {
                     if (!b.checked) { return; }
                     an++;
-                    if (b.dataset.notified === '0') { (neu[pid] = neu[pid] || []).push(b.dataset.first); }
+                    if (b.dataset.kind === 'withdrawn') { (ab[b.dataset.person] = ab[b.dataset.person] || []).push(b.dataset.first); }
+                    else if (b.dataset.notified === '0') { (sent[b.dataset.person] = sent[b.dataset.person] || []).push(b.dataset.first); }
                 });
-                var mit = [], ohne = [];
-                Object.keys(neu).forEach(function (pid) {
+                var mitS = [], mitA = [], ohne = [], offen = [];
+                var pids = Object.keys(sent).concat(Object.keys(ab).filter(function (p) { return !sent[p]; }));
+                pids.forEach(function (pid) {
                     var m = M[pid] || { name: '?', mail: false };
-                    (m.mail ? mit : ohne).push(m.name + ' (' + neu[pid].join(', ') + ')');
+                    var teile = [];
+                    if (sent[pid]) { teile.push(sent[pid].join(', ')); }
+                    if (ab[pid]) { teile.push(fmt(T.withdrawn, ab[pid].join(', '))); }
+                    var label = m.name + ' (' + teile.join('; ') + ')';
+                    offen.push(label);
+                    if (!m.mail) { ohne.push(label); return; }
+                    if (sent[pid]) { mitS.push(m.name + ' (' + sent[pid].join(', ') + ')'); }
+                    if (ab[pid]) { mitA.push(m.name + ' (' + ab[pid].join(', ') + ')'); }
                 });
-                var dlg = document.querySelector('[data-dialog]');
-                var dq = function (x) { return dlg.querySelector(x); };
-                q('[data-count]').textContent = fmt(T.count, an, boxen.length);
-                var offen = mit.concat(ohne);
+                q('[data-count]').textContent = fmt(T.count, an, alle.length);
                 q('[data-pending]').textContent = !an ? T.noneTicked : (offen.length ? fmt(T.pending, offen.join(' · ')) : T.noneNew);
-                var schon = Object.keys(info).filter(function (pid) { return !neu[pid]; }).map(function (pid) { return (M[pid] || {}).name; });
-                q('[data-informed]').textContent = schon.length ? fmt(T.informed, schon.join(', ')) : '';
                 var k = q('[data-open]');
-                k.textContent = erst ? T.openFirst : T.openMore;
                 k.disabled = !an;
-                k.hidden = !erst && !offen.length;
-                // Dialog: Empfänger, ohne Adresse, Senden-Knopf mit Anzahl
-                dq('[data-dlg-mail]').hidden = !mit.length;
-                var ul = dq('[data-dlg-names]');
-                ul.textContent = '';
-                mit.forEach(function (n) { var li = document.createElement('li'); li.textContent = n; ul.appendChild(li); });
+                k.hidden = !haupt && !offen.length;
+                dq('[data-dlg-sent]').hidden = !mitS.length;
+                liste(dq('[data-dlg-sent-names]'), mitS);
+                dq('[data-dlg-withdrawn]').hidden = !mitA.length;
+                liste(dq('[data-dlg-withdrawn-names]'), mitA);
                 dq('[data-dlg-without]').textContent = ohne.length ? fmt(T.without, ohne.join(' · ')) : '';
-                var send = dq('[data-dlg-send]');
-                send.hidden = !mit.length;
-                send.textContent = erst ? (mit.length === 1 ? T.sendFirst1 : fmt(T.sendFirst, mit.length)) : (mit.length === 1 ? T.sendMore1 : fmt(T.sendMore, mit.length));
+                var n = mitS.length + mitA.length, send = dq('[data-dlg-send]');
+                send.hidden = !n;
+                send.textContent = n === 1 ? T.send1 : fmt(T.send, n);
             }
-            document.querySelectorAll('.vp-check-all').forEach(function (alle) {
-                var boxen = function () { return alle.closest('table').querySelectorAll('tbody input[name="gemeldet[]"]'); };
-                var sync = function () { var b = boxen(), an = 0; b.forEach(function (x) { if (x.checked) { an++; } }); alle.checked = an === b.length; alle.indeterminate = an > 0 && an < b.length; };
-                alle.addEventListener('change', function () { var b = boxen(); b.forEach(function (x) { x.checked = alle.checked; }); rechnen(); speichern(Array.prototype.slice.call(b)); });
-                boxen().forEach(function (x) { x.addEventListener('change', function () { sync(); rechnen(); speichern([x]); }); });
+            form.querySelectorAll('.vp-check-all').forEach(function (alle) {
+                var reihe = function () { return alle.closest('table').querySelectorAll('tbody input[data-tick]'); };
+                var sync = function () { var b = reihe(), an = 0; b.forEach(function (x) { if (x.checked) { an++; } }); alle.checked = an === b.length; alle.indeterminate = an > 0 && an < b.length; };
+                alle.addEventListener('change', function () { var b = reihe(); b.forEach(function (x) { x.checked = alle.checked; }); rechnen(); speichern(Array.prototype.slice.call(b)); });
+                reihe().forEach(function (x) { x.addEventListener('change', function () { sync(); rechnen(); speichern([x]); }); });
                 sync();
             });
-            var dialog = document.querySelector('[data-dialog]');
-            q('[data-open]').addEventListener('click', function () { rechnen(); dialog.showModal(); });
-            dialog.querySelector('[data-dlg-close]').addEventListener('click', function () { dialog.close(); });
+            q('[data-open]').addEventListener('click', function () { rechnen(); dlg.showModal(); });
+            dq('[data-dlg-close]').addEventListener('click', function () { dlg.close(); });
             rechnen();
         })();
         </script>
         <?php
     }
 
-    /**
-     * Ablauf der Meldung beim Veranstalter als Prozess:
-     * Meldungen sammeln → beim Veranstalter melden → gemeldet → bestätigt.
-     * Darunter genau ein „Nächster Schritt“ mit allem, was beim Klick passiert
-     * (Haken, Status auf der Website, Mails an wen – mit Vorschau).
-     * Gemeldet und bestätigt setzt das Orgateam von Hand – das Plugin sieht
-     * nicht, was beim Veranstalter ankommt.
-     */
-    private function render_entry_steps( array $poll, array $liste ): void {
-        $id        = (int) $poll['id'];
-        $csv       = wp_nonce_url( admin_url( 'admin-post.php?action=vp_poll_entries_csv&id=' . $id ), 'vp_poll_entries_csv_' . $id );
-        $xlsx      = wp_nonce_url( admin_url( 'admin-post.php?action=vp_poll_entries_xlsx&id=' . $id ), 'vp_poll_entries_xlsx_' . $id );
-        $offen     = array_values( array_filter( $liste, static fn( $z ) => empty( $z['submitted_at'] ) ) );
-        $ohne_pass = ! empty( $poll['dokume'] ) ? count( array_filter( $liste, static fn( $z ) => isset( $z['judopass'] ) && ! (int) $z['judopass'] ) ) : 0;
-        $gemeldet  = ! empty( $poll['submitted_at'] );
-        // Bestätigt wird je Starter: Nachmeldungen nach einer Bestätigung
-        // brauchen wieder eine.
-        $warten    = array_values( array_filter( $liste, static fn( $z ) => ! empty( $z['submitted_at'] ) && empty( $z['confirmed_at'] ) ) );
-        $bestaetigt = $gemeldet && ! $offen && ! $warten;
-        $sammeln   = $this->service->is_open( $poll );
-        $absender  = (string) wp_get_current_user()->display_name;
-
-        // Wo stehen wir? 1 sammeln, 2 melden (auch Nachmeldung), 3 gemeldet
-        // (wartet), 4 alles bestätigt. Der früheste offene Schritt zählt.
-        $stufe = $bestaetigt ? 4 : ( $gemeldet && ! $offen ? 3 : ( $sammeln && ! $gemeldet ? 1 : 2 ) );
-        $stufen = [
-            1 => [ __( 'Meldungen sammeln', 'vereins-plugin' ), $sammeln && ! empty( $poll['closes_at'] ) ? sprintf( __( 'bis %s', 'vereins-plugin' ), mysql2date( 'd.m. H:i', $poll['closes_at'] ) ) : sprintf( _n( '%d Starter', '%d Starter', count( $liste ), 'vereins-plugin' ), count( $liste ) ) ],
-            2 => $gemeldet && $offen
-                ? [ __( 'Nachmelden', 'vereins-plugin' ), sprintf( _n( '%d Starter offen', '%d Starter offen', count( $offen ), 'vereins-plugin' ), count( $offen ) ) ]
-                : [ __( 'Beim Veranstalter melden', 'vereins-plugin' ), __( 'Excel schicken oder DokuMe', 'vereins-plugin' ) ],
-            3 => [ __( 'Gemeldet', 'vereins-plugin' ), $warten ? sprintf( _n( '%d Starter wartet auf Bestätigung', '%d Starter warten auf Bestätigung', count( $warten ), 'vereins-plugin' ), count( $warten ) ) : ( $gemeldet ? sprintf( __( 'seit %s', 'vereins-plugin' ), mysql2date( 'd.m.Y', $poll['submitted_at'] ) ) : __( 'wartet auf Bestätigung', 'vereins-plugin' ) ) ],
-            4 => [ __( 'Bestätigt', 'vereins-plugin' ), $bestaetigt && ! empty( $poll['confirmed_at'] ) ? mysql2date( 'd.m.Y', $poll['confirmed_at'] ) : __( 'vom Veranstalter', 'vereins-plugin' ) ],
-        ];
-        ?>
-        <style>
-        .vp-flow { display: flex; flex-wrap: wrap; gap: 0; margin: 16px 0 12px; max-width: 1100px; }
-        .vp-flow__step { position: relative; flex: 1 1 180px; padding: 10px 14px 10px 30px; background: #f0f0f1; color: #50575e; margin-right: 6px;
-            clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%); }
-        .vp-flow__step:first-child { padding-left: 14px; clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%); }
-        .vp-flow__step strong { display: block; font-size: 14px; }
-        .vp-flow__step span { font-size: 12px; }
-        .vp-flow__step.is-done { background: #d1e7dd; color: #0a3622; }
-        .vp-flow__step.is-current { background: #2271b1; color: #fff; }
-        .vp-flow__step.is-waiting { background: #fcf0d1; color: #6b4a00; }
-        .vp-next { background: #fff; border: 1px solid #c3c4c7; border-left: 4px solid #2271b1; border-radius: 4px; padding: 4px 20px 16px; max-width: 1100px; margin: 0 0 20px; }
-        .vp-next h2 { font-size: 16px; margin: 14px 0 8px; }
-        .vp-next__cols { display: flex; flex-wrap: wrap; gap: 24px; }
-        .vp-next__cols > div { flex: 1 1 320px; }
-        .vp-next h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #646970; margin: 12px 0 6px; }
-        .vp-next ul.vp-effects { margin: 6px 0 12px; list-style: none; padding: 0; }
-        .vp-next ul.vp-effects li { margin: 0 0 6px; padding-left: 22px; position: relative; }
-        .vp-next ul.vp-effects li::before { content: "→"; position: absolute; left: 0; color: #2271b1; font-weight: 600; }
-        .vp-next .vp-mailwarn { color: #8a4b00; }
-        .vp-next pre { white-space: pre-wrap; background: #f6f7f7; border: 1px solid #dcdcde; padding: 10px; font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; max-width: 640px; }
-        .vp-entry-new td { background: #fcf9e8; }
-        </style>
-
-        <ol class="vp-flow" aria-label="<?php esc_attr_e( 'Ablauf der Meldung', 'vereins-plugin' ); ?>">
-            <?php foreach ( $stufen as $nr => [ $titel, $info ] ) : ?>
-                <li class="vp-flow__step<?php echo $nr < $stufe || ( $nr === 4 && $bestaetigt ) ? ' is-done' : ( $nr === $stufe ? ' is-current' : ( $nr === 3 && $warten ? ' is-waiting' : '' ) ); ?>"<?php echo $nr === $stufe ? ' aria-current="step"' : ''; ?>>
-                    <strong><?php echo ( $nr < $stufe || ( $nr === 4 && $bestaetigt ) ? '✓ ' : $nr . '. ' ) . esc_html( $titel ); ?></strong>
-                    <span><?php echo esc_html( $info ); ?></span>
-                </li>
-            <?php endforeach; ?>
-        </ol>
-
-        <div class="vp-next">
-            <?php if ( ! $gemeldet ) : ?>
-                <h2><?php esc_html_e( 'Nächster Schritt: beim Veranstalter melden', 'vereins-plugin' ); ?></h2>
-                <?php if ( $sammeln ) : ?>
-                    <p class="description"><?php esc_html_e( 'Die Meldung ist noch offen – meist meldest du nach dem Meldeschluss. Wer danach dazukommt, steht unten ohne Haken und gelb.', 'vereins-plugin' ); ?></p>
-                <?php endif; ?>
-                <ol>
-                    <li><?php esc_html_e( 'Meldeliste holen:', 'vereins-plugin' ); ?>
-                        <a class="button button-primary" href="<?php echo esc_url( $xlsx ); ?>"><?php esc_html_e( 'BJV-Meldeliste (Excel)', 'vereins-plugin' ); ?></a>
-                        <a class="button" href="<?php echo esc_url( $csv ); ?>"><?php esc_html_e( 'Alles als CSV', 'vereins-plugin' ); ?></a></li>
-                    <li><?php esc_html_e( 'Excel (Kampfrichter ergänzen) an den Veranstalter schicken – oder die Starter in DokuMe eintragen.', 'vereins-plugin' ); ?></li>
-                    <li><?php esc_html_e( 'Unten abhaken, wen du gemeldet hast (wird sofort gespeichert), dann „Weiter: Status ‚Gemeldet‘ setzen“. Dort siehst du die Empfänger und entscheidest, ob E-Mails rausgehen.', 'vereins-plugin' ); ?></li>
-                </ol>
-            <?php else : ?>
-                <?php if ( $offen ) : ?>
-                    <h2><?php echo esc_html( sprintf( _n( 'Nachmeldung: %d Starter noch nicht gemeldet', 'Nachmeldung: %d Starter noch nicht gemeldet', count( $offen ), 'vereins-plugin' ), count( $offen ) ) ); ?></h2>
-                    <p><?php esc_html_e( 'Gelb und ohne Haken in der Liste. Beim Veranstalter nachmelden, dann abhaken und „Weiter: Nachmeldung abschließen“. Danach braucht die Nachmeldung wieder eine Bestätigung.', 'vereins-plugin' ); ?></p>
-                <?php endif; ?>
-                <?php if ( $warten ) : ?>
-                    <h2><?php echo esc_html( sprintf( _n( 'Bestätigung vom Veranstalter: %d Starter wartet', 'Bestätigung vom Veranstalter: %d Starter warten', count( $warten ), 'vereins-plugin' ), count( $warten ) ) ); ?></h2>
-                    <p class="description"><?php echo esc_html( implode( ', ', array_map( static fn( $z ) => $z['first_name'] . ' ' . $z['last_name'] . ' (' . $z['class_key'] . ')', $warten ) ) ); ?></p>
-                    <?php
-                    $melder = array_values( array_unique( array_map( static fn( $z ) => (int) $z['person_id'], $warten ) ) );
-                    $this->state_form( $poll, 'confirmed', empty( $poll['confirmed_at'] ) ? __( 'Als bestätigt vermerken', 'vereins-plugin' ) : __( 'Nachmeldung als bestätigt vermerken', 'vereins-plugin' ), [
-                        sprintf( _n( '%d wartender Starter wird als bestätigt vermerkt.', 'Die %d wartenden Starter werden als bestätigt vermerkt.', count( $warten ), 'vereins-plugin' ), count( $warten ) ),
-                        __( 'Die Melder sehen an ihren Startern „bestätigt“.', 'vereins-plugin' ),
-                    ], EntryMail::plan( $poll, 'confirmed', $melder, $absender ), __( 'Meldung bestätigt', 'vereins-plugin' ),
-                        __( 'Mail an die Melder dieser Starter – mit der Liste ihrer gemeldeten Starter.', 'vereins-plugin' ) );
-                    ?>
-                <?php endif; ?>
-                <?php if ( $bestaetigt ) : ?>
-                    <h2>✓ <?php esc_html_e( 'Fertig – alle Starter gemeldet und vom Veranstalter bestätigt.', 'vereins-plugin' ); ?></h2>
-                    <p class="description"><?php esc_html_e( 'Kommt noch jemand dazu, erscheint er hier als Nachmeldung.', 'vereins-plugin' ); ?></p>
-                <?php endif; ?>
-                <p><?php esc_html_e( 'Meldeliste:', 'vereins-plugin' ); ?>
-                    <a class="button button-small" href="<?php echo esc_url( $xlsx ); ?>"><?php esc_html_e( 'BJV-Meldeliste (Excel)', 'vereins-plugin' ); ?></a>
-                    <a class="button button-small" href="<?php echo esc_url( $csv ); ?>"><?php esc_html_e( 'Alles als CSV', 'vereins-plugin' ); ?></a></p>
-            <?php endif; ?>
-            <?php if ( $ohne_pass ) : ?>
-                <p><strong style="color:#b32d2e;"><?php echo esc_html( sprintf( _n( '%d Starter hat keinen digitalen Judopass – in DokuMe nicht meldbar.', '%d Starter haben keinen digitalen Judopass – in DokuMe nicht meldbar.', $ohne_pass, 'vereins-plugin' ), $ohne_pass ) ); ?></strong></p>
-            <?php endif; ?>
-        </div>
-        <?php
-    }
-
-    /**
-     * Knopf zum Statuswechsel mit Liste dessen, was passiert, und den Mails.
-     *
-     * @param string[] $folgen
-     * @param array    $plan   EntryMail::plan()
-     */
-    private function state_form( array $poll, string $zustand, string $label, array $folgen, array $plan, string $mailname, string $wer ): void {
-        $id   = (int) $poll['id'];
-        $mit  = array_filter( $plan, static fn( $m ) => $m['email'] !== '' );
-        $ohne = array_filter( $plan, static fn( $m ) => $m['email'] === '' );
-        $box  = 'vp-mail-' . $zustand;
+    /** Bestätigung vermerken – für die genannten Starter, mit Mail-Option. */
+    private function confirm_form( array $poll, array $zeilen, string $label ): void {
+        $id     = (int) $poll['id'];
+        $melder = array_values( array_unique( array_map( static fn( $z ) => (int) $z['person_id'], $zeilen ) ) );
+        $plan   = EntryMail::plan( $poll, 'confirmed', $melder, (string) wp_get_current_user()->display_name );
+        $mit    = array_filter( $plan, static fn( $m ) => $m['email'] !== '' );
+        $ohne   = array_filter( $plan, static fn( $m ) => $m['email'] === '' );
         ?>
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
             <input type="hidden" name="action" value="vp_poll_entries_state">
             <input type="hidden" name="id" value="<?php echo $id; ?>">
-            <input type="hidden" name="state" value="<?php echo esc_attr( $zustand ); ?>">
+            <?php foreach ( $zeilen as $z ) : ?><input type="hidden" name="ids[]" value="<?php echo (int) $z['id']; ?>"><?php endforeach; ?>
             <?php wp_nonce_field( 'vp_poll_entries_state_' . $id ); ?>
-            <p style="margin:6px 0 4px;"><?php esc_html_e( 'Beim Klick passiert:', 'vereins-plugin' ); ?></p>
             <ul class="vp-effects">
-                <?php foreach ( $folgen as $f ) : ?><li><?php echo esc_html( $f ); ?></li><?php endforeach; ?>
+                <li><?php echo esc_html( sprintf( _n( '%d Starter wird als bestätigt vermerkt – die Melder sehen auf der Website „bestätigt“.', '%d Starter werden als bestätigt vermerkt – die Melder sehen auf der Website „bestätigt“.', count( $zeilen ), 'vereins-plugin' ), count( $zeilen ) ) ); ?></li>
                 <li>
                     <?php if ( $mit ) : ?>
-                        <label><input type="checkbox" name="mail" value="1" checked id="<?php echo esc_attr( $box ); ?>">
-                        <strong><?php echo esc_html( sprintf( _n( 'E-Mail „%1$s“ an %2$d Melder:', 'E-Mail „%1$s“ an %2$d Melder:', count( $mit ), 'vereins-plugin' ), $mailname, count( $mit ) ) ); ?></strong></label>
-                        <?php echo esc_html( implode( ', ', array_column( $mit, 'name' ) ) ); ?>
-                        <br><span class="description"><?php echo esc_html( $wer ); ?></span>
+                        <label><input type="checkbox" name="mail" value="1" checked>
+                        <strong><?php echo esc_html( sprintf( _n( 'E-Mail „Meldung bestätigt“ an %d Melder:', 'E-Mail „Meldung bestätigt“ an %d Melder:', count( $mit ), 'vereins-plugin' ), count( $mit ) ) ); ?></strong></label>
+                        <?php echo esc_html( implode( ' · ', array_map( static fn( $m ) => $m['name'] . ' (' . implode( ', ', $m['starters'] ) . ')', $mit ) ) ); ?>
                     <?php else : ?>
                         <?php esc_html_e( 'Keine E-Mail – kein Melder mit E-Mail-Adresse.', 'vereins-plugin' ); ?>
                     <?php endif; ?>
@@ -1170,48 +1277,63 @@ class PollsAdmin {
                             <pre><strong><?php echo esc_html( $erste['subject'] ); ?></strong>
 
 <?php echo esc_html( $erste['body'] ); ?></pre>
-                            <?php if ( current_user_can( 'manage_options' ) ) : ?>
-                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-settings#wettkampf' ) ); ?>"><?php esc_html_e( 'Vorlage in den Einstellungen ändern', 'vereins-plugin' ); ?></a>
-                            <?php endif; ?>
                         </details>
                     <?php endif; ?>
                 </li>
             </ul>
-            <button class="button button-primary button-large"><?php echo esc_html( $label ); ?></button>
+            <button class="button button-primary"><?php echo esc_html( $label ); ?></button>
         </form>
         <?php
     }
 
-    private function entry_table( array $zeilen, bool $mit_melder, bool $dokume = false ): void {
+    /** Eine Klasse: Starter mit Melder, Status und – beim Abhaken – Haken. */
+    private function entry_table( array $poll, array $zeilen, string $modus ): void {
+        $tick   = $modus === 'tick';
+        $dokume = ! empty( $poll['dokume'] );
+        $gewicht = static fn( $w ) => $w !== '' ? esc_html( ClassTemplates::weight_label( $w ) ) : '<span class="description">' . esc_html__( 'gewichtsnah', 'vereins-plugin' ) . '</span>';
         ?>
         <table class="vp-table">
             <thead><tr>
-                <th style="width:1%;white-space:nowrap;"><label><input type="checkbox" class="vp-check-all" aria-label="<?php esc_attr_e( 'alle in dieser Klasse abhaken', 'vereins-plugin' ); ?>"> <?php esc_html_e( 'Gemeldet', 'vereins-plugin' ); ?></label></th>
+                <?php if ( $tick ) : ?>
+                    <th style="width:1%;white-space:nowrap;"><label><input type="checkbox" class="vp-check-all" aria-label="<?php esc_attr_e( 'alle in dieser Klasse abhaken', 'vereins-plugin' ); ?>"> <?php esc_html_e( 'Erledigt', 'vereins-plugin' ); ?></label></th>
+                <?php endif; ?>
                 <th><?php esc_html_e( 'Name', 'vereins-plugin' ); ?></th>
                 <th><?php esc_html_e( 'Jahrgang', 'vereins-plugin' ); ?></th>
-                <?php if ( ! $mit_melder ) : ?><th><?php esc_html_e( 'Klasse', 'vereins-plugin' ); ?></th><?php endif; ?>
                 <th><?php esc_html_e( 'Gewicht', 'vereins-plugin' ); ?></th>
-                <?php if ( $mit_melder ) : ?><th><?php esc_html_e( 'Gemeldet von', 'vereins-plugin' ); ?></th><?php endif; ?>
+                <th><?php esc_html_e( 'Gemeldet von', 'vereins-plugin' ); ?></th>
                 <?php if ( $dokume ) : ?><th><?php esc_html_e( 'Judopass', 'vereins-plugin' ); ?></th><?php endif; ?>
                 <th><?php esc_html_e( 'Hinweis', 'vereins-plugin' ); ?></th>
+                <?php if ( $tick && ! empty( $zeilen[0]['art'] ) ) : ?><th><?php esc_html_e( 'Ablauf', 'vereins-plugin' ); ?></th><?php endif; ?>
             </tr></thead>
             <tbody>
-            <?php foreach ( $zeilen as $z ) : ?>
-                <tr<?php echo empty( $z['submitted_at'] ) && ! empty( $this->current_poll['submitted_at'] ) ? ' class="vp-entry-new"' : ''; ?>>
-                    <td style="text-align:center;"><input type="checkbox" name="gemeldet[]" value="<?php echo (int) $z['id']; ?>" data-person="<?php echo (int) $z['person_id']; ?>" data-first="<?php echo esc_attr( $z['first_name'] ); ?>" data-notified="<?php echo empty( $z['notified_at'] ) ? '0' : '1'; ?>" <?php checked( ! empty( $z['submitted_at'] ) ); ?> aria-label="<?php esc_attr_e( 'beim Veranstalter gemeldet', 'vereins-plugin' ); ?>"></td>
-                    <td><strong><?php echo esc_html( $z['last_name'] ); ?></strong>, <?php echo esc_html( $z['first_name'] ); ?>
-                        <?php if ( ! empty( $z['confirmed_at'] ) ) : ?><br><span class="description" style="color:#00a32a;">✓ <?php esc_html_e( 'bestätigt', 'vereins-plugin' ); ?></span>
-                        <?php elseif ( ! empty( $z['submitted_at'] ) && ! empty( $this->current_poll['submitted_at'] ) ) : ?><br><span class="description"><?php esc_html_e( 'wartet auf Bestätigung', 'vereins-plugin' ); ?></span><?php endif; ?></td>
-                    <td><?php echo (int) $z['birth_year']; ?></td>
-                    <?php if ( ! $mit_melder ) : ?><td><?php echo esc_html( $z['class_key'] . ' ' . $z['sex'] ); ?></td><?php endif; ?>
-                    <td><?php echo $z['weight'] !== '' ? esc_html( ClassTemplates::weight_label( $z['weight'] ) ) : '<span class="description">' . esc_html__( 'gewichtsnah', 'vereins-plugin' ) . '</span>'; ?></td>
-                    <?php if ( $mit_melder ) : ?>
-                        <td><?php echo $z['is_self'] ? '<em>' . esc_html__( 'selbst', 'vereins-plugin' ) . '</em>' : esc_html( $z['reporter'] ); ?><?php if ( $z['contact'] !== '' ) : ?><br><span class="description"><?php echo esc_html( $z['contact'] ); ?></span><?php endif; ?></td>
+            <?php foreach ( $zeilen as $z ) :
+                $ab   = ( $z['art'] ?? '' ) === 'withdrawn';
+                $a    = $ab ? ! empty( $z['withdraw_done_at'] ) : ! empty( $z['submitted_at'] );
+                $b    = ! $ab && ! empty( $z['notified_at'] ) && $a;
+                $c    = ! $ab && ! empty( $z['confirmed_at'] );
+                ?>
+                <tr>
+                    <?php if ( $tick ) : ?>
+                        <td style="text-align:center;"><input type="checkbox" data-tick value="<?php echo (int) $z['id']; ?>" data-kind="<?php echo $ab ? 'withdrawn' : 'entry'; ?>" data-person="<?php echo (int) $z['person_id']; ?>" data-first="<?php echo esc_attr( $z['first_name'] ); ?>" data-notified="<?php echo $b ? '1' : '0'; ?>" <?php checked( $a ); ?> <?php disabled( $b ); ?> aria-label="<?php echo esc_attr( $ab ? __( 'beim Veranstalter abgemeldet', 'vereins-plugin' ) : __( 'beim Veranstalter gemeldet', 'vereins-plugin' ) ); ?>"></td>
                     <?php endif; ?>
+                    <td><strong class="<?php echo $ab ? 'vp-strike' : ''; ?>"><?php echo esc_html( $z['last_name'] ); ?>, <?php echo esc_html( $z['first_name'] ); ?></strong></td>
+                    <td><?php echo (int) $z['birth_year']; ?></td>
+                    <td><?php if ( ( $z['art'] ?? '' ) === 'changed' || ( ! $tick && $z['prev_weight'] !== null ) ) : ?>
+                            <span class="vp-strike"><?php echo $gewicht( (string) $z['prev_weight'] ); // phpcs:ignore ?></span> → <strong><?php echo $gewicht( $z['weight'] ); // phpcs:ignore ?></strong>
+                        <?php else : ?><?php echo $gewicht( $z['weight'] ); // phpcs:ignore ?><?php endif; ?></td>
+                    <td><?php echo $z['is_self'] ? '<em>' . esc_html__( 'selbst', 'vereins-plugin' ) . '</em>' : esc_html( $z['reporter'] ); ?><?php if ( $z['contact'] !== '' ) : ?><br><span class="description"><?php echo esc_html( $z['contact'] ); ?></span><?php endif; ?></td>
                     <?php if ( $dokume ) : ?>
                         <td><?php echo ! isset( $z['judopass'] ) ? '–' : ( (int) $z['judopass'] ? esc_html__( 'ja', 'vereins-plugin' ) : '<strong style="color:#b32d2e;">' . esc_html__( 'nein', 'vereins-plugin' ) . '</strong>' ); ?></td>
                     <?php endif; ?>
                     <td><?php echo esc_html( $z['note'] ); ?></td>
+                    <?php if ( $tick && ! empty( $z['art'] ) ) :
+                        $schritte = $ab ? [ 'a' => $a, 'b' => false ] : [ 'a' => $a, 'b' => $b, 'c' => $c ];
+                        $naechst  = array_search( false, $schritte, true );
+                        ?>
+                        <td><span class="vp-mini" title="<?php esc_attr_e( 'a erledigt · b informiert · c bestätigt', 'vereins-plugin' ); ?>">
+                            <?php foreach ( $schritte as $nr => $ok ) : ?><span class="<?php echo $ok ? 'is-done' : ( $nr === $naechst ? 'is-next' : '' ); ?>"><?php echo esc_html( $nr ); ?></span><?php endforeach; ?>
+                        </span></td>
+                    <?php endif; ?>
                 </tr>
             <?php endforeach; ?>
             </tbody>
@@ -1389,37 +1511,51 @@ class PollsAdmin {
         if ( ! $poll || $poll['kind'] !== 'entry' ) {
             wp_send_json_error( null, 404 );
         }
-        $this->model->mark_entries_submitted( $id, array_map( 'intval', (array) ( $_POST['on'] ?? [] ) ), true );
-        $this->model->mark_entries_submitted( $id, array_map( 'intval', (array) ( $_POST['off'] ?? [] ) ), false );
+        $ids = static fn( string $k ) => array_map( 'intval', (array) ( $_POST[ $k ] ?? [] ) );
+        $this->model->mark_entries_submitted( $id, $ids( 'on' ), true );
+        $this->model->mark_entries_submitted( $id, $ids( 'off' ), false );
+        $this->model->mark_withdrawn_done( $id, $ids( 'won' ), true );
+        $this->model->mark_withdrawn_done( $id, $ids( 'woff' ), false );
         wp_send_json_success();
     }
 
-    /** Abhakliste speichern: angehakte gemeldet, abgehakte wieder offen. */
+    /**
+     * Abschließen: Hauptmeldung („Status ‚Gemeldet‘ setzen“) bzw. Änderungen
+     * („Melder informieren“). Die Haken sind schon gespeichert (Ajax).
+     */
     public function handle_mark(): void {
         $id = (int) ( $_POST['id'] ?? 0 );
         check_admin_referer( 'vp_poll_entries_mark_' . $id );
-        $this->entry_poll_or_die( $id );
-        $alle     = array_map( 'intval', (array) ( $_POST['alle'] ?? [] ) );
-        $gemeldet = array_map( 'intval', (array) ( $_POST['gemeldet'] ?? [] ) );
-        $this->model->mark_entries_submitted( $id, array_intersect( $gemeldet, $alle ), true );
-        $this->model->mark_entries_submitted( $id, array_diff( $alle, $gemeldet ), false );
-        $args = [ 'ergebnis' => $id, 'msg' => 'marked' ];
+        $poll  = $this->entry_poll_or_die( $id );
+        $mail  = ( $_POST['inform'] ?? '' ) === 'mail';
+        $haupt = ( $_POST['scope'] ?? '' ) === 'main';
+        $ich   = (string) wp_get_current_user()->display_name;
+        $args  = [ 'ergebnis' => $id, 'msg' => $haupt ? 'submitted' : 'changes' ];
 
-        // „Als gemeldet speichern und Melder informieren“: Status setzen und
-        // jeden Melder mit abgehakten, noch nicht gemailten Startern informieren.
-        if ( ! empty( $_POST['inform'] ) && $gemeldet ) {
-            $poll = $this->model->find( $id );
-            if ( empty( $poll['submitted_at'] ) ) {
-                $this->model->mark_poll( $id, 'submitted_at' );
+        if ( $haupt && empty( $poll['submitted_at'] ) ) {
+            $this->model->mark_poll( $id, 'submitted_at' );
+        }
+        $gesendet = 0;
+        $ohne     = [];
+        $melder   = $this->model->melder_to_notify( $id );
+        if ( $mail && $melder ) {
+            $r = EntryMail::send( $poll, 'sent', $melder, $ich );
+            $gesendet += $r['sent'];
+            $ohne      = array_merge( $ohne, $r['skipped'] );
+        }
+        $this->model->mark_notified( $id, $melder );
+        if ( ! $haupt ) {
+            $ab = $this->model->melder_withdrawn_done( $id );
+            if ( $mail && $ab ) {
+                $r = EntryMail::send( $poll, 'withdrawn', $ab, $ich );
+                $gesendet += $r['sent'];
+                $ohne      = array_merge( $ohne, $r['skipped'] );
             }
-            $melder = $this->model->melder_to_notify( $id );
-            $mail   = ( $_POST['inform'] ?? '' ) === 'mail' && $melder ? EntryMail::send( $poll, 'sent', $melder, (string) wp_get_current_user()->display_name ) : null;
-            $this->model->mark_notified( $id, $melder );
-            $args['msg'] = 'submitted';
-            if ( $mail ) {
-                $args['vp_sent'] = (int) $mail['sent'];
-                $args['vp_skip'] = rawurlencode( implode( ', ', $mail['skipped'] ) );
-            }
+            $this->model->finish_withdrawn( $id, $ab );
+        }
+        if ( $mail ) {
+            $args['vp_sent'] = $gesendet;
+            $args['vp_skip'] = rawurlencode( implode( ', ', array_unique( $ohne ) ) );
         }
         wp_safe_redirect( $this->url( $args ) );
         exit;
@@ -1429,17 +1565,17 @@ class PollsAdmin {
     public function handle_state(): void {
         $id = (int) ( $_POST['id'] ?? 0 );
         check_admin_referer( 'vp_poll_entries_state_' . $id );
-        $poll  = $this->entry_poll_or_die( $id );
-        // „Gemeldet“ setzt die Abhakliste (handle_mark); hier nur „bestätigt“.
-        $state = 'confirmed';
-        $ich   = (string) wp_get_current_user()->display_name;
-        $melder = $this->model->confirm_entries( $id );
-        $this->model->mark_poll( $id, 'confirmed_at' );
-        $mail = ! empty( $_POST['mail'] ) && $melder ? EntryMail::send( $poll, 'confirmed', $melder, $ich ) : null;
-        $args = [ 'ergebnis' => $id, 'msg' => $state ];
+        $poll   = $this->entry_poll_or_die( $id );
+        $ids    = array_map( 'intval', (array) ( $_POST['ids'] ?? [] ) );
+        $melder = $this->model->confirm_entries( $id, $ids );
+        if ( empty( $poll['confirmed_at'] ) ) {
+            $this->model->mark_poll( $id, 'confirmed_at' );
+        }
+        $mail = ! empty( $_POST['mail'] ) && $melder ? EntryMail::send( $poll, 'confirmed', $melder, (string) wp_get_current_user()->display_name ) : null;
+        $args = [ 'ergebnis' => $id, 'msg' => 'confirmed' ];
         if ( $mail ) {
-            $args['vp_sent']  = (int) $mail['sent'];
-            $args['vp_skip']  = rawurlencode( implode( ', ', $mail['skipped'] ) );
+            $args['vp_sent'] = (int) $mail['sent'];
+            $args['vp_skip'] = rawurlencode( implode( ', ', $mail['skipped'] ) );
         }
         wp_safe_redirect( $this->url( $args ) );
         exit;

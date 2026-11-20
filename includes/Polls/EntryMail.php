@@ -29,6 +29,7 @@ class EntryMail {
     public static function defaults(): array {
         return array_intersect_key( Settings::defaults(), array_flip( [
             'entry_mail_sent_subject', 'entry_mail_sent_body', 'entry_mail_confirmed_subject', 'entry_mail_confirmed_body',
+            'entry_mail_withdrawn_subject', 'entry_mail_withdrawn_body',
         ] ) );
     }
 
@@ -44,13 +45,16 @@ class EntryMail {
      *         email = '' bei Platzhalter-Adresse oder ohne Adresse
      */
     public static function plan( array $poll, string $art, array $melder = [], string $absender = '', bool $nur_gemeldet = true ): array {
-        $art     = $art === 'confirmed' ? 'confirmed' : 'sent';
+        $art     = in_array( $art, [ 'confirmed', 'withdrawn' ], true ) ? $art : 'sent';
         $betreff = (string) Settings::get( "entry_mail_{$art}_subject", self::defaults()[ "entry_mail_{$art}_subject" ] );
         $text    = (string) Settings::get( "entry_mail_{$art}_body", self::defaults()[ "entry_mail_{$art}_body" ] );
 
         $je_melder = [];
-        foreach ( ( new PollModel() )->entries( (int) $poll['id'] ) as $e ) {
-            if ( ! $nur_gemeldet || ! empty( $e['submitted_at'] ) ) {
+        // Abmeldung: die beim Veranstalter abgemeldeten Starter nennen
+        $model  = new PollModel();
+        $zeilen = $art === 'withdrawn' ? $model->withdrawn_entries( (int) $poll['id'] ) : $model->entries( (int) $poll['id'] );
+        foreach ( $zeilen as $e ) {
+            if ( ! $nur_gemeldet || ( $art === 'withdrawn' ? ! empty( $e['withdraw_done_at'] ) : ! empty( $e['submitted_at'] ) ) ) {
                 $je_melder[ (int) $e['person_id'] ][] = $e;
             }
         }

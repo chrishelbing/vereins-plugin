@@ -200,7 +200,21 @@ class PollModel {
     }
 
     /** @return array<int, array> alle Meldungen einer Umfrage, in Eingabereihenfolge */
+    /**
+     * Gemeldete Starter (ohne Abmeldungen).
+     *
+     * @return array<int, array>
+     */
     public function entries( int $poll_id, ?int $person_id = null ): array {
+        return array_values( array_filter( $this->all_entries( $poll_id, $person_id ), static fn( $e ) => empty( $e['withdrawn_at'] ) ) );
+    }
+
+    /** Abmeldungen: vom Melder gestrichen, beim Veranstalter aber schon gemeldet. */
+    public function withdrawn_entries( int $poll_id, ?int $person_id = null ): array {
+        return array_values( array_filter( $this->all_entries( $poll_id, $person_id ), static fn( $e ) => ! empty( $e['withdrawn_at'] ) ) );
+    }
+
+    private function all_entries( int $poll_id, ?int $person_id = null ): array {
         global $wpdb;
         $rows = $person_id === null
             ? $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$this->t('vp_poll_entries')} WHERE poll_id = %d ORDER BY id ASC", $poll_id ), ARRAY_A )
@@ -213,31 +227,54 @@ class PollModel {
     /**
      * Die Meldung eines Melders ersetzen – wie bei Stimmen gilt sie als
      * Ganzes: wer ändert, schickt alle seine Starter.
+     *
+     * Was schon beim Veranstalter gemeldet ist, geht dabei nicht verloren:
+     * - unverändert (Starter, Klasse, Gewicht) → behält Haken und Vermerke;
+     * - nur das Gewicht geändert → Ummeldung (prev_weight = altes Gewicht);
+     * - gestrichen → Abmeldung (withdrawn_at), bis das Orgateam sie erledigt;
+     * - wieder eingetragen, bevor die Abmeldung erledigt war → wie vorher.
+     * Noch nicht Gemeldetes wird einfach ersetzt.
      */
     public function replace_entries( int $poll_id, int $person_id, array $rows ): void {
         global $wpdb;
-        // Was schon beim Veranstalter gemeldet ist, bleibt es – sofern Starter,
-        // Klasse und Gewicht unverändert sind. Sonst ist es eine Nachmeldung.
-        $gemeldet = [];
-        $info     = [];
-        $best     = [];
-        foreach ( $this->entries( $poll_id, $person_id ) as $alt ) {
-            if ( ! empty( $alt['submitted_at'] ) ) {
-                $gemeldet[ self::entry_key( $alt ) ] = $alt['submitted_at'];
-            }
-            if ( ! empty( $alt['notified_at'] ) ) {
-                $info[ self::entry_key( $alt ) ] = $alt['notified_at'];
-            }
-            if ( ! empty( $alt['confirmed_at'] ) ) {
-                $best[ self::entry_key( $alt ) ] = $alt['confirmed_at'];
-            }
-        }
-        $this->delete_entries( $poll_id, $person_id );
         $jetzt = current_time( 'mysql' );
+        $alt   = $this->all_entries( $poll_id, $person_id );
+        $frei  = array_fill_keys( array_keys( $alt ), true );   // noch nicht übernommen
+        $finde = function ( callable $passt ) use ( &$alt, &$frei ): ?int {
+            foreach ( $alt as $i => $a ) {
+                if ( $frei[ $i ] && $passt( $a ) ) {
+                    return $i;
+                }
+            }
+            return null;
+        };
+        $vermerke = [ 'submitted_at', 'notified_at', 'confirmed_at', 'prev_weight' ];
+
+        $neu = [];
         foreach ( $rows as $r ) {
-            $wpdb->insert( $this->t( 'vp_poll_entries' ), [
-                'poll_id'    => $poll_id,
-                'person_id'  => $person_id,
+            $zeile = array_fill_keys( $vermerke, null );
+            $k     = self::entry_key( $r );
+            $id    = self::identity_key( $r );
+            // 1. unverändert (auch eine noch nicht erledigte Abmeldung)
+            $i = $finde( static fn( $a ) => self::entry_key( $a ) === $k && empty( $a['withdraw_done_at'] ) );
+            if ( $i !== null ) {
+                foreach ( $vermerke as $f ) {
+                    $zeile[ $f ] = $alt[ $i ][ $f ] ?? null;
+                }
+                $frei[ $i ] = false;
+            } else {
+                // 2. gleicher Starter in gleicher Klasse, anderes Gewicht
+                $i = $finde( static fn( $a ) => empty( $a['withdrawn_at'] ) && self::identity_key( $a ) === $id );
+                if ( $i !== null ) {
+                    $a = $alt[ $i ];
+                    // gemeldet war das alte Gewicht – bzw. bei einer noch offenen
+                    // Ummeldung das davor; zurück dorthin heißt: nichts umzumelden
+                    $gemeldet_mit = ! empty( $a['submitted_at'] ) ? (string) $a['weight'] : $a['prev_weight'];
+                    $zeile['prev_weight'] = $gemeldet_mit !== null && $gemeldet_mit !== (string) $r['weight'] ? $gemeldet_mit : null;
+                    $frei[ $i ] = false;
+                }
+            }
+            $neu[] = $zeile + [
                 'first_name' => (string) $r['first_name'],
                 'last_name'  => (string) $r['last_name'],
                 'birth_year' => (int) $r['birth_year'],
@@ -246,12 +283,31 @@ class PollModel {
                 'weight'     => (string) $r['weight'],
                 'note'       => (string) ( $r['note'] ?? '' ),
                 'judopass'   => isset( $r['judopass'] ) && $r['judopass'] !== null ? (int) (bool) $r['judopass'] : null,
-                'submitted_at' => $gemeldet[ self::entry_key( $r ) ] ?? null,
-                'notified_at'  => $info[ self::entry_key( $r ) ] ?? null,
-                'confirmed_at' => $best[ self::entry_key( $r ) ] ?? null,
-                'created_at' => $jetzt,
-            ] );
+                'withdrawn_at' => null, 'withdraw_done_at' => null,
+            ];
         }
+        // Übrig gebliebene, schon gemeldete Starter → Abmeldung
+        foreach ( $alt as $i => $a ) {
+            if ( $frei[ $i ] && ( ! empty( $a['submitted_at'] ) || ! empty( $a['withdrawn_at'] ) ) ) {
+                $a['withdrawn_at'] = $a['withdrawn_at'] ?: $jetzt;
+                $neu[] = $a;
+            }
+        }
+
+        $this->delete_entries( $poll_id, $person_id );
+        foreach ( $neu as $z ) {
+            unset( $z['id'] );
+            $z['poll_id']    = $poll_id;
+            $z['person_id']  = $person_id;
+            $z['created_at'] = $z['created_at'] ?? $jetzt;
+            $wpdb->insert( $this->t( 'vp_poll_entries' ), $z );
+        }
+    }
+
+    /** Starter + Klasse – derselbe Start, auch wenn sich das Gewicht ändert. */
+    public static function identity_key( array $e ): string {
+        $n = static fn( $t ) => mb_strtolower( trim( preg_replace( '/\s+/u', ' ', (string) $t ) ) );
+        return $n( $e['first_name'] ) . '|' . $n( $e['last_name'] ) . '|' . (int) $e['birth_year'] . '|' . $n( $e['class_key'] );
     }
 
     /** Starter + Klasse + Gewicht – was beim Veranstalter als „dieselbe Meldung“ gilt. */
@@ -317,17 +373,55 @@ class PollModel {
      *
      * @return int[] Personen-IDs der Melder dieser Starter
      */
-    public function confirm_entries( int $poll_id ): array {
+    public function confirm_entries( int $poll_id, ?array $ids = null ): array {
         global $wpdb;
         $melder = [];
         $jetzt  = current_time( 'mysql' );
         foreach ( $this->entries( $poll_id ) as $e ) {
+            if ( $ids !== null && ! in_array( (int) $e['id'], $ids, true ) ) {
+                continue;
+            }
             if ( ! empty( $e['submitted_at'] ) && empty( $e['confirmed_at'] ) ) {
                 $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'confirmed_at' => $jetzt ], [ 'id' => (int) $e['id'] ] );
                 $melder[] = (int) $e['person_id'];
             }
         }
         return array_values( array_unique( $melder ) );
+    }
+
+    /**
+     * Abmeldungen als beim Veranstalter erledigt abhaken (oder wieder lösen).
+     *
+     * @param int[] $ids
+     */
+    public function mark_withdrawn_done( int $poll_id, array $ids, bool $erledigt = true ): void {
+        global $wpdb;
+        foreach ( $this->withdrawn_entries( $poll_id ) as $e ) {
+            if ( in_array( (int) $e['id'], $ids, true ) && empty( $e['withdraw_done_at'] ) === $erledigt ) {
+                $wpdb->update( $this->t( 'vp_poll_entries' ), [ 'withdraw_done_at' => $erledigt ? current_time( 'mysql' ) : null ], [ 'id' => (int) $e['id'] ] );
+            }
+        }
+    }
+
+    /** @return int[] Melder mit erledigten, noch offenen Abmeldungen */
+    public function melder_withdrawn_done( int $poll_id ): array {
+        $ids = [];
+        foreach ( $this->withdrawn_entries( $poll_id ) as $e ) {
+            if ( ! empty( $e['withdraw_done_at'] ) ) {
+                $ids[] = (int) $e['person_id'];
+            }
+        }
+        return array_values( array_unique( $ids ) );
+    }
+
+    /** Erledigte Abmeldungen dieser Melder abschließen: die Zeilen fallen weg. */
+    public function finish_withdrawn( int $poll_id, array $melder ): void {
+        global $wpdb;
+        foreach ( $this->withdrawn_entries( $poll_id ) as $e ) {
+            if ( ! empty( $e['withdraw_done_at'] ) && in_array( (int) $e['person_id'], $melder, true ) ) {
+                $wpdb->delete( $this->t( 'vp_poll_entries' ), [ 'id' => (int) $e['id'] ] );
+            }
+        }
     }
 
     /** Meldung als abgeschickt bzw. bestätigt vermerken ('submitted_at' / 'confirmed_at'). */

@@ -210,8 +210,9 @@ class SettingsPage {
                         <?php esc_html_e( 'Ein leeres Feld setzt den Standardtext wieder ein.', 'vereins-plugin' ); ?>
                     </p>
                     <?php foreach ( [
-                        'sent'      => [ __( 'Mail „Meldung abgeschickt“', 'vereins-plugin' ), __( 'geht raus bei „Status auf ‚Gemeldet‘ setzen“', 'vereins-plugin' ) ],
-                        'confirmed' => [ __( 'Mail „Meldung bestätigt“', 'vereins-plugin' ), __( 'geht raus bei „Status auf ‚Bestätigt‘ setzen“', 'vereins-plugin' ) ],
+                        'sent'      => [ __( 'Mail „Meldung abgeschickt“', 'vereins-plugin' ), __( 'geht raus beim Abschließen der Meldung oder einer Nachmeldung', 'vereins-plugin' ) ],
+                        'confirmed' => [ __( 'Mail „Meldung bestätigt“', 'vereins-plugin' ), __( 'geht raus bei „Als bestätigt vermerken“', 'vereins-plugin' ) ],
+                        'withdrawn' => [ __( 'Mail „Abmeldung weitergegeben“', 'vereins-plugin' ), __( 'geht raus, wenn eine Abmeldung beim Veranstalter erledigt ist', 'vereins-plugin' ) ],
                     ] as $art => [ $titel, $wann ] ) : ?>
                         <details class="vp-fold" <?php echo $art === 'sent' ? 'open' : ''; ?>>
                         <summary><strong><?php echo esc_html( $titel ); ?></strong> <span class="description">– <?php echo esc_html( $wann ); ?></span></summary>
@@ -631,6 +632,8 @@ class SettingsPage {
             'entry_mail_sent_body'         => $mail( 'entry_mail_sent_body', true ),
             'entry_mail_confirmed_subject' => $mail( 'entry_mail_confirmed_subject', false ),
             'entry_mail_confirmed_body'    => $mail( 'entry_mail_confirmed_body', true ),
+            'entry_mail_withdrawn_subject' => $mail( 'entry_mail_withdrawn_subject', false ),
+            'entry_mail_withdrawn_body'    => $mail( 'entry_mail_withdrawn_body', true ),
 
             'sender_name'      => sanitize_text_field( $_POST['sender_name'] ?? '' ),
             'notify_email'     => sanitize_email( $_POST['notify_email'] ?? '' ),

@@ -40,6 +40,8 @@ class Settings {
             'entry_mail_sent_body'         => "Hallo {name},\n\nwir haben die Meldung für „{wettkampf}“ am {datum} an den Veranstalter geschickt. Gemeldet sind:\n\n{starter}\n\nSobald der Veranstalter die Meldung bestätigt, sagen wir Bescheid. Fällt ein Start aus, gib uns bitte so schnell wie möglich Bescheid.\n\nViele Grüße\n{absender}\n{verein}",
             'entry_mail_confirmed_subject' => 'Meldung bestätigt: {wettkampf}',
             'entry_mail_confirmed_body'    => "Hallo {name},\n\nder Veranstalter hat die Meldung für „{wettkampf}“ am {datum} bestätigt. Gemeldet sind:\n\n{starter}\n\nDenkt bitte an den Judopass und kommt rechtzeitig zum Wiegen.\n\nViele Grüße\n{absender}\n{verein}",
+            'entry_mail_withdrawn_subject' => 'Abmeldung weitergegeben: {wettkampf}',
+            'entry_mail_withdrawn_body'    => "Hallo {name},\n\nwir haben beim Veranstalter von „{wettkampf}“ am {datum} abgemeldet:\n\n{starter}\n\nViele Grüße\n{absender}\n{verein}",
         ];
     }
 

@@ -180,7 +180,8 @@ class PollController {
         if ( ! $this->service->is_open( $poll ) ) {
             return new WP_Error( 'poll_closed', __( 'Der Meldeschluss ist vorbei.', 'vereins-plugin' ), [ 'status' => 409 ] );
         }
-        $this->model->delete_entries( (int) $poll['id'], $person );
+        // Schon Gemeldetes wird dabei zur Abmeldung fürs Orgateam.
+        $this->model->replace_entries( (int) $poll['id'], $person, [] );
         return new WP_REST_Response( $this->service->payload( $poll, $person, Capabilities::is_orga() ), 200 );
     }
 

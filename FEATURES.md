@@ -943,61 +943,58 @@ UTF-8 mit BOM für Excel): Nachname, Vorname, Jahrgang, Geschlecht,
 Altersklasse, Gewichtsklasse, Verein (aus Einstellungen → Vereinsname),
 Melder, Kontakt, Hinweis.
 
-**Meldung beim Veranstalter** (seit 1.23.0; seit 1.23.3 steuern die Haken
-alles). Oben ein Prozessband **Meldungen sammeln → Beim Veranstalter melden →
-Gemeldet (wartet auf Bestätigung) → Bestätigt** (erledigt grün, aktuell blau),
-darunter ein Kasten **„Nächster Schritt“**:
-- **Vor dem Melden:** 1. Meldeliste holen – „BJV-Meldeliste (Excel)“
-  (`Polls\BjvExport`, per `ZipArchive`) baut das offizielle BJV-„Meldeformular
-  für alle Wettkämpfe“ nach: Blatt „Meldung“, Kopf (Veranstaltung, Datum,
-  meldender Verein, Ansprechpartner = angemeldeter Orga, Kontakt-Mail,
-  Kampfrichter Samstag/Sonntag – **die Kampfrichter bleiben leer**), Tabelle
-  Nr. | Name | Vorname | Jahrgang | Geschlecht | AK | Gewichtsklasse, mindestens
-  40 Zeilen; dazu die CSV. 2. Excel schicken oder in DokuMe eintragen.
-  3. unten abhaken und speichern.
-- **Nach dem Melden:** Knopf „Status auf ‚Bestätigt‘ setzen“ mit Liste, was
-  passiert, Empfängern und Mail-Vorschau; noch nicht abgehakte Starter
-  (Nachmeldungen) werden gezählt, Excel/CSV bleiben erreichbar.
+**Meldung beim Veranstalter** (seit 1.23.0; neu aufgebaut in 1.24.0). Jeder
+Starter hat einen eigenen Status. Die Meldeliste hat drei Bereiche:
 
-**Die Haken sind die einzige Quelle** („Abhakliste: Wen hast du schon
-gemeldet?“, mit Text zur Vorgehensweise): Haken = gemeldet
-(`vp_poll_entries.submitted_at`); das Kopf-Häkchen markiert die ganze Klasse.
-**Jeder Haken wird sofort gespeichert** (seit 1.23.9, `wp_ajax_vp_poll_entries_tick`,
-Anzeige „✓ Haken gespeichert“) – ohne Mail, ohne Statusänderung; ein
-Speichern-Knopf für Haken entfällt. Unter der Liste klebt eine Leiste, die
-**beim Abhaken live** zeigt: wie viele abgehakt sind, **wer namentlich eine
-Mail bekommt – mit den Vornamen seiner neu abgehakten Starter**, wer mangels
-Adresse nicht (selbst Bescheid geben), wer schon informiert ist, und ein
-Mail-Beispiel. **Zweistufig, damit nichts überraschend rausgeht** (seit
-1.23.10): Der Knopf in der Leiste heißt „Weiter: Status ‚Gemeldet‘ setzen“
-bzw. später „Weiter: Nachmeldung abschließen“ (nur sichtbar, wenn jemand
-Neues zu informieren ist) und öffnet einen Dialog mit den Empfängern
-(namentlich, mit Vornamen der Starter), denen ohne Adresse, dem Mail-Beispiel
-und drei Knöpfen: „Status setzen und n E-Mails senden“ / „n E-Mails senden“,
-„Status setzen, keine E-Mail“ / „Ohne E-Mail abschließen“, „Abbrechen“.
-Das setzt beim ersten Mal den Status „Gemeldet“ (`vp_polls.submitted_at`) und
-mailt – falls gewählt – „Meldung abgeschickt“ an jeden Melder mit abgehakten
-Startern, zu denen noch keine Mail rausging (`notified_at`,
-`PollModel::melder_to_notify()`); die Mail nennt nur seine abgehakten Starter
-(`EntryMail::plan()`). Ohne Mail gelten die Melder trotzdem als informiert.
-Nachmeldung = Starter ohne Haken nach „Gemeldet“ (gelb); abhaken und „Weiter:
-Nachmeldung abschließen“ – Mail nur an deren Melder. Unveränderte Starter behalten beim
-erneuten Speichern der Meldung Haken und Mail-Vermerk
-(`PollModel::entry_key()`: Name, Jahrgang, Klasse, Gewicht).
-**Bestätigt wird je Starter** (seit 1.23.4, `vp_poll_entries.confirmed_at`,
-`PollModel::confirm_entries()`): „Als bestätigt vermerken“ bestätigt alle
-gemeldeten, noch wartenden Starter (namentlich aufgeführt) und mailt
-„Meldung bestätigt“ (abwählbar) an deren Melder. **Nachmeldungen nach einer
-Bestätigung** laufen den Ablauf erneut: Prozessband „2. Nachmelden – n
-Starter offen“, nach dem Abhaken „Gemeldet – n Starter warten auf
-Bestätigung“ mit Knopf „Nachmeldung als bestätigt vermerken“. Fertig (✓) erst,
-wenn alle Starter gemeldet und bestätigt sind; Nachmelden und Bestätigen
-können gleichzeitig offen sein. Haken lösen nimmt auch die Bestätigung weg.
-In der Liste steht je Starter „✓ bestätigt“ bzw. „wartet auf Bestätigung“, auf
-der Website am Starter „gemeldet“ bzw. „bestätigt“; „vom Veranstalter
-bestätigt“ oben erst, wenn alle eigenen gemeldeten Starter bestätigt sind.
-Das Update übernimmt bestehende Bestätigungen für alle Starter, die vorher
-gemeldet waren (`PollSchema::migrate()`).
+1. **Hauptmeldung** (blau) – Prozessband *Meldungen sammeln → Beim Veranstalter
+   melden → Gemeldet (Melder informiert) → Bestätigt*; springt nicht mehr
+   zurück, wenn später etwas dazukommt. Vor dem Melden: Anleitung, „BJV-
+   Meldeliste (Excel)“ (`Polls\BjvExport`, per `ZipArchive`, Aufbau des
+   offiziellen BJV-„Meldeformulars für alle Wettkämpfe“: Blatt „Meldung“, Kopf
+   mit Veranstaltung, Datum, Verein, Ansprechpartner = angemeldeter Orga,
+   Kontakt-Mail, Kampfrichter Sa/So – **Kampfrichter bleiben leer** –, Tabelle
+   Nr. | Name | Vorname | Jahrgang | Geschlecht | AK | Gewichtsklasse, ≥ 40
+   Zeilen), CSV und die **Abhakliste** je Klasse (Kopf-Häkchen = ganze Klasse).
+   **Jeder Haken wird sofort gespeichert** (`wp_ajax_vp_poll_entries_tick`) –
+   ohne Mail, ohne Status. Darunter eine Leiste (live: „x von y abgehakt“,
+   „Noch nicht informiert: Gerd Gast (Mia, Tom)“) und „Weiter: Status
+   ‚Gemeldet‘ setzen“ → Dialog mit Empfängern, Adresslosen, Mail-Beispiel und
+   „Status setzen und n E-Mails senden“ / „Status setzen, keine E-Mail“ /
+   „Abbrechen“. Danach: „Hauptmeldung als bestätigt vermerken“ (mit Mail-Option
+   und Empfängern), dann ✓.
+2. **Änderungen nach der Meldung** (gelb, nur wenn es welche gibt) – gruppiert
+   in **Nachmeldung** (neu dazugekommen), **Ummeldung** (Gewicht in derselben
+   Klasse geändert; „−28 kg → −31 kg“, `vp_poll_entries.prev_weight`) und
+   **Abmeldung** (vom Melder gestrichen, war schon gemeldet; bleibt als Zeile
+   mit `withdrawn_at`, durchgestrichen), darin nach Klasse, Melder je Zeile.
+   Jede Zeile zeigt ihren **Mini-Ablauf a → b → c**: a) beim Veranstalter
+   erledigen (Haken, sofort gespeichert; bei Abmeldungen `withdraw_done_at`),
+   b) Melder informieren, c) Bestätigung (nicht bei Abmeldungen); erledigt
+   grün, nächster Schritt gelb. „Weiter: b) Melder informieren“ → Dialog mit
+   „Meldung abgeschickt“-Empfängern und „Abmeldung weitergegeben“-Empfängern;
+   erledigte Abmeldungen fallen danach weg (`finish_withdrawn()`). Dann
+   „Änderungen als bestätigt vermerken“. Bestätigte Änderungen wandern nach
+   unten.
+3. **Starter nach Status** (nach der Hauptmeldung) – „Gemeldet, wartet auf
+   Bestätigung“ und „Bestätigt“ (eingeklappt), jeweils nach Klasse, Melder je
+   Zeile.
+
+Zuordnung: Hauptmeldung = abgehakt bis zum Statuswechsel (`submitted_at` ≤
+`vp_polls.submitted_at`); alles danach bzw. nie Abgehakte = Änderung.
+`PollModel::replace_entries()` erkennt beim Speichern einer Meldung:
+unverändert (Name, Jahrgang, Klasse, Gewicht → Haken und Vermerke bleiben),
+Ummeldung (gleicher Starter und Klasse, anderes Gewicht; zurück zum
+gemeldeten Gewicht hebt sie auf), Abmeldung (gemeldeter Starter fehlt; auch
+„Meldung zurückziehen“), wieder eingetragen vor erledigter Abmeldung (wie
+vorher). Abmeldungen zählen nirgends als Starter (Liste, Excel, CSV,
+Doppelt-Prüfung). Mails nennen nur abgehakte Starter (`EntryMail::plan()`);
+gemailt wird je Melder nur, was noch nicht mitgeteilt war (`notified_at`).
+Bestätigt wird je Starter (`confirmed_at`, `confirm_entries( $poll, $ids )`).
+Auf der Website sehen Melder je Starter „gemeldet“/„bestätigt“ und nach der
+Meldung den Hinweis, dass das Orgateam Nach-, Um- und Abmeldungen weitergibt.
+Das Update 1.23.4 übernahm bestehende Bestätigungen für vorher gemeldete
+Starter (`PollSchema::migrate()`).
+
 Melder ohne echte E-Mail (Platzhalter `@invalid.local` oder keine) bekommen
 nichts; die Rückmeldung nennt sie zum selbst Bescheid geben
 (`Polls\EntryMail`). Auf der Website sehen Melder „Die Meldung ging am … an
@@ -1005,7 +1002,8 @@ den Veranstalter“ bzw. „… bestätigt“, an ihren Startern „gemeldet“ 
 dem Abschicken den Hinweis auf Nachmeldungen.
 
 **Mail-Vorlagen** (Einstellungen → „Wettkampfmeldung: E-Mails an die Melder“):
-Betreff und Text je für „abgeschickt“ und „bestätigt“, Platzhalter `{name}`,
+Betreff und Text je für „abgeschickt“, „bestätigt“ und (seit 1.24.0)
+„Abmeldung weitergegeben“, Platzhalter `{name}`,
 `{wettkampf}`, `{datum}`, `{starter}` (Liste der eigenen Starter), `{verein}`,
 `{absender}` (wer im Backend geklickt hat). Leer = mitgelieferte Vorlage.
 

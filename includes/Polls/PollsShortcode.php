@@ -138,7 +138,7 @@ class PollsShortcode {
             'dokumeNote'       => __( 'Gemeldet wird über DokuMe – dafür braucht jeder Starter einen digitalen Judopass.', 'vereins-plugin' ),
             'entrySubmitted'   => __( 'Die Meldung ging am %s an den Veranstalter.', 'vereins-plugin' ),
             'entryConfirmed'   => __( 'Der Veranstalter hat die Meldung bestätigt (%s).', 'vereins-plugin' ),
-            'entryLate'        => __( 'Neue Starter und Änderungen sind jetzt Nachmeldungen – das Orgateam gibt sie weiter.', 'vereins-plugin' ),
+            'entryLate'        => __( 'Neue Starter, Änderungen und gestrichene Starter gibt das Orgateam jetzt als Nach-, Um- bzw. Abmeldung an den Veranstalter weiter.', 'vereins-plugin' ),
             'submittedBadge'   => __( 'gemeldet', 'vereins-plugin' ),
             'confirmedBadge'   => __( 'bestätigt', 'vereins-plugin' ),
             'firstName'        => __( 'Vorname', 'vereins-plugin' ),
