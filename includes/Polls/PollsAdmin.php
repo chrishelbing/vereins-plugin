@@ -1315,7 +1315,7 @@ class PollsAdmin {
             </div>
             <p class="vp-mailwarn" data-dlg-without></p>
             <?php foreach ( $beispiele as $art => $b ) : ?>
-                <details>
+                <details data-example="<?php echo esc_attr( $art ); ?>">
                     <summary><?php echo esc_html( $art === 'sent' ? __( 'Mail „Meldung abgeschickt“ ansehen (Beispiel)', 'vereins-plugin' ) : __( 'Mail „Abmeldung weitergegeben“ ansehen (Beispiel)', 'vereins-plugin' ) ); ?></summary>
                     <pre><strong><?php echo esc_html( $b['subject'] ); ?></strong>
 
@@ -1323,7 +1323,7 @@ class PollsAdmin {
                 </details>
             <?php endforeach; ?>
             <?php if ( $beispiele && current_user_can( 'manage_options' ) ) : ?>
-                <p><a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-settings#wettkampf' ) ); ?>"><?php esc_html_e( 'Vorlagen in den Einstellungen ändern', 'vereins-plugin' ); ?></a></p>
+                <p data-example-link><a href="<?php echo esc_url( admin_url( 'admin.php?page=vp-settings#wettkampf' ) ); ?>"><?php esc_html_e( 'Vorlagen in den Einstellungen ändern', 'vereins-plugin' ); ?></a></p>
             <?php endif; ?>
             <div class="vp-markbar__actions">
                 <button class="button button-primary button-large" name="inform" value="mail" data-dlg-send></button>
@@ -1394,6 +1394,11 @@ class PollsAdmin {
                 dq('[data-dlg-withdrawn]').hidden = !mitA.length;
                 liste(dq('[data-dlg-withdrawn-names]'), mitA);
                 dq('[data-dlg-without]').textContent = ohne.length ? fmt(T.without, ohne.join(' · ')) : '';
+                // Mail-Beispiele nur für Mails, die jetzt wirklich rausgehen
+                var ex = dlg.querySelectorAll('[data-example]'), sichtbar = 0;
+                ex.forEach(function (d) { d.hidden = d.dataset.example === 'sent' ? !mitS.length : !mitA.length; if (!d.hidden) { sichtbar++; } });
+                var link = dlg.querySelector('[data-example-link]');
+                if (link) { link.hidden = !sichtbar; }
                 var n = mitS.length + mitA.length, send = dq('[data-dlg-send]');
                 send.hidden = !n;
                 send.textContent = n === 1 ? T.send1 : fmt(T.send, n);
