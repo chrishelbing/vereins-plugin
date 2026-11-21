@@ -24,6 +24,7 @@ class ShortcodeRegistry {
 
         // Modul Umfragen – voll qualifiziert, die Klasse liegt bei ihrem Modul.
         \VereinsPlugin\Polls\PollsShortcode::class,
+        \VereinsPlugin\Polls\EntriesShortcode::class,
     ];
 
     /**

@@ -3,7 +3,8 @@
 namespace VereinsPlugin\Polls;
 
 /**
- * [vp_umfragen] – offene und beendete Umfragen zum Mitmachen.
+ * [vp_umfragen] – offene und beendete Umfragen zum Mitmachen (ohne
+ * Wettkampfmeldungen; die haben [vp_wettkampfmeldungen], siehe EntriesShortcode).
  *
  * Teilnahme ohne Anmeldung: Wer noch nicht bekannt ist, nennt beim ersten
  * Abstimmen seinen Namen (E-Mail freiwillig). Der Inhalt wird im Browser aus
@@ -12,16 +13,18 @@ namespace VereinsPlugin\Polls;
 class PollsShortcode {
 
     public const TAG = 'vp_umfragen';
+    /** Was die Liste zeigt: 'umfragen' (alles außer Meldungen) oder 'meldungen'. */
+    protected const BEREICH = 'umfragen';
 
     public function register(): void {
-        add_shortcode( self::TAG, [ $this, 'render' ] );
+        add_shortcode( static::TAG, [ $this, 'render' ] );
     }
 
     public static function describe(): array {
         return [
             'tag'         => self::TAG,
             'title'       => __( 'Umfragen', 'vereins-plugin' ),
-            'description' => __( 'Offene und beendete Umfragen (Terminumfragen, Abstimmungen, Nominierungen, Ideensammlungen, Wettkampfmeldungen). Teilnahme auch ohne Anmeldung – Gäste nennen einmal ihren Namen. Entwürfe erscheinen nicht.', 'vereins-plugin' ),
+            'description' => __( 'Offene und beendete Umfragen (Terminumfragen, Abstimmungen, Nominierungen, Ideensammlungen) – Wettkampfmeldungen haben ihren eigenen Shortcode. Teilnahme auch ohne Anmeldung – Gäste nennen einmal ihren Namen. Entwürfe erscheinen nicht.', 'vereins-plugin' ),
             'atts'        => [
                 [ 'id', __( 'alle', 'vereins-plugin' ), __( 'Nur diese eine Umfrage zeigen – die Nummer steht in der Umfragen-Liste im Backend.', 'vereins-plugin' ) ],
             ],
@@ -30,7 +33,7 @@ class PollsShortcode {
     }
 
     public function render( $atts = [] ): string {
-        $atts = shortcode_atts( [ 'id' => 0 ], (array) $atts, self::TAG );
+        $atts = shortcode_atts( [ 'id' => 0 ], (array) $atts, static::TAG );
 
         $base = plugin_dir_url( VP_PLUGIN_FILE );
         wp_enqueue_style( 'vp-polls', $base . 'assets/css/polls.css', [ \VereinsPlugin\Support\ThemeStyle::handle() ], VP_VERSION );
@@ -42,7 +45,7 @@ class PollsShortcode {
             't'     => self::texts(),
         ] );
 
-        return '<div class="vp-polls" data-poll="' . (int) $atts['id'] . '">'
+        return '<div class="vp-polls" data-poll="' . (int) $atts['id'] . '" data-bereich="' . esc_attr( static::BEREICH ) . '">'
             . '<noscript>' . esc_html__( 'Zum Abstimmen bitte JavaScript aktivieren.', 'vereins-plugin' ) . '</noscript>'
             . '<p class="vp-polls__loading">' . esc_html__( 'Umfragen werden geladen …', 'vereins-plugin' ) . '</p>'
             . '</div>';
@@ -52,6 +55,7 @@ class PollsShortcode {
     public static function texts(): array {
         return [
             'none'         => __( 'Gerade läuft keine Umfrage.', 'vereins-plugin' ),
+            'noneEntries'  => __( 'Gerade läuft keine Wettkampfmeldung.', 'vereins-plugin' ),
             'error'        => __( 'Das hat nicht geklappt. Bitte versuche es noch einmal.', 'vereins-plugin' ),
             'openUntil'    => __( 'offen bis %s', 'vereins-plugin' ),
             'open'         => __( 'offen', 'vereins-plugin' ),

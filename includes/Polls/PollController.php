@@ -35,7 +35,7 @@ class PollController {
             'methods'             => 'GET',
             'callback'            => [ $this, 'index' ],
             'permission_callback' => '__return_true',
-            'args'                => [ 'id' => [ 'type' => 'integer' ] ],
+            'args'                => [ 'id' => [ 'type' => 'integer' ], 'bereich' => [ 'type' => 'string', 'enum' => [ 'umfragen', 'meldungen' ] ] ],
         ] );
         register_rest_route( $namespace, '/polls/identify', [
             'methods'             => 'POST',
@@ -93,6 +93,11 @@ class PollController {
         $umfragen = $id
             ? array_filter( [ $this->model->find( $id ) ] )
             : array_merge( $this->model->all( 'open' ), $this->model->all( 'closed' ) );
+        // Ohne id: [vp_umfragen] ohne Meldungen, [vp_wettkampfmeldungen] nur Meldungen.
+        if ( ! $id ) {
+            $meldungen = $request->get_param( 'bereich' ) === 'meldungen';
+            $umfragen  = array_filter( $umfragen, static fn( $p ) => ( $p['kind'] === 'entry' ) === $meldungen );
+        }
 
         $liste = [];
         foreach ( $umfragen as $poll ) {

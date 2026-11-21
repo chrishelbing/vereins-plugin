@@ -787,7 +787,9 @@ sie hat ein Administrator angelegt oder aufgenommen (`Person::unconfirmed_map()`
 Terminumfragen wie bei Doodle, Abstimmungen, Nominierungen, Ideensammlungen
 (seit 1.18.0) und Wettkampfmeldungen mit Alters- und Gewichtsklassen (seit 1.17.0). Angelegt und
 ausgewertet im Backend unter **„Umfragen“**, auf der Website über
-`[vp_umfragen]` (alle offenen und beendeten, Entwürfe nie) bzw.
+`[vp_umfragen]` (alle offenen und beendeten außer Wettkampfmeldungen, Entwürfe
+nie; Wettkampfmeldungen seit 1.28.0 mit `[vp_wettkampfmeldungen]`,
+`Polls\EntriesShortcode`, Schnittstelle `/polls?bereich=meldungen`) bzw.
 `[vp_umfragen id="…"]`. Anker `#umfrage-<id>` springt zu einer Umfrage. Die Umfragen-Liste im Backend zeigt den fertigen Shortcode je Umfrage zum Kopieren.
 
 **Arten**
@@ -1263,7 +1265,8 @@ Spezifität, damit Seiten-CSS wie `.jvl-termine .vp-form label
 | `[vp_banner]` | Hervorgehobene Termine als Banner, z. B. auf der Startseite – öffentlich, verschwinden nach Terminende von selbst |
 | `[vp_login]` | Anmeldung mit Einmalcode per E-Mail; Link zum WordPress-Login für Passwörter |
 | `[vp_register]` | Selbstregistrierung |
-| `[vp_umfragen]` | Modul Umfragen: offene und beendete Umfragen zum Mitmachen, auch ohne Anmeldung; `id="…"` für eine einzelne |
+| `[vp_umfragen]` | Modul Umfragen: offene und beendete Umfragen zum Mitmachen (ohne Wettkampfmeldungen), auch ohne Anmeldung; `id="…"` für eine einzelne |
+| `[vp_wettkampfmeldungen]` | Modul Umfragen: offene und beendete Wettkampfmeldungen (seit 1.28.0); `id="…"` für eine einzelne |
 
 Eine stets aktuelle Übersicht steht im Backend unter *Verein → Einstellungen*.
 

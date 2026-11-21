@@ -867,12 +867,13 @@
 
     function start(container) {
         var id = parseInt(container.getAttribute('data-poll') || '0', 10);
-        api('/polls' + (id ? '?id=' + id : '')).then(function (res) {
+        var meldungen = container.getAttribute('data-bereich') === 'meldungen';
+        api('/polls' + (id ? '?id=' + id : (meldungen ? '?bereich=meldungen' : ''))).then(function (res) {
             container.textContent = '';
             if (!res.ok) { container.appendChild(el('p', 'vp-poll__error', T.error)); return; }
             person = res.data.person;
             var polls = res.data.polls;
-            if (!polls.length) { container.appendChild(el('p', 'vp-polls__empty', T.none)); return; }
+            if (!polls.length) { container.appendChild(el('p', 'vp-polls__empty', meldungen ? T.noneEntries : T.none)); return; }
 
             // Eine einzelne Umfrage (Shortcode mit id) ohne Klappliste.
             if (id || polls.length === 1) {

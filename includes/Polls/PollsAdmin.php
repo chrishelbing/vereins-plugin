@@ -212,7 +212,7 @@ class PollsAdmin {
                                 $this->status_button( $id, 'open', $p['status'] === 'draft' ? __( 'Veröffentlichen', 'vereins-plugin' ) : __( 'Wieder öffnen', 'vereins-plugin' ), 'button-link' );
                             }
                             ?> | </span>
-                            <span><button type="button" class="button-link vp-copy-code" data-code="<?php echo esc_attr( '[vp_umfragen id="' . $id . '"]' ); ?>" title="<?php esc_attr_e( 'Code für genau diese Umfrage kopieren – zum Einfügen auf einer eigenen Seite', 'vereins-plugin' ); ?>"><?php esc_html_e( 'Einbinden', 'vereins-plugin' ); ?></button> | </span>
+                            <span><button type="button" class="button-link vp-copy-code" data-code="<?php echo esc_attr( '[' . ( $p['kind'] === 'entry' ? EntriesShortcode::TAG : PollsShortcode::TAG ) . ' id="' . $id . '"]' ); ?>" title="<?php esc_attr_e( 'Code für genau diese Umfrage kopieren – zum Einfügen auf einer eigenen Seite', 'vereins-plugin' ); ?>"><?php esc_html_e( 'Einbinden', 'vereins-plugin' ); ?></button> | </span>
                             <span class="trash">
                                 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline" onsubmit="return confirm('<?php echo esc_js( __( 'Umfrage samt allen Antworten löschen?', 'vereins-plugin' ) ); ?>');">
                                     <input type="hidden" name="action" value="vp_delete_poll">
@@ -234,7 +234,9 @@ class PollsAdmin {
         </table>
 
         <p class="description" style="max-width:60em;">
-            <?php esc_html_e( 'Auf der Website erscheinen alle offenen und beendeten Umfragen dort, wo [vp_umfragen] steht. Mit „Einbinden“ kopierst du den Code für eine einzelne Umfrage, etwa für eine eigene Seite.', 'vereins-plugin' ); ?>
+            <?php echo esc_html( $meldung
+                ? __( 'Auf der Website erscheinen alle offenen und beendeten Wettkampfmeldungen dort, wo [vp_wettkampfmeldungen] steht. Mit „Einbinden“ kopierst du den Code für eine einzelne Meldung.', 'vereins-plugin' )
+                : __( 'Auf der Website erscheinen alle offenen und beendeten Umfragen dort, wo [vp_umfragen] steht (Wettkampfmeldungen nicht – die haben [vp_wettkampfmeldungen]). Mit „Einbinden“ kopierst du den Code für eine einzelne Umfrage.', 'vereins-plugin' ) ); ?>
         </p>
         <script>
         document.querySelectorAll('.vp-copy-code').forEach(function(b){
