@@ -1298,7 +1298,10 @@ class PollsAdmin {
         }
         $texte = [
             'count'      => __( '%1$d von %2$d abgehakt.', 'vereins-plugin' ),
-            'pending'    => __( 'Noch nicht informiert: %s', 'vereins-plugin' ),
+            'pending'    => $haupt ? __( 'Bescheid „Meldung ist beim Veranstalter“ fehlt noch für: %s', 'vereins-plugin' ) : __( 'Bescheid „Nach-/Ummeldung ist beim Veranstalter“ fehlt noch für: %s', 'vereins-plugin' ),
+            'pendingAb'  => __( 'Bescheid „Abmeldung ist beim Veranstalter“ fehlt noch für: %s', 'vereins-plugin' ),
+            'late'       => __( 'Nachmeldung', 'vereins-plugin' ),
+            'changed'    => __( 'Ummeldung', 'vereins-plugin' ),
             'noneNew'    => __( 'Alle Melder der abgehakten Starter sind informiert.', 'vereins-plugin' ),
             'noneTicked' => __( 'Noch nichts abgehakt.', 'vereins-plugin' ),
             'withdrawn'  => __( 'abgemeldet: %s', 'vereins-plugin' ),
@@ -1313,22 +1316,25 @@ class PollsAdmin {
         <div class="vp-markbar" data-markbar>
             <p><strong data-count></strong> <span class="description" data-save-state aria-live="polite"></span></p>
             <p data-pending></p>
+            <p data-pending-ab></p>
             <div class="vp-markbar__actions">
-                <button type="button" class="button button-primary button-large" data-open><?php echo esc_html( $haupt ? __( 'Weiter: Status „Gemeldet“ setzen', 'vereins-plugin' ) : __( 'Weiter: Melder informieren', 'vereins-plugin' ) ); ?></button>
+                <button type="button" class="button button-primary button-large" data-open><?php echo esc_html( $haupt ? __( 'Weiter: Status „Gemeldet“ setzen', 'vereins-plugin' ) : __( 'Weiter: Melder Bescheid geben', 'vereins-plugin' ) ); ?></button>
                 <span class="description"><?php esc_html_e( 'Im nächsten Schritt siehst du die Empfänger und entscheidest, ob E-Mails rausgehen.', 'vereins-plugin' ); ?></span>
             </div>
         </div>
         <dialog class="vp-informdlg" data-dialog>
-            <h2 style="margin-top:0;"><?php echo esc_html( $haupt ? __( 'Status „Gemeldet“ setzen', 'vereins-plugin' ) : __( 'Änderungen abschließen: Melder informieren', 'vereins-plugin' ) ); ?></h2>
+            <h2 style="margin-top:0;"><?php echo esc_html( $haupt ? __( 'Status „Gemeldet“ setzen', 'vereins-plugin' ) : __( 'Melder Bescheid geben', 'vereins-plugin' ) ); ?></h2>
             <p><?php echo esc_html( $haupt
                 ? __( 'Die Hauptmeldung steht dann auf „Gemeldet“ – auch auf der Website. Sollen die Melder eine E-Mail bekommen?', 'vereins-plugin' )
-                : __( 'Die abgehakten Änderungen sind beim Veranstalter erledigt. Sollen die Melder eine E-Mail bekommen? Erledigte Abmeldungen verschwinden danach aus der Liste.', 'vereins-plugin' ) ); ?></p>
+                : __( 'Die abgehakten Nach-, Um- und Abmeldungen sind beim Veranstalter erledigt. Sollen die Melder das per E-Mail erfahren? Erledigte Abmeldungen verschwinden danach aus der Liste.', 'vereins-plugin' ) ); ?></p>
             <div data-dlg-sent>
-                <p><strong><?php esc_html_e( 'E-Mail „Meldung abgeschickt“ an:', 'vereins-plugin' ); ?></strong></p>
+                <p><strong><?php esc_html_e( 'E-Mail „Meldung abgeschickt“ an:', 'vereins-plugin' ); ?></strong><br>
+                    <span class="description"><?php esc_html_e( 'Inhalt: Die Meldung ist beim Veranstalter – mit der Liste der gemeldeten Starter dieses Melders.', 'vereins-plugin' ); ?></span></p>
                 <ul data-dlg-sent-names style="list-style:disc;margin-left:20px;"></ul>
             </div>
             <div data-dlg-withdrawn>
-                <p><strong><?php esc_html_e( 'E-Mail „Abmeldung weitergegeben“ an:', 'vereins-plugin' ); ?></strong></p>
+                <p><strong><?php esc_html_e( 'E-Mail „Abmeldung weitergegeben“ an:', 'vereins-plugin' ); ?></strong><br>
+                    <span class="description"><?php esc_html_e( 'Inhalt: Der gestrichene Starter ist beim Veranstalter abgemeldet.', 'vereins-plugin' ); ?></span></p>
                 <ul data-dlg-withdrawn-names style="list-style:disc;margin-left:20px;"></ul>
             </div>
             <p class="vp-mailwarn" data-dlg-without></p>
@@ -1385,8 +1391,11 @@ class PollsAdmin {
                     if (!b.checked) { return; }
                     an++;
                     if (b.dataset.kind === 'withdrawn') { (ab[b.dataset.person] = ab[b.dataset.person] || []).push(b.dataset.first); }
-                    else if (b.dataset.notified === '0') { (sent[b.dataset.person] = sent[b.dataset.person] || []).push(b.dataset.first); }
+                    else if (b.dataset.notified === '0') { (sent[b.dataset.person] = sent[b.dataset.person] || []).push(b.dataset.first + (T[b.dataset.art] ? ' – ' + T[b.dataset.art] : '')); }
                 });
+                var nurS = [], nurA = [];
+                Object.keys(sent).forEach(function (pid) { nurS.push((M[pid] || { name: '?' }).name + ' (' + sent[pid].join(', ') + ')'); });
+                Object.keys(ab).forEach(function (pid) { nurA.push((M[pid] || { name: '?' }).name + ' (' + ab[pid].join(', ') + ')'); });
                 var mitS = [], mitA = [], ohne = [], offen = [];
                 var pids = Object.keys(sent).concat(Object.keys(ab).filter(function (p) { return !sent[p]; }));
                 pids.forEach(function (pid) {
@@ -1401,7 +1410,9 @@ class PollsAdmin {
                     if (ab[pid]) { mitA.push(m.name + ' (' + ab[pid].join(', ') + ')'); }
                 });
                 q('[data-count]').textContent = fmt(T.count, an, alle.length);
-                q('[data-pending]').textContent = !an ? T.noneTicked : (offen.length ? fmt(T.pending, offen.join(' · ')) : T.noneNew);
+                q('[data-pending]').textContent = !an ? T.noneTicked : (nurS.length ? fmt(T.pending, nurS.join(' · ')) : (nurA.length ? '' : T.noneNew));
+                q('[data-pending-ab]').textContent = nurA.length ? fmt(T.pendingAb, nurA.join(' · ')) : '';
+                q('[data-pending-ab]').hidden = !nurA.length;
                 var k = q('[data-open]');
                 k.disabled = !an;
                 k.hidden = !haupt && !offen.length;
@@ -1547,7 +1558,7 @@ class PollsAdmin {
                 ?>
                 <tr>
                     <?php if ( $tick ) : ?>
-                        <td style="text-align:center;"><input type="checkbox" data-tick value="<?php echo (int) $z['id']; ?>" data-kind="<?php echo $ab ? 'withdrawn' : 'entry'; ?>" data-person="<?php echo (int) $z['person_id']; ?>" data-first="<?php echo esc_attr( $z['first_name'] ); ?>" data-notified="<?php echo $b ? '1' : '0'; ?>" <?php checked( $a ); ?> <?php disabled( $b ); ?> aria-label="<?php echo esc_attr( $ab ? __( 'beim Veranstalter abgemeldet', 'vereins-plugin' ) : __( 'beim Veranstalter gemeldet', 'vereins-plugin' ) ); ?>"></td>
+                        <td style="text-align:center;"><input type="checkbox" data-tick value="<?php echo (int) $z['id']; ?>" data-kind="<?php echo $ab ? 'withdrawn' : 'entry'; ?>" data-art="<?php echo esc_attr( $z['art'] ?? 'main' ); ?>" data-person="<?php echo (int) $z['person_id']; ?>" data-first="<?php echo esc_attr( $z['first_name'] ); ?>" data-notified="<?php echo $b ? '1' : '0'; ?>" <?php checked( $a ); ?> <?php disabled( $b ); ?> aria-label="<?php echo esc_attr( $ab ? __( 'beim Veranstalter abgemeldet', 'vereins-plugin' ) : __( 'beim Veranstalter gemeldet', 'vereins-plugin' ) ); ?>"></td>
                     <?php else : ?>
                         <td style="text-align:center;"><?php echo $dd ? '<span style="color:#00a32a;" title="' . esc_attr__( 'bestätigt, Melder informiert', 'vereins-plugin' ) . '">✓</span>' : ( $c ? '<span style="color:#996800;" title="' . esc_attr__( 'bestätigt, Melder noch nicht informiert', 'vereins-plugin' ) . '">✓</span>' : '<span class="description" title="' . esc_attr__( 'wartet auf Bestätigung', 'vereins-plugin' ) . '">…</span>' ); // phpcs:ignore ?></td>
                     <?php endif; ?>
