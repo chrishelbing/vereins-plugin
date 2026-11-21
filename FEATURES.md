@@ -40,7 +40,15 @@ Das Plugin besteht aus einer **gemeinsamen Basis** und **Modulen**
   Mitglieder, Einstellungen.
 - **Modul Termine.** Alles ab „Termine“ in dieser Datei. Kacheln Termine,
   Termintypen, Termin-Vorlagen.
-- **Modul Umfragen.** Siehe „Umfragen“. Kacheln Umfragen, Wettkampf-Vorlagen.
+- **Modul Umfragen.** Siehe „Umfragen“. Kacheln im Bereich **Umfragen**
+  (Umfragen: Termin finden, Abstimmen, Ideen) und – seit 1.27.0 als eigener
+  Bereich – **Wettkampfmeldungen** (Wettkampfmeldungen, Wettkampf-Vorlagen).
+  Technisch dieselbe Seite (`PollsAdmin`), zwei Adressen: `?page=vp-polls`
+  listet alle Umfragen außer Meldungen, `?page=vp-entries` nur die
+  Meldungen (Knöpfe „Neue Wettkampfmeldung“ und „Wettkampf-Vorlagen“).
+  `PollsAdmin::url()` wählt den Bereich nach der Art der Umfrage bzw. dem
+  aktuellen Bereich (`vp_bereich` in Formularen); „Neue Umfrage“ bietet keine
+  Wettkampfmeldung mehr an.
 
 **Backend: ein Menüpunkt „Verein“** (seit 1.25.0, `Admin\AdminMenu`). Er
 öffnet eine Startseite (`?page=vp-start`) mit Kacheln, nach Bereichen

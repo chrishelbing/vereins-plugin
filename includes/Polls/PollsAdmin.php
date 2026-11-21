@@ -18,6 +18,8 @@ use VereinsPlugin\Support\Capabilities;
 class PollsAdmin {
 
     private const SLUG = 'vp-polls';
+    /** Wettkampfmeldungen: eigener Bereich (eigene Kachel), gleiche Seite. */
+    public const ENTRY_SLUG = 'vp-entries';
 
     private PollModel   $model;
     private PollService $service;
@@ -48,19 +50,46 @@ class PollsAdmin {
     /** Unterseite von „Verein“; auf der Startseite als Kachel (siehe tiles()). */
     public function add_menu(): void {
         add_submenu_page( AdminMenu::HOME, __( 'Umfragen', 'vereins-plugin' ), __( 'Umfragen', 'vereins-plugin' ), 'manage_options', self::SLUG, [ $this, 'render' ] );
+        add_submenu_page( AdminMenu::HOME, __( 'Wettkampfmeldungen', 'vereins-plugin' ), __( 'Wettkampfmeldungen', 'vereins-plugin' ), 'manage_options', self::ENTRY_SLUG, [ $this, 'render' ] );
     }
 
     /** Kacheln für die Startseite „Verein“. */
     public static function tiles( array $kacheln ): array {
         $kacheln[ __( 'Umfragen', 'vereins-plugin' ) ] = [
-            [ 'slug' => self::SLUG, 'title' => __( 'Umfragen', 'vereins-plugin' ), 'text' => __( 'Termine finden, abstimmen, Ideen sammeln und zu Wettkämpfen melden.', 'vereins-plugin' ), 'icon' => 'dashicons-chart-bar' ],
-            [ 'slug' => ClassesAdmin::SLUG, 'title' => __( 'Wettkampf-Vorlagen', 'vereins-plugin' ), 'text' => __( 'Alters- und Gewichtsklassen für Wettkampfmeldungen.', 'vereins-plugin' ), 'icon' => 'dashicons-awards' ],
+            [ 'slug' => self::SLUG, 'title' => __( 'Umfragen', 'vereins-plugin' ), 'text' => __( 'Termine finden, abstimmen und Ideen sammeln.', 'vereins-plugin' ), 'icon' => 'dashicons-chart-bar' ],
+        ];
+        $kacheln[ __( 'Wettkampfmeldungen', 'vereins-plugin' ) ] = [
+            [ 'slug' => self::ENTRY_SLUG, 'title' => __( 'Wettkampfmeldungen', 'vereins-plugin' ), 'text' => __( 'Wer startet beim Turnier? Meldungen sammeln, beim Veranstalter melden, Nach-, Um- und Abmeldungen.', 'vereins-plugin' ), 'icon' => 'dashicons-awards' ],
+            [ 'slug' => ClassesAdmin::SLUG, 'title' => __( 'Wettkampf-Vorlagen', 'vereins-plugin' ), 'text' => __( 'Alters- und Gewichtsklassen für Wettkampfmeldungen.', 'vereins-plugin' ), 'icon' => 'dashicons-editor-table' ],
         ];
         return $kacheln;
     }
 
+    /**
+     * Adresse im richtigen Bereich: Wettkampfmeldungen unter vp-entries,
+     * alle anderen Umfragen unter vp-polls. Mit Umfrage-ID entscheidet ihre
+     * Art, sonst der Bereich, in dem man gerade ist.
+     */
     private function url( array $args = [] ): string {
-        return add_query_arg( array_merge( [ 'page' => self::SLUG ], $args ), admin_url( 'admin.php' ) );
+        $id = (int) ( $args['edit'] ?? $args['ergebnis'] ?? 0 );
+        if ( $id && ( $p = $this->model->find( $id ) ) ) {
+            $meldung = $p['kind'] === 'entry';
+        } elseif ( isset( $args['art'] ) ) {
+            $meldung = $args['art'] === 'meldung';
+        } else {
+            $meldung = self::in_entries();
+        }
+        return add_query_arg( array_merge( [ 'page' => $meldung ? self::ENTRY_SLUG : self::SLUG ], $args ), admin_url( 'admin.php' ) );
+    }
+
+    /** Sind wir im Bereich Wettkampfmeldungen? (Seite oder Formularfeld) */
+    private static function in_entries(): bool {
+        return ( $_GET['page'] ?? '' ) === self::ENTRY_SLUG || ( $_POST['vp_bereich'] ?? '' ) === 'entries';
+    }
+
+    /** Verstecktes Feld, damit Formulare in ihren Bereich zurückführen. */
+    private static function area_field(): string {
+        return self::in_entries() ? '<input type="hidden" name="vp_bereich" value="entries">' : '';
     }
 
     public function render(): void {
@@ -90,7 +119,8 @@ class PollsAdmin {
     // ------------------------------------------------------------------
 
     private function render_list(): void {
-        $alle    = $this->model->all();
+        $meldung = self::in_entries();
+        $alle    = array_values( array_filter( $this->model->all(), static fn( $p ) => ( $p['kind'] === 'entry' ) === $meldung ) );
         $filter  = sanitize_key( $_GET['status'] ?? '' );
         $filter  = in_array( $filter, PollModel::STATES, true ) ? $filter : '';
         $zahl    = array_count_values( array_column( $alle, 'status' ) );
@@ -100,7 +130,7 @@ class PollsAdmin {
             return sprintf( '<a href="%s"%s>%s <span class="count">(%d)</span></a>', esc_url( $url ), $filter === $status ? ' class="current" aria-current="page"' : '', esc_html( $label ), $anzahl );
         };
         ?>
-        <h1><?php esc_html_e( 'Umfragen', 'vereins-plugin' ); ?></h1>
+        <h1><?php echo esc_html( $meldung ? __( 'Wettkampfmeldungen', 'vereins-plugin' ) : __( 'Umfragen', 'vereins-plugin' ) ); ?></h1>
         <?php $this->render_notices(); ?>
         <style>
         /* Kopf wie bei „Termine“ (dort aus AdminModal) */
@@ -119,7 +149,12 @@ class PollsAdmin {
 
         <div class="vp-head">
             <div class="vp-head__actions">
-                <a class="button button-primary" href="<?php echo esc_url( $this->url( [ 'neu' => 1 ] ) ); ?>"><?php esc_html_e( 'Neue Umfrage', 'vereins-plugin' ); ?></a>
+                <?php if ( $meldung ) : ?>
+                    <a class="button button-primary" href="<?php echo esc_url( $this->url( [ 'neu' => 1, 'art' => 'meldung' ] ) ); ?>"><?php esc_html_e( 'Neue Wettkampfmeldung', 'vereins-plugin' ); ?></a>
+                    <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . ClassesAdmin::SLUG ) ); ?>"><?php esc_html_e( 'Wettkampf-Vorlagen', 'vereins-plugin' ); ?></a>
+                <?php else : ?>
+                    <a class="button button-primary" href="<?php echo esc_url( $this->url( [ 'neu' => 1 ] ) ); ?>"><?php esc_html_e( 'Neue Umfrage', 'vereins-plugin' ); ?></a>
+                <?php endif; ?>
             </div>
             <?php if ( $alle ) : ?>
             <div class="vp-head__meta">
@@ -135,9 +170,14 @@ class PollsAdmin {
 
         <?php if ( ! $alle ) : ?>
             <div class="vp-poll-empty">
-                <h2><?php esc_html_e( 'Noch keine Umfrage', 'vereins-plugin' ); ?></h2>
-                <p><?php esc_html_e( 'Termin finden, abstimmen, Ideen sammeln oder für ein Turnier melden – womit möchtest du anfangen?', 'vereins-plugin' ); ?></p>
-                <?php $this->render_kind_cards(); ?>
+                <?php if ( $meldung ) : ?>
+                    <h2><?php esc_html_e( 'Noch keine Wettkampfmeldung', 'vereins-plugin' ); ?></h2>
+                    <p><?php esc_html_e( 'Mit „Neue Wettkampfmeldung“ legst du ein Turnier an; Eltern melden ihre Kinder dann auf der Website mit Alters- und Gewichtsklasse.', 'vereins-plugin' ); ?></p>
+                <?php else : ?>
+                    <h2><?php esc_html_e( 'Noch keine Umfrage', 'vereins-plugin' ); ?></h2>
+                    <p><?php esc_html_e( 'Termin finden, abstimmen oder Ideen sammeln – womit möchtest du anfangen?', 'vereins-plugin' ); ?></p>
+                    <?php $this->render_kind_cards(); ?>
+                <?php endif; ?>
             </div>
             <?php return; ?>
         <?php endif; ?>
@@ -154,7 +194,7 @@ class PollsAdmin {
             </thead>
             <tbody>
             <?php if ( ! $umfragen ) : ?>
-                <tr><td colspan="5" class="description"><?php esc_html_e( 'Keine Umfragen in dieser Ansicht.', 'vereins-plugin' ); ?></td></tr>
+                <tr><td colspan="5" class="description"><?php echo esc_html( $meldung ? __( 'Keine Wettkampfmeldungen in dieser Ansicht.', 'vereins-plugin' ) : __( 'Keine Umfragen in dieser Ansicht.', 'vereins-plugin' ) ); ?></td></tr>
             <?php endif; ?>
             <?php foreach ( $umfragen as $p ) :
                 $id = (int) $p['id'];
@@ -176,6 +216,7 @@ class PollsAdmin {
                             <span class="trash">
                                 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline" onsubmit="return confirm('<?php echo esc_js( __( 'Umfrage samt allen Antworten löschen?', 'vereins-plugin' ) ); ?>');">
                                     <input type="hidden" name="action" value="vp_delete_poll">
+                                    <?php echo self::area_field(); // phpcs:ignore ?>
                                     <input type="hidden" name="id" value="<?php echo $id; ?>">
                                     <?php wp_nonce_field( 'vp_delete_poll_' . $id ); ?>
                                     <button class="button-link button-link-delete"><?php esc_html_e( 'Löschen', 'vereins-plugin' ); ?></button>
@@ -226,6 +267,7 @@ class PollsAdmin {
         ?>
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline">
             <input type="hidden" name="action" value="vp_poll_status">
+            <?php echo self::area_field(); // phpcs:ignore ?>
             <input type="hidden" name="id" value="<?php echo $id; ?>">
             <input type="hidden" name="status" value="<?php echo esc_attr( $status ); ?>">
             <?php wp_nonce_field( 'vp_poll_status_' . $id ); ?>
@@ -521,8 +563,8 @@ class PollsAdmin {
             'termin'     => [ 'date',   __( 'Termin finden', 'vereins-plugin' ),       __( 'Ihr schlagt mehrere Termine vor, alle sagen, wann es passt – wie bei Doodle.', 'vereins-plugin' ) ],
             'abstimmung' => [ 'choice', __( 'Abstimmen', 'vereins-plugin' ),           __( 'Antworten zur Auswahl – auch für Nominierungen wie den Nachwuchspreis.', 'vereins-plugin' ) ],
             'ideen'      => [ 'text',   __( 'Ideen sammeln', 'vereins-plugin' ),       __( 'Mitglieder schreiben eigene Vorschläge, etwa Slogans fürs Vereinsshirt.', 'vereins-plugin' ) ],
-            'meldung'    => [ 'entry',  __( 'Zum Wettkampf melden', 'vereins-plugin' ), __( 'Wer startet beim Turnier? Eltern melden ihre Kinder mit Alters- und Gewichtsklasse.', 'vereins-plugin' ) ],
         ];
+        // Wettkampfmeldungen haben einen eigenen Bereich (Kachel „Wettkampfmeldungen“).
         ?>
         <style>
         .vp-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; max-width: 1100px; margin: 8px 0 24px; }
