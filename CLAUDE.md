@@ -30,6 +30,7 @@ Umgebung nicht, sind die zwölf Dateien einzeln aufzurufen.
 | `tools/apitest.php` | Die Schnittstelle aus Sicht der App: Lebensdauer, Verlängerung und Widerruf von Sitzungen, die Form von `GET /me`, die Erkennung nicht angeschlossener Versandwege |
 | `tools/startdatentest.php` | Startdaten: einmalig bei der Aktivierung, Nachlegen auf Anforderung ohne Dubletten, Wirksamkeit der Vorlagen am Termin |
 | `tools/qrtest.php` | Der selbstgebaute QR-Encoder gegen hinterlegte Sollwerte |
+| `tools/exceltest.php` | Excel-Export (`Support\XlsxWriter`): mehrere Tabellen, Blattnamen, Titel- und Kopfzeile, Umlaute/Sonderzeichen, leere Liste, wohlgeformtes XML |
 | `tools/bannertest.php` | Terminbanner: Sichtbarkeitsfenster, Reihenfolge, nur die nächste Serieninstanz, nur freigegebene Termine |
 | `tools/tagtest.php` | Infotermine (Termintyp ohne Zusagen) und Tags: Vorgabe am Typ, Auswahl am Termin, Speichern und Leeren |
 | `tools/updatertest.php` | Updates aus GitHub-Releases: Version aus dem Tag, Paket am Release, Vorabversionen und Entwürfe ausgenommen; Ergebnis von „Nach Updates suchen“ |

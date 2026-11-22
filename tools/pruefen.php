@@ -21,6 +21,7 @@ $pruefungen = [
     'apitest.php'        => 'Sitzungen, Profil, Versandwege – die App-Seite',
     'startdatentest.php' => 'Startdaten: einmalig, nachlegbar, am Termin wirksam',
     'qrtest.php'         => 'QR-Encoder gegen hinterlegte Sollwerte',
+    'exceltest.php'      => 'Excel-Export: mehrere Tabellen, gültige Datei',
     'bannertest.php'     => 'Terminbanner: Auswahl, Zeitfenster, Serien, Freigabe',
     'tagtest.php'        => 'Infotermine ohne Zusage, Tags, ganztägige Termine',
     'updatertest.php'    => 'Updates: Auswertung der GitHub-Releases',

@@ -13,7 +13,8 @@ use VereinsPlugin\Support\Capabilities;
 /**
  * wp-admin-Seite "Listen": alles zu einer Termininstanz auf einen Blick –
  * Teilnehmer inklusive Begleitpersonen, Absagen, Helfer mit ihren Aufgaben
- * und die Mitbringliste. Jede Liste lässt sich als CSV exportieren.
+ * und die Mitbringliste. Jede Liste lässt sich als CSV exportieren, alle drei
+ * zusammen (Teilnehmer, Mitbringliste, Helfer) als eine Excel-Datei.
  *
  * Erreichbar über die Aktion "Listen" in der Terminübersicht.
  */
@@ -105,6 +106,19 @@ class AttendancePage {
                 </form>
             <?php endif; ?>
 
+            <?php
+            $xlsx = add_query_arg( [
+                'action'        => 'vp_export_list',
+                'kind'          => 'xlsx',
+                'event_id'      => $event_id,
+                'instance_date' => $selected,
+                '_wpnonce'      => wp_create_nonce( 'vp_export_list_' . $event_id . '_' . $selected . '_xlsx' ),
+            ], admin_url( 'admin-post.php' ) );
+            ?>
+            <p>
+                <a class="button button-primary" href="<?php echo esc_url( $xlsx ); ?>"><span class="dashicons dashicons-download" style="vertical-align:text-bottom;" aria-hidden="true"></span> <?php esc_html_e( 'Alle Listen als Excel', 'vereins-plugin' ); ?></a>
+                <span class="description"><?php esc_html_e( 'Eine Datei mit drei Tabellen: Teilnehmer, Mitbringliste, Helfer – gut lesbar auf dem Handy.', 'vereins-plugin' ); ?></span>
+            </p>
             <?php
             $this->render_attendees( $grouped, $event_id, $selected );
             $this->render_declines( $grouped, $event_id, $selected );
@@ -305,6 +319,10 @@ class AttendancePage {
             wp_die( esc_html__( 'Termin nicht gefunden.', 'vereins-plugin' ) );
         }
 
+        if ( $kind === 'xlsx' ) {
+            $this->stream_xlsx( $event, $event_id, $date );
+        }
+
         [ $header, $rows ] = $this->export_data( $kind, $event_id, $date );
 
         $this->stream_csv(
@@ -379,6 +397,39 @@ class AttendancePage {
                     $rows,
                 ];
         }
+    }
+
+    /**
+     * Eine Excel-Datei mit drei Tabellen – Teilnehmer, Mitbringliste, Helfer –
+     * zum Lesen auf dem Handy (Kopfzeile bleibt stehen, Text bricht um).
+     */
+    private function stream_xlsx( array $event, int $event_id, string $date ): void {
+        $titel   = $event['title'] . ' – ' . mysql2date( 'd.m.Y', $date );
+        $tabelle = function ( string $kind, string $name, array $breiten, string $leer ) use ( $event_id, $date, $titel ): array {
+            [ $header, $rows ] = $this->export_data( $kind, $event_id, $date );
+            if ( $kind === 'bring' ) {
+                // Benötigt/Offen als Zahl – Excel rechnet und sortiert dann richtig
+                $rows = array_map( static fn( $r ) => [ $r[0], (int) $r[1], (int) $r[2], $r[3] ], $rows );
+            }
+            return [ 'name' => $name, 'title' => $name . ': ' . $titel, 'header' => $header, 'rows' => $rows, 'widths' => $breiten, 'empty' => $leer ];
+        };
+        $inhalt = \VereinsPlugin\Support\XlsxWriter::build( [
+            $tabelle( 'attendees', __( 'Teilnehmer', 'vereins-plugin' ), [ 28, 13, 24, 22 ], __( 'Noch keine Zusagen.', 'vereins-plugin' ) ),
+            $tabelle( 'bring', __( 'Mitbringliste', 'vereins-plugin' ), [ 28, 10, 8, 34 ], __( 'Keine Mitbringliste.', 'vereins-plugin' ) ),
+            $tabelle( 'helpers', __( 'Helfer', 'vereins-plugin' ), [ 26, 22, 30, 22 ], __( 'Noch keine Helfer.', 'vereins-plugin' ) ),
+        ] );
+        if ( $inhalt === null ) {
+            wp_die( esc_html__( 'Excel-Dateien kann dieser Server nicht erzeugen (PHP-Erweiterung „zip“ fehlt). Bitte die CSV-Dateien nehmen.', 'vereins-plugin' ) );
+        }
+        while ( ob_get_level() ) {
+            ob_end_clean();
+        }
+        nocache_headers();
+        header( 'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' );
+        header( 'Content-Disposition: attachment; filename="' . sanitize_title( $event['title'] ) . '-' . $date . '.xlsx"' );
+        header( 'Content-Length: ' . strlen( $inhalt ) );
+        echo $inhalt; // phpcs:ignore WordPress.Security.EscapeOutput
+        exit;
     }
 
     /**

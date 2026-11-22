@@ -673,6 +673,18 @@ stehende Posten bleiben unangetastet; Aufräumen geschieht im Frontend.
 Angewendet wird auf das Datum des Terminbeginns, bei Serien also nur auf
 die erste Instanz (`TemplateModel::resolve_choice()`).
 
+### Listen exportieren
+
+In der Listenansicht eines Termins (Teilnehmer, Absagen, Helfer, Mitbringliste)
+lässt sich jede Liste als CSV laden. Seit 1.29.0 zusätzlich oben **„Alle
+Listen als Excel“**: eine `.xlsx` mit drei Tabellen – Teilnehmer, Mitbringliste,
+Helfer –, gedacht zum Lesen auf dem Handy. Je Tabelle eine Titelzeile
+(„Teilnehmer: Weihnachtsfeier – 05.12.2026“), darunter die fette Kopfzeile, die
+beim Scrollen stehen bleibt, Spaltenbreiten, umbrechender Text, Filter; leere
+Listen mit Hinweis („Noch keine Helfer.“). Bei Serien gilt der gewählte Termin.
+Erzeugt von `Support\XlsxWriter` (Basis, ohne Bibliothek, nur `ZipArchive`);
+fehlt die zip-Erweiterung, kommt ein Hinweis auf die CSV-Dateien.
+
 ---
 
 ## Fotos
