@@ -10,6 +10,10 @@ class AdminStyles {
     public static function print_inline(): void {
         ?>
         <style>
+        /* Knopf mit Erklärtext daneben: mittig zueinander, Text bricht daneben um */
+        .vp-admin-wrap .vp-inline-action { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; }
+        .vp-admin-wrap .vp-inline-action > .button { flex: none; }
+        .vp-admin-wrap .vp-inline-action > .description { flex: 1 1 280px; margin: 0; }
         .vp-admin-wrap .vp-table { border-collapse: collapse; width: 100%; background: #fff; margin-bottom: 24px; }
         .vp-admin-wrap .vp-table th, .vp-admin-wrap .vp-table td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: middle; }
         .vp-admin-wrap .vp-table th { background: #f9fafb; font-weight: 600; }

@@ -115,7 +115,7 @@ class AttendancePage {
                 '_wpnonce'      => wp_create_nonce( 'vp_export_list_' . $event_id . '_' . $selected . '_xlsx' ),
             ], admin_url( 'admin-post.php' ) );
             ?>
-            <p>
+            <p class="vp-inline-action">
                 <a class="button button-primary" href="<?php echo esc_url( $xlsx ); ?>"><span class="dashicons dashicons-download" style="vertical-align:text-bottom;" aria-hidden="true"></span> <?php esc_html_e( 'Alle Listen als Excel', 'vereins-plugin' ); ?></a>
                 <span class="description"><?php esc_html_e( 'Eine Datei mit drei Tabellen: Teilnehmer, Mitbringliste, Helfer – gut lesbar auf dem Handy.', 'vereins-plugin' ); ?></span>
             </p>

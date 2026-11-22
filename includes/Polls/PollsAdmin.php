@@ -998,7 +998,7 @@ class PollsAdmin {
         ?>
         <details class="vp-fold" style="max-width:1100px;margin:0 0 20px;">
             <summary class="description"><?php esc_html_e( 'Weitere Aktionen', 'vereins-plugin' ); ?></summary>
-            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:8px;"
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="vp-inline-action" style="margin-top:8px;"
                   onsubmit="return confirm(<?php echo esc_attr( wp_json_encode( __( 'Meldestatus wirklich zurücksetzen? Alle Haken, „gemeldet“, „informiert“ und „bestätigt“ gehen verloren, offene Abmeldungen verschwinden. Die Starter bleiben. Es gehen keine E-Mails raus.', 'vereins-plugin' ) ) ); ?>);">
                 <input type="hidden" name="action" value="vp_poll_entries_reset">
                 <input type="hidden" name="id" value="<?php echo $id; ?>">
@@ -1680,7 +1680,7 @@ class PollsAdmin {
             <?php return; ?>
         <?php endif; ?>
 
-        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-bottom:16px;">
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="vp-inline-action" style="margin-bottom:16px;">
             <input type="hidden" name="action" value="vp_poll_to_choice">
             <input type="hidden" name="id" value="<?php echo (int) $poll['id']; ?>">
             <?php wp_nonce_field( 'vp_poll_to_choice_' . (int) $poll['id'] ); ?>
