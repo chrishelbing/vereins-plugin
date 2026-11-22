@@ -185,11 +185,13 @@
                 api('/polls/' + p.id + '/vote', 'POST', body).then(function (res) {
                     save.disabled = false;
                     if (res.ok) { renderPoll(res.data, box); return; }
-                    if (res.data && res.data.code === 'identify_first') { person = null; askWho(send); return; }
+                    if (res.data && res.data.code === 'identify_first') { person = null; askWho(send, false, nachher); return; }
                     showError(err, res.data);
                 }).catch(function () { save.disabled = false; err.textContent = T.error; err.hidden = false; });
             };
-            if (!person) { askWho(send); } else { send(); }
+            // Falls die Anmeldung per Zugangscode die Seite neu lädt: Eingabe merken
+            var nachher = { poll: p.id, path: '/polls/' + p.id + '/vote', body: body };
+            if (!person) { askWho(send, false, nachher); } else { send(); }
         });
     }
 
@@ -667,12 +669,13 @@
                     save.disabled = false;
                     if (res.ok) { renderEntry(res.data, box); box.scrollIntoView({ block: 'start' }); return; }
                     var code = res.data && res.data.code;
-                    if (code === 'identify_first') { person = null; askWho(send, true); return; }
-                    if (code === 'contact_required') { askWho(send, true); return; }
+                    if (code === 'identify_first') { person = null; askWho(send, true, nachher); return; }
+                    if (code === 'contact_required') { askWho(send, true, nachher); return; }
                     showError(err, res.data);
                 }).catch(function () { save.disabled = false; err.textContent = T.error; err.hidden = false; });
             };
-            if (!person || (person.guest && !person.contact)) { askWho(send, true); } else { send(); }
+            var nachher = { poll: p.id, path: '/polls/' + p.id + '/entries', body: { starters: starter } };
+            if (!person || (person.guest && !person.contact)) { askWho(send, true, nachher); } else { send(); }
         });
         return form;
     }
@@ -682,9 +685,27 @@
     // ------------------------------------------------------------------
 
     var dialog = null;
+    var pendingResume = null;
+    var resumeRun = null, resumeData = null;
 
-    function askWho(then, needContact) {
+    // Anmeldung per Zugangscode lädt die Seite neu (neue Sitzung). Damit die
+    // Eingabe (Idee, Stimme, Meldung) nicht verloren geht, wird sie vorher im
+    // Browser-Tab gemerkt und nach dem Neuladen einmal abgeschickt.
+    var RESUME_KEY = 'vpPollResume';
+    function rememberResume(r) {
+        try { if (r) { sessionStorage.setItem(RESUME_KEY, JSON.stringify(r)); } } catch (e) { /* ohne Speicher: dann eben nicht */ }
+    }
+    function takeResume() {
+        try {
+            var r = JSON.parse(sessionStorage.getItem(RESUME_KEY) || 'null');
+            sessionStorage.removeItem(RESUME_KEY);
+            return r && r.path ? r : null;
+        } catch (e) { return null; }
+    }
+
+    function askWho(then, needContact, resume) {
         pending = then;
+        pendingResume = resume || null;
         if (!dialog) { dialog = buildDialog(); document.body.appendChild(dialog.root); }
         dialog.reset(!!needContact);
         dialog.root.hidden = false;
@@ -742,7 +763,7 @@
             err.hidden = true; code.value = '';
             if (person && person.guest && person.name) { name.value = person.name; }
         }
-        cancel.addEventListener('click', function () { root.hidden = true; pending = null; });
+        cancel.addEventListener('click', function () { root.hidden = true; pending = null; pendingResume = null; });
 
         card.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -752,6 +773,7 @@
                 if (!/^\d{6}$/.test(c)) { err.textContent = T.codeNeeded; err.hidden = false; return; }
                 api('/auth/verify-otp', 'POST', { identifier: codeFor, code: c, device: 'Umfrage' }).then(function (res) {
                     if (!res.ok) { showError(err, res.data); return; }
+                    rememberResume(pendingResume);
                     window.location.reload();
                 });
                 return;
@@ -868,11 +890,25 @@
     function start(container) {
         var id = parseInt(container.getAttribute('data-poll') || '0', 10);
         var meldungen = container.getAttribute('data-bereich') === 'meldungen';
-        api('/polls' + (id ? '?id=' + id : (meldungen ? '?bereich=meldungen' : ''))).then(function (res) {
+        // Nach Anmeldung per Zugangscode: gemerkte Eingabe jetzt abschicken
+        if (resumeRun === null) {
+            resumeData = takeResume();
+            resumeRun = resumeData ? api(resumeData.path, 'POST', resumeData.body).catch(function () { return { ok: false, data: {} }; }) : Promise.resolve(null);
+        }
+        resumeRun.then(function (gesendet) {
+            return api('/polls' + (id ? '?id=' + id : (meldungen ? '?bereich=meldungen' : ''))).then(function (res) { return [res, gesendet]; });
+        }).then(function (paar) {
+            var res = paar[0], gesendet = paar[1];
+            var nachher = resumeData && gesendet ? resumeData : null;
             container.textContent = '';
             if (!res.ok) { container.appendChild(el('p', 'vp-poll__error', T.error)); return; }
             person = res.data.person;
             var polls = res.data.polls;
+            // Gemerkte Eingabe ging nicht durch (z. B. inzwischen beendet): sagen, nicht still verwerfen
+            var hier = nachher && polls.some(function (p) { return String(p.id) === String(nachher.poll); });
+            if (hier && !gesendet.ok) {
+                container.appendChild(el('p', 'vp-poll__error', T.resumeFailed + (gesendet.data && gesendet.data.message ? ' ' + gesendet.data.message : '')));
+            }
             if (!polls.length) { container.appendChild(el('p', 'vp-polls__empty', meldungen ? T.noneEntries : T.none)); return; }
 
             // Eine einzelne Umfrage (Shortcode mit id) ohne Klappliste.
@@ -894,7 +930,8 @@
             });
 
             var m = /^#umfrage-(\d+)$/.exec(location.hash || '');
-            if (m && cards[m[1]]) { setOpen(m[1], true, true); }
+            if (hier && cards[nachher.poll]) { setOpen(nachher.poll, true, true); }
+            else if (m && cards[m[1]]) { setOpen(m[1], true, true); }
             else if (offen.length === 1) { setOpen(offen[0].id, true, false); }
         }).catch(function () {
             container.textContent = '';

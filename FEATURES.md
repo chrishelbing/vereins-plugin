@@ -787,6 +787,14 @@ sie hat ein Administrator angelegt oder aufgenommen (`Person::unconfirmed_map()`
 Terminumfragen wie bei Doodle, Abstimmungen, Nominierungen, Ideensammlungen
 (seit 1.18.0) und Wettkampfmeldungen mit Alters- und Gewichtsklassen (seit 1.17.0). Angelegt und
 ausgewertet im Backend unter **„Umfragen“**, auf der Website über
+**Eingabe bleibt bei der Anmeldung erhalten** (seit 1.28.1): Wer erst beim
+Abschicken (Idee, Stimme, Meldung) nach dem Namen gefragt wird und sich als
+Mitglied per Zugangscode anmeldet, verliert die Eingabe nicht mehr. Vor dem
+Neuladen merkt sich `polls.js` sie im Browser-Tab (`sessionStorage`
+`vpPollResume`: Umfrage, Pfad, Inhalt), schickt sie nach dem Neuladen einmal
+ab und klappt die Umfrage auf; geht das nicht (z. B. inzwischen beendet),
+erscheint ein Hinweis statt stillen Verlusts.
+
 `[vp_umfragen]` (alle offenen und beendeten außer Wettkampfmeldungen, Entwürfe
 nie; Wettkampfmeldungen seit 1.28.0 mit `[vp_wettkampfmeldungen]`,
 `Polls\EntriesShortcode`, Schnittstelle `/polls?bereich=meldungen`) bzw.

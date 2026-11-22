@@ -56,6 +56,7 @@ class PollsShortcode {
         return [
             'none'         => __( 'Gerade läuft keine Umfrage.', 'vereins-plugin' ),
             'noneEntries'  => __( 'Gerade läuft keine Wettkampfmeldung.', 'vereins-plugin' ),
+            'resumeFailed' => __( 'Deine Eingabe von vor der Anmeldung konnte nicht gespeichert werden – bitte noch einmal eintragen.', 'vereins-plugin' ),
             'error'        => __( 'Das hat nicht geklappt. Bitte versuche es noch einmal.', 'vereins-plugin' ),
             'openUntil'    => __( 'offen bis %s', 'vereins-plugin' ),
             'open'         => __( 'offen', 'vereins-plugin' ),
