@@ -69,6 +69,15 @@ class SettingsPage {
                     </div>
 
                     <div class="vp-field">
+                        <label for="vp-notice-scope"><?php esc_html_e( 'Hinweisleiste für Umfragen', 'vereins-plugin' ); ?></label>
+                        <select id="vp-notice-scope" name="notice_bar_scope">
+                            <option value="all" <?php selected( $settings['notice_bar_scope'] ?? 'all', 'all' ); ?>><?php esc_html_e( 'auf allen Seiten', 'vereins-plugin' ); ?></option>
+                            <option value="home" <?php selected( $settings['notice_bar_scope'] ?? 'all', 'home' ); ?>><?php esc_html_e( 'nur auf der Startseite', 'vereins-plugin' ); ?></option>
+                        </select>
+                        <p class="description"><?php esc_html_e( 'Schmale Zeile ganz oben für Umfragen mit „Hinweisleiste“ – die, die zuerst endet. Besucher können sie wegklicken.', 'vereins-plugin' ); ?></p>
+                    </div>
+
+                    <div class="vp-field">
                         <label for="vp-sender-name"><?php esc_html_e( 'Absendername (für E-Mails)', 'vereins-plugin' ); ?></label>
                         <input type="text" id="vp-sender-name" name="sender_name" value="<?php echo esc_attr( $settings['sender_name'] ); ?>">
                     </div>
@@ -649,6 +658,7 @@ class SettingsPage {
             'people_retention_days' => max( 0, min( 3650, (int) ( $_POST['people_retention_days'] ?? 180 ) ) ),
 
             'club_name'      => sanitize_text_field( $_POST['club_name'] ?? '' ),
+            'notice_bar_scope' => ( $_POST['notice_bar_scope'] ?? '' ) === 'home' ? 'home' : 'all',
             'club_logo_id'   => $this->valid_logo_id( (int) ( $_POST['club_logo_id'] ?? 0 ) ),
             'flyer_contact'  => sanitize_text_field( $_POST['flyer_contact'] ?? '' ),
             'flyer_footnote' => sanitize_text_field( $_POST['flyer_footnote'] ?? '' ),

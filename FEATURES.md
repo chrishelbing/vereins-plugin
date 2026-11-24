@@ -564,8 +564,20 @@ aus, wie sie beim Erzeugen war – Erscheinen, Verschwinden und die Angabe
 
 ---
 
-**Umfragen im Banner** (seit 1.30.0): Jede Umfrage (auch Wettkampfmeldung) hat
-das Häkchen „Als Banner auf der Website zeigen, solange sie offen ist“. Solche
+**Umfragen hervorheben** (seit 1.31.0 Auswahl statt Häkchen, `vp_polls.banner`
+0/1/2): *Nicht hervorheben*, *Hinweisleiste* oder *Großer Banner*.
+
+**Hinweisleiste** (2): eine schmale Zeile ganz oben auf der Website, vor dem
+Kopf des Themes (`wp_body_open`) – gedacht fürs Handy: Art (Desktop), Titel
+(abgeschnitten, wenn zu lang), „Noch 5 Tage“ (Desktop) und „Jetzt abstimmen →“;
+die ganze Zeile ist der Link, rechts × zum Wegklicken (merkt sich der Browser
+je Umfrage, `localStorage`). Gezeigt wird die Umfrage, die zuerst endet. Auf
+der Zielseite selbst entfällt sie. Wo sie erscheint, steht in den
+Einstellungen → Allgemein („auf allen Seiten“ / „nur auf der Startseite“,
+`notice_bar_scope`). Farbe: Hauptfarbe des Themes. `Polls\PollBanner::notice_bar()`.
+
+**Großer Banner** (1, seit 1.30.0): Die Umfrage (auch Wettkampfmeldung)
+erscheint im `[vp_banner]`. Solche
 Umfragen teilen sich den Platz von `[vp_banner]` mit den Termin-Bannern:
 Alle Kandidaten werden nach Datum geordnet – Termine nach Beginn (laufende
 zählen als „jetzt“), Umfragen nach ihrem Ende bzw. Meldeschluss (ohne Ende

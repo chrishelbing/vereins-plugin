@@ -65,7 +65,8 @@ class PollModel {
             'purge_days'     => max( 0, min( 365, (int) ( $data['purge_days'] ?? 30 ) ) ),
             'max_texts'      => max( 1, min( 10, (int) ( $data['max_texts'] ?? 3 ) ) ),
             'dokume'         => ! empty( $data['dokume'] ) ? 1 : 0,
-            'banner'         => ! empty( $data['banner'] ) ? 1 : 0,
+            // 0 = nicht hervorheben, 1 = großer Banner ([vp_banner]), 2 = Hinweisleiste oben
+            'banner'         => max( 0, min( 2, (int) ( $data['banner'] ?? 0 ) ) ),
         ];
 
         if ( ! empty( $data['id'] ) ) {

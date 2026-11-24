@@ -30,6 +30,7 @@ class Settings {
             // Angaben für Aushänge und Flyer. Ein Aushang ohne Absender wirkt
             // anonym – wer nachfragen will, braucht einen Anhaltspunkt.
             'club_name'      => get_bloginfo( 'name' ) ?: '',
+            'notice_bar_scope' => 'all',
             'club_logo_id'   => 0,    // Anhang-ID aus der Mediathek
             'flyer_contact'  => '',   // Ansprechperson, frei formuliert
             'flyer_footnote' => '',   // Zusatzzeile, etwa Vereinsanschrift

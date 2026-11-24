@@ -494,10 +494,13 @@ class PollsAdmin {
                 <tr>
                     <th><?php esc_html_e( 'Banner', 'vereins-plugin' ); ?></th>
                     <td>
-                        <label><input type="checkbox" name="banner" value="1" <?php checked( ! empty( $p['banner'] ) ); ?>> <?php esc_html_e( 'Als Banner auf der Website zeigen, solange sie offen ist', 'vereins-plugin' ); ?></label>
+                        <?php $hb = (int) ( $p['banner'] ?? 0 ); ?>
+                        <label style="display:block;margin-bottom:4px;"><input type="radio" name="banner" value="0" <?php checked( $hb, 0 ); ?>> <?php esc_html_e( 'Nicht hervorheben', 'vereins-plugin' ); ?></label>
+                        <label style="display:block;margin-bottom:4px;"><input type="radio" name="banner" value="2" <?php checked( $hb, 2 ); ?>> <?php esc_html_e( 'Hinweisleiste – schmale Zeile ganz oben auf der Website (gut auf dem Handy)', 'vereins-plugin' ); ?></label>
+                        <label style="display:block;"><input type="radio" name="banner" value="1" <?php checked( $hb, 1 ); ?>> <?php esc_html_e( 'Großer Banner – dort, wo [vp_banner] steht, teilt sich den Platz mit den Terminen', 'vereins-plugin' ); ?></label>
                         <p class="description"><?php echo esc_html( sprintf(
                             /* translators: %s: Shortcode */
-                            __( 'Erscheint dort, wo [vp_banner] steht (z. B. Startseite), und teilt sich den Platz mit den Termin-Bannern – was zuerst endet bzw. beginnt, steht vorn. Der Klick führt zur Seite mit %s; ohne veröffentlichte Seite erscheint kein Banner.', 'vereins-plugin' ),
+                            __( 'Nur solange die Umfrage offen ist. Der Klick führt zur Seite mit %s; ohne veröffentlichte Seite erscheint nichts. Wo die Hinweisleiste erscheint (alle Seiten oder nur Startseite), steht in den Einstellungen.', 'vereins-plugin' ),
                             $kind === 'entry' ? '[vp_wettkampfmeldungen]' : '[vp_umfragen]'
                         ) ); ?></p>
                     </td>
@@ -631,7 +634,7 @@ class PollsAdmin {
             'allow_maybe'    => ! empty( $_POST['allow_maybe'] ),
             'results'        => sanitize_key( $_POST['results'] ?? 'always' ),
             'login_required' => ! empty( $_POST['login_required'] ),
-            'banner'         => ! empty( $_POST['banner'] ),
+            'banner'         => (int) ( $_POST['banner'] ?? 0 ),
             'max_texts'      => (int) ( $_POST['max_texts'] ?? 3 ),
             'created_by'     => get_current_user_id(),
         ], $kind === 'entry' ? [
