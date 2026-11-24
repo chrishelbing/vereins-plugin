@@ -570,8 +570,9 @@ aus, wie sie beim Erzeugen war – Erscheinen, Verschwinden und die Angabe
 **Hinweisleiste** (2): eine schmale Zeile ganz oben auf der Website, vor dem
 Kopf des Themes (`wp_body_open`) – gedacht fürs Handy: Art (Desktop), Titel
 (abgeschnitten, wenn zu lang), „Noch 5 Tage“ (Desktop) und „Jetzt abstimmen →“;
-die ganze Zeile ist der Link, rechts × zum Wegklicken (merkt sich der Browser
-je Umfrage, `localStorage`). Gezeigt wird die Umfrage, die zuerst endet. Auf
+die ganze Zeile ist der Link, rechts × zum Wegklicken – nur für die aktuelle
+Seite; beim Neuladen ist sie wieder da (bis 1.31.0 merkte sich der Browser das
+dauerhaft, dann fand man die Umfrage nicht mehr). Gezeigt wird die Umfrage, die zuerst endet. Auf
 der Zielseite selbst entfällt sie. Wo sie erscheint, steht in den
 Einstellungen → Allgemein („auf allen Seiten“ / „nur auf der Startseite“,
 `notice_bar_scope`). Farbe: Hauptfarbe des Themes. `Polls\PollBanner::notice_bar()`.

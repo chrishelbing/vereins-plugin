@@ -31,8 +31,8 @@ class PollBanner {
      * Hinweisleiste: eine schmale Zeile ganz oben auf der Website (vor dem
      * Kopf des Themes, über wp_body_open) – gedacht fürs Handy, wo ein
      * zweiter großer Banner zu viel Platz kostet. Zeigt die Umfrage mit
-     * „Hinweisleiste“, die zuerst endet. Wegklicken (×) merkt sich der
-     * Browser für diese Umfrage. Auf der Zielseite selbst entfällt sie.
+     * „Hinweisleiste“, die zuerst endet. Wegklicken (×) gilt nur für die
+     * aktuelle Seite. Auf der Zielseite selbst entfällt sie.
      */
     public function notice_bar(): void {
         if ( is_admin() || ( Settings::get( 'notice_bar_scope', 'all' ) === 'home' && ! is_front_page() ) ) {
@@ -58,9 +58,8 @@ class PollBanner {
             return;
         }
         $arten = [ 'date' => __( 'Terminumfrage', 'vereins-plugin' ), 'choice' => __( 'Abstimmung', 'vereins-plugin' ), 'text' => __( 'Ideensammlung', 'vereins-plugin' ), 'entry' => __( 'Wettkampfmeldung', 'vereins-plugin' ) ];
-        $key   = 'vpBar' . (int) $wahl['id'];
         ?>
-        <div class="vp-noticebar" data-key="<?php echo esc_attr( $key ); ?>" role="region" aria-label="<?php esc_attr_e( 'Hinweis', 'vereins-plugin' ); ?>">
+        <div class="vp-noticebar" role="region" aria-label="<?php esc_attr_e( 'Hinweis', 'vereins-plugin' ); ?>">
             <style>
             .vp-noticebar { position: relative; z-index: 9999; background: var(--wp--preset--color--primary, var(--ast-global-color-0, #2563eb)); color: #fff; font-size: 14px; line-height: 1.3; }
             .vp-noticebar[hidden] { display: none; }
@@ -83,13 +82,11 @@ class PollBanner {
             <button type="button" class="vp-noticebar__close" aria-label="<?php esc_attr_e( 'Hinweis schließen', 'vereins-plugin' ); ?>">×</button>
             <script>
             (function () {
+                // Wegklicken gilt nur für diese Seite – beim Neuladen oder auf
+                // der nächsten Seite ist die Leiste wieder da, damit niemand
+                // die Umfrage aus Versehen dauerhaft aus den Augen verliert.
                 var bar = document.currentScript.closest('.vp-noticebar');
-                var k = bar.getAttribute('data-key');
-                try { if (localStorage.getItem(k)) { bar.hidden = true; return; } } catch (e) {}
-                bar.querySelector('.vp-noticebar__close').addEventListener('click', function () {
-                    bar.hidden = true;
-                    try { localStorage.setItem(k, '1'); } catch (e) {}
-                });
+                bar.querySelector('.vp-noticebar__close').addEventListener('click', function () { bar.hidden = true; });
             })();
             </script>
         </div>
