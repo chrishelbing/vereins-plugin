@@ -326,7 +326,7 @@ class PollsAdmin {
             'id' => 0, 'kind' => $kind, 'title' => '', 'description' => '', 'status' => 'draft',
             'closes_at' => '', 'multiple' => 0, 'allow_maybe' => 1,
             'results' => $kind === 'choice' ? 'after_close' : 'always', 'login_required' => $kind === 'text' ? 1 : 0,
-            'event_date' => '', 'classes' => null, 'purge_days' => 30, 'max_texts' => 3, 'dokume' => 0,
+            'event_date' => '', 'classes' => null, 'purge_days' => 30, 'max_texts' => 3, 'dokume' => 0, 'banner' => 0,
         ];
         $p['results'] = $p['results'] === 'after_vote' ? 'always' : $p['results'];
 
@@ -492,6 +492,17 @@ class PollsAdmin {
                     </td>
                 </tr>
                 <tr>
+                    <th><?php esc_html_e( 'Banner', 'vereins-plugin' ); ?></th>
+                    <td>
+                        <label><input type="checkbox" name="banner" value="1" <?php checked( ! empty( $p['banner'] ) ); ?>> <?php esc_html_e( 'Als Banner auf der Website zeigen, solange sie offen ist', 'vereins-plugin' ); ?></label>
+                        <p class="description"><?php echo esc_html( sprintf(
+                            /* translators: %s: Shortcode */
+                            __( 'Erscheint dort, wo [vp_banner] steht (z. B. Startseite), und teilt sich den Platz mit den Termin-Bannern – was zuerst endet bzw. beginnt, steht vorn. Der Klick führt zur Seite mit %s; ohne veröffentlichte Seite erscheint kein Banner.', 'vereins-plugin' ),
+                            $kind === 'entry' ? '[vp_wettkampfmeldungen]' : '[vp_umfragen]'
+                        ) ); ?></p>
+                    </td>
+                </tr>
+                <tr>
                     <th><label for="vp-poll-close"><?php echo esc_html( $ende ); ?></label></th>
                     <td><input type="datetime-local" id="vp-poll-close" name="closes_at" value="<?php echo esc_attr( $dt( $p['closes_at'] ) ); ?>"> <span class="description"><?php esc_html_e( 'optional – danach ist keine Teilnahme mehr möglich', 'vereins-plugin' ); ?></span></td>
                 </tr>
@@ -620,6 +631,7 @@ class PollsAdmin {
             'allow_maybe'    => ! empty( $_POST['allow_maybe'] ),
             'results'        => sanitize_key( $_POST['results'] ?? 'always' ),
             'login_required' => ! empty( $_POST['login_required'] ),
+            'banner'         => ! empty( $_POST['banner'] ),
             'max_texts'      => (int) ( $_POST['max_texts'] ?? 3 ),
             'created_by'     => get_current_user_id(),
         ], $kind === 'entry' ? [

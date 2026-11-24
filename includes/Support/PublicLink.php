@@ -114,6 +114,40 @@ class PublicLink {
      * Startseite, und dort soll nicht bei jedem Seitenaufruf der gesamte
      * Seiteninhalt durchsucht werden.
      */
+    /**
+     * Erste veröffentlichte Seite (oder Beitrag) mit diesem Shortcode, als
+     * Adresse; '' ohne Treffer. Ein Tag gemerkt, bei jedem Aufruf gegengeprüft.
+     * Genutzt z. B. für den Umfragen-Banner ([vp_umfragen]).
+     */
+    public static function page_with_shortcode( string $tag ): string {
+        static $urls = [];
+        if ( isset( $urls[ $tag ] ) ) {
+            return $urls[ $tag ];
+        }
+        $cache = 'vp_page_' . md5( $tag );
+        $passt = fn( int $id ): bool => $id > 0
+            && get_post_status( $id ) === 'publish'
+            && has_shortcode( (string) get_post_field( 'post_content', $id ), $tag );
+        $gemerkt = (int) get_transient( $cache );
+        if ( $passt( $gemerkt ) ) {
+            return $urls[ $tag ] = (string) get_permalink( $gemerkt );
+        }
+        $found = get_posts( [
+            'post_type'      => [ 'page', 'post' ],
+            'post_status'    => 'publish',
+            's'              => '[' . $tag,
+            'posts_per_page' => 5,
+            'fields'         => 'ids',
+        ] );
+        foreach ( $found as $id ) {
+            if ( $passt( (int) $id ) ) {
+                set_transient( $cache, (int) $id, DAY_IN_SECONDS );
+                return $urls[ $tag ] = (string) get_permalink( $id );
+            }
+        }
+        return $urls[ $tag ] = '';
+    }
+
     public static function events_page(): string {
         static $url = null;
         if ( $url !== null ) {

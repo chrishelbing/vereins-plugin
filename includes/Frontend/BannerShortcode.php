@@ -22,6 +22,12 @@ use VereinsPlugin\Support\PublicLink;
  * die erreichen, die noch nicht angemeldet sind. Ein Klick führt über den
  * signierten Terminlink zur Zusage – derselbe Weg wie beim QR-Code.
  *
+ * Andere Module teilen sich den Platz (seit 1.30.0): Über den Filter
+ * 'vp_banner_items' liefern sie fertige Banner als
+ *   [ 'sort' => 'Y-m-d H:i:s', 'html' => '<a class="vp-banner">…' ]
+ * (z. B. Umfragen). Alle Kandidaten – Termine nach Beginn, Umfragen nach
+ * Ende – werden nach 'sort' geordnet; das Früheste zuerst, bis 'limit'.
+ *
  * Parameter:
  *   limit  – wie viele Banner höchstens untereinander (Standard: 1)
  *   button – Beschriftung der Schaltfläche (Standard: „Jetzt zusagen“)
@@ -34,7 +40,7 @@ class BannerShortcode {
         return [
             'tag'         => 'vp_banner',
             'title'       => __( 'Terminbanner', 'vereins-plugin' ),
-            'description' => __( 'Hebt Termine hervor, an denen „Als Banner auf der Website zeigen“ gesetzt ist – mit Titelbild, Datum, Ort und einem Knopf zur Zusage. Für alle Besucher sichtbar, auch ohne Anmeldung; der Klick führt über den öffentlichen Terminlink zur Zusage. Erscheint ab dem am Termin eingestellten Vorlauf und verschwindet nach Terminende von selbst. Steht nichts an, bleibt die Stelle leer.', 'vereins-plugin' ),
+            'description' => __( 'Hebt Termine und Umfragen hervor, an denen „Als Banner auf der Website zeigen“ gesetzt ist – Termine mit Titelbild, Datum, Ort und Knopf zur Zusage, Umfragen mit Frist und Knopf zum Mitmachen; sie teilen sich den Platz, das Früheste zuerst. Für alle Besucher sichtbar, auch ohne Anmeldung; der Klick führt über den öffentlichen Terminlink zur Zusage. Erscheint ab dem am Termin eingestellten Vorlauf und verschwindet nach Terminende von selbst. Steht nichts an, bleibt die Stelle leer.', 'vereins-plugin' ),
             'atts'        => [
                 [ 'limit',  '1', __( 'Wie viele Banner höchstens gleichzeitig erscheinen – der nächste Termin zuerst.', 'vereins-plugin' ) ],
                 [ 'button', __( 'Jetzt zusagen', 'vereins-plugin' ), __( 'Beschriftung der Schaltfläche.', 'vereins-plugin' ) ],
@@ -70,26 +76,30 @@ class BannerShortcode {
         $now       = current_time( 'Y-m-d H:i:s' );
         $instances = BannerSelector::current( $limit, $now );
 
-        if ( ! $instances ) {
+        // Ohne Terminseite gäbe es kein sinnvolles Ziel – der Banner bleibt
+        // dann ein reiner Hinweis ohne Link.
+        $base  = $instances ? PublicLink::events_page() : '';
+        $items = [];
+        foreach ( $instances as $instance ) {
+            ob_start();
+            $this->render_banner( $instance, $base, (string) $atts['button'], $now );
+            // Läuft ein Termin schon, zählt „jetzt“ – sonst sein Beginn.
+            $items[] = [ 'sort' => max( (string) $instance['start_at'], $now ), 'html' => (string) ob_get_clean() ];
+        }
+        // Andere Module (Umfragen) teilen sich den Platz.
+        $items = array_merge( $items, (array) apply_filters( 'vp_banner_items', [], $now ) );
+        $items = array_values( array_filter( $items, static fn( $i ) => is_array( $i ) && ! empty( $i['html'] ) ) );
+        if ( ! $items ) {
             return '';
         }
+        usort( $items, static fn( $a, $b ) => strcmp( (string) ( $a['sort'] ?? '' ), (string) ( $b['sort'] ?? '' ) ) );
+        $items = array_slice( $items, 0, $limit );
 
         // Nur anfordern, wenn tatsächlich etwas erscheint.
         self::register_assets();
         wp_enqueue_style( self::STYLE );
 
-        // Ohne Terminseite gäbe es kein sinnvolles Ziel – der Banner bleibt
-        // dann ein reiner Hinweis ohne Link.
-        $base = PublicLink::events_page();
-
-        ob_start();
-        echo '<div class="vp-banners">';
-        foreach ( $instances as $instance ) {
-            $this->render_banner( $instance, $base, (string) $atts['button'], $now );
-        }
-        echo '</div>';
-
-        return (string) ob_get_clean();
+        return '<div class="vp-banners">' . implode( '', array_column( $items, 'html' ) ) . '</div>';
     }
 
     private function render_banner( array $i, string $base, string $button, string $now ): void {

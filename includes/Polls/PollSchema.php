@@ -52,6 +52,7 @@ class PollSchema {
             purge_days      SMALLINT UNSIGNED NOT NULL DEFAULT 30,
             purged_at       DATETIME        DEFAULT NULL,
             dokume          TINYINT(1)      NOT NULL DEFAULT 0,
+            banner          TINYINT(1)      NOT NULL DEFAULT 0,
             submitted_at    DATETIME        DEFAULT NULL,
             confirmed_at    DATETIME        DEFAULT NULL,
             created_by      BIGINT          NOT NULL DEFAULT 0,

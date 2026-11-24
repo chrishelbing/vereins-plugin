@@ -12,6 +12,7 @@ class PollsModule {
         ( new PollsAdmin() )->register();
         ( new ClassesAdmin() )->register();
         ( new EntryCleanup() )->register();
+        ( new PollBanner() )->register();
 
         // Die Basis löscht und übernimmt Personen über eine Tabellenliste.
         // Stimmen und Meldungen gehören dazu – sonst blieben sie nach dem

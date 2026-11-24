@@ -564,6 +564,22 @@ aus, wie sie beim Erzeugen war – Erscheinen, Verschwinden und die Angabe
 
 ---
 
+**Umfragen im Banner** (seit 1.30.0): Jede Umfrage (auch Wettkampfmeldung) hat
+das Häkchen „Als Banner auf der Website zeigen, solange sie offen ist“. Solche
+Umfragen teilen sich den Platz von `[vp_banner]` mit den Termin-Bannern:
+Alle Kandidaten werden nach Datum geordnet – Termine nach Beginn (laufende
+zählen als „jetzt“), Umfragen nach ihrem Ende bzw. Meldeschluss (ohne Ende
+„jetzt“) –, das Früheste zuerst, bis `limit`. Der Umfrage-Banner zeigt im
+Farbfeld das Ende (bei Meldungen den Wettkampftag), oben „Noch 5 Tage“ /
+„Endet heute“ und die Art, dazu „Mitmachen bis …“ bzw. „Meldeschluss …“, den
+Anfang der Beschreibung und einen Knopf je Art („Jetzt abstimmen“, „Termin mit
+aussuchen“, „Idee einreichen“, „Jetzt melden“). Der Klick führt zur ersten
+veröffentlichten Seite mit `[vp_umfragen]` bzw. `[vp_wettkampfmeldungen]`,
+dort aufgeklappt (`#umfrage-ID`); ohne solche Seite kein Banner.
+Technik: Basis-Vertrag Filter `vp_banner_items` (fertiges HTML + Sortierschlüssel),
+geliefert von `Polls\PollBanner`; Seitensuche `Support\PublicLink::page_with_shortcode()`;
+Spalte `vp_polls.banner`.
+
 ## Zu- und Absagen
 
 Mitglieder sagen je Termininstanz zu oder ab. Sichtbar sind **Zahlen** direkt
